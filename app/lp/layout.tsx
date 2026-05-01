@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Mail, LogOut, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChatDock } from "@/components/chat-dock";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/(gp)/settings/actions";
 
@@ -51,6 +52,15 @@ export default async function LpLayout({ children }: { children: React.ReactNode
         </div>
       </header>
       <main>{children}</main>
+      <ChatDock
+        scopeHint="Ask about your fund's portfolio. I'll only show you what your GP has shared."
+        examples={[
+          "How is the portfolio performing this quarter?",
+          "What's the latest news from the companies?",
+          "Summarize the most recent letter for me",
+          "Which sectors am I most exposed to?",
+        ]}
+      />
     </div>
   );
 }

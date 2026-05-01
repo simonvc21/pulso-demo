@@ -232,6 +232,11 @@ noticias/updates de cada startup como contenido editorial.
 - Render: card grande por update con logo de la company (cuando D.3 esté), fecha, párrafo del update, link al detail. Diseño tipo Substack/newsletter ejecutivo.
 - Filtros: por company, por keyword, por rango temporal.
 
+**K.2.1 Newsletter section en /companies/[slug]** *(pendiente)*
+- Cada company también tiene su feed de news/updates en su detail page,
+  filtrado a esa company. Mismo componente PortfolioNewsletter pero scopeado.
+- Va abajo del bloque de "Recent submissions" o reemplazándolo.
+
 **K.3 Alertas heurísticas + AI body** *(extiende fase J.3)*
 - `run_metric_alerts()` sigue siendo el detector. Cuando matchea, antes de insertar en `notifications`, llama a Gemini para escribir el `body`: contexto + recomendación accionable basada en los últimos 4 quarters de la company.
 - Ejemplo: "Mira's runway dropped to 8.6 mo because burn jumped 45.8% QoQ. ARR is still growing 18% so it's likely investment, not crisis. Ask Camila about the new VP of Sales hire flagged last submission. Bridge conversation if no plan in 30d."

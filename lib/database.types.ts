@@ -418,6 +418,7 @@ export type Database = {
       get_lp_letters: { Args: never; Returns: Json }
       get_org_members: { Args: never; Returns: Json }
       run_metric_alerts: { Args: never; Returns: Json }
+      bump_ai_usage: { Args: { p_org: string; p_feature: string }; Returns: number }
       get_public_form: {
         Args: { p_company_slug: string; p_form_slug: string }
         Returns: Json
