@@ -4,6 +4,21 @@ import type { Database } from "@/lib/database.types";
 type CompanyRow = Database["public"]["Tables"]["companies"]["Row"];
 type MetricRow = Database["public"]["Tables"]["metrics"]["Row"];
 type OrganizationRow = Database["public"]["Tables"]["organizations"]["Row"];
+type LpRow = Database["public"]["Tables"]["lps"]["Row"];
+
+export type FundSummary = Pick<
+  OrganizationRow,
+  "id" | "name" | "size_usd" | "deployed_usd" | "vintage" | "currency"
+>;
+
+export async function getFund(): Promise<FundSummary | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("organizations")
+    .select("id, name, size_usd, deployed_usd, vintage, currency")
+    .limit(1);
+  return data?.[0] ?? null;
+}
 
 export interface DashboardMetric {
   quarter: string;
@@ -134,4 +149,202 @@ function computeArrTrend(companies: DashboardCompany[]): { quarter: string; arr:
   return Array.from(buckets.entries())
     .sort((a, b) => quarterSortKey(a[0]) - quarterSortKey(b[0]))
     .map(([quarter, arr]) => ({ quarter, arr }));
+}
+
+// ---------------------------------------------------------------------------
+// Companies list + detail
+// ---------------------------------------------------------------------------
+
+export interface CompanyListItem {
+  slug: string;
+  name: string;
+  sector: string | null;
+  country: string | null;
+  stage: CompanyRow["stage"];
+  status: DashboardCompany["status"];
+  invested: number;
+  description: string | null;
+  lastUpdate: string;
+  metrics: DashboardMetric[];
+}
+
+export async function getCompanyList(): Promise<CompanyListItem[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("companies")
+    .select(
+      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, " +
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
+    )
+    .order("name", { ascending: true });
+
+  return (data ?? []).map((c: any) => ({
+    slug: c.slug,
+    name: c.name,
+    sector: c.sector,
+    country: c.country,
+    stage: c.stage,
+    status: normalizeStatus(c.status),
+    invested: num(c.invested_usd),
+    description: c.description,
+    lastUpdate: relativeTime(c.last_update_at),
+    metrics: ((c.metrics ?? []) as MetricRow[])
+      .map((m) => ({
+        quarter: m.quarter,
+        arr: num(m.arr_usd),
+        burn: num(m.burn_usd),
+        cash: num(m.cash_usd),
+        headcount: num(m.headcount),
+        revenue: num(m.revenue_usd),
+      }))
+      .sort((a, b) => quarterSortKey(a.quarter) - quarterSortKey(b.quarter)),
+  }));
+}
+
+export interface CompanyDetail extends CompanyListItem {
+  ownership: number;
+  flag: string | null;
+  founder: { name: string; email: string; role: string };
+}
+
+export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("companies")
+    .select(
+      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, founder_name, founder_email, founder_role, " +
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
+    )
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!data) return null;
+  const c = data as any;
+  return {
+    slug: c.slug,
+    name: c.name,
+    sector: c.sector,
+    country: c.country,
+    stage: c.stage,
+    status: normalizeStatus(c.status),
+    invested: num(c.invested_usd),
+    description: c.description,
+    lastUpdate: relativeTime(c.last_update_at),
+    ownership: num(c.ownership_pct),
+    flag: c.flag,
+    founder: {
+      name: c.founder_name ?? "",
+      email: c.founder_email ?? "",
+      role: c.founder_role ?? "",
+    },
+    metrics: ((c.metrics ?? []) as MetricRow[])
+      .map((m) => ({
+        quarter: m.quarter,
+        arr: num(m.arr_usd),
+        burn: num(m.burn_usd),
+        cash: num(m.cash_usd),
+        headcount: num(m.headcount),
+        revenue: num(m.revenue_usd),
+      }))
+      .sort((a, b) => quarterSortKey(a.quarter) - quarterSortKey(b.quarter)),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Forms
+// ---------------------------------------------------------------------------
+
+export type FormCadence = "monthly" | "quarterly" | "annual" | "ad-hoc";
+
+export interface FormTemplateSummary {
+  id: string;
+  slug: string;
+  name: string;
+  cadence: FormCadence;
+  fieldCount: number;
+  responseRate: number;
+  lastSent: string | null;
+}
+
+export async function getFormTemplates(): Promise<FormTemplateSummary[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("forms")
+    .select("id, slug, name, cadence, fields_json, response_rate, last_sent_at, active")
+    .eq("active", true)
+    .order("name", { ascending: true });
+
+  return (data ?? []).map((f: any) => ({
+    id: f.id as string,
+    slug: f.slug as string,
+    name: f.name as string,
+    cadence: (f.cadence === "ad_hoc" ? "ad-hoc" : f.cadence) as FormCadence,
+    fieldCount: Array.isArray(f.fields_json) ? (f.fields_json as unknown[]).length : 0,
+    responseRate: Number(f.response_rate ?? 0),
+    lastSent: f.last_sent_at ? formatShortDate(f.last_sent_at) : null,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// LPs
+// ---------------------------------------------------------------------------
+
+export interface LpRoster {
+  id: string;
+  name: string;
+  type: LpRow["type"];
+  commitment: number;
+  country: string | null;
+  email: string | null;
+  lastAccess: string;
+}
+
+export async function getLpRoster(): Promise<LpRoster[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("lps")
+    .select("id, name, type, commitment_usd, country, email, last_access_at")
+    .order("commitment_usd", { ascending: false });
+
+  return (data ?? []).map((l: any) => ({
+    id: l.id as string,
+    name: l.name as string,
+    type: l.type as LpRow["type"],
+    commitment: num(l.commitment_usd),
+    country: l.country as string | null,
+    email: l.email as string | null,
+    lastAccess: relativeTime(l.last_access_at),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "—";
+  const diffMs = Date.now() - then;
+  const day = 24 * 60 * 60 * 1000;
+  const days = Math.round(diffMs / day);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) {
+    const w = Math.round(days / 7);
+    return w === 1 ? "1 week ago" : `${w} weeks ago`;
+  }
+  if (days < 365) {
+    const m = Math.round(days / 30);
+    return m === 1 ? "1 month ago" : `${m} months ago`;
+  }
+  const y = Math.round(days / 365);
+  return y === 1 ? "1 year ago" : `${y} years ago`;
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }

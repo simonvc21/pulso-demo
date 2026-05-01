@@ -3,7 +3,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fund } from "@/lib/mock-data";
+
+interface SidebarProps {
+  fundName: string;
+  vintage: number | null;
+  sizeUsd: number;
+}
 
 const nav = [
   { href: "/dashboard", label: "Overview",   icon: LayoutDashboard },
@@ -18,8 +23,9 @@ const secondary = [
   { href: "/settings",                label: "Settings",                icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ fundName, vintage, sizeUsd }: SidebarProps) {
   const path = usePathname() || "";
+  const sizeM = sizeUsd > 0 ? `$${(sizeUsd / 1_000_000).toFixed(0)}M` : "—";
   return (
     <aside className="hidden lg:flex flex-col w-60 shrink-0 bg-navy text-white h-screen sticky top-0">
       {/* Brand */}
@@ -29,7 +35,7 @@ export function Sidebar() {
         </div>
         <div>
           <div className="text-[11px] tracking-[0.16em] font-semibold text-white">PULSO</div>
-          <div className="text-[10px] text-white/60 mt-0.5">{fund.name}</div>
+          <div className="text-[10px] text-white/60 mt-0.5">{fundName}</div>
         </div>
       </div>
 
@@ -70,8 +76,10 @@ export function Sidebar() {
       {/* Fund pill */}
       <div className="m-3 p-3 rounded-lg bg-navy-700 border border-white/5">
         <div className="text-[10px] text-gold font-semibold tracking-wider uppercase">Fund</div>
-        <div className="text-sm font-semibold text-white mt-1">{fund.name}</div>
-        <div className="text-[11px] text-white/60 mt-0.5">Vintage {fund.vintage} · ${(fund.size / 1_000_000).toFixed(0)}M</div>
+        <div className="text-sm font-semibold text-white mt-1">{fundName}</div>
+        <div className="text-[11px] text-white/60 mt-0.5">
+          {vintage ? `Vintage ${vintage} · ` : ""}{sizeM}
+        </div>
       </div>
     </aside>
   );

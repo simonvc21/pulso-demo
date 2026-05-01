@@ -2,16 +2,21 @@ import Link from "next/link";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { lps, fund } from "@/lib/mock-data";
+import { getLpRoster, getFund } from "@/lib/dashboard-data";
 import { fmtUSD } from "@/lib/utils";
 import { Plus, Share2, Mail } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 
 const countryFlag: Record<string, string> = {
   MX: "🇲🇽", BR: "🇧🇷", CO: "🇨🇴", CL: "🇨🇱", AR: "🇦🇷", PE: "🇵🇪",
 };
 
-export default function LpsPage() {
+export default async function LpsPage() {
+  const [lps, fund] = await Promise.all([getLpRoster(), getFund()]);
   const totalCommit = lps.reduce((a, l) => a + l.commitment, 0);
+  const fundSize = Number(fund?.size_usd ?? 0);
+
   return (
     <>
       <Topbar
@@ -38,7 +43,7 @@ export default function LpsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {lps.map((l, i) => (
+              {lps.map((l) => (
                 <tr key={l.id} className="hover:bg-paper transition-colors">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
@@ -46,17 +51,24 @@ export default function LpsPage() {
                         {l.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-ink">{l.name} <span className="text-xs">{countryFlag[l.country]}</span></div>
-                        <div className="text-[11px] text-muted">{l.id}@familyoffice.cl</div>
+                        <div className="text-sm font-semibold text-ink">
+                          {l.name}{" "}
+                          {l.country && <span className="text-xs">{countryFlag[l.country] ?? ""}</span>}
+                        </div>
+                        {l.email && <div className="text-[11px] text-muted">{l.email}</div>}
                       </div>
                     </div>
                   </td>
                   <td className="px-3 py-3"><Badge>{l.type}</Badge></td>
                   <td className="px-3 py-3 text-sm font-semibold text-ink text-right tabular-nums">{fmtUSD(l.commitment, { compact: true })}</td>
-                  <td className="px-3 py-3 text-xs text-muted text-right tabular-nums">{((l.commitment / fund.size) * 100).toFixed(1)}%</td>
-                  <td className="px-3 py-3 text-[11px] text-muted">{["2 days ago", "1 week ago", "Yesterday", "Apr 2", "3 weeks ago", "1 month ago"][i]}</td>
+                  <td className="px-3 py-3 text-xs text-muted text-right tabular-nums">{fundSize > 0 ? `${((l.commitment / fundSize) * 100).toFixed(1)}%` : "—"}</td>
+                  <td className="px-3 py-3 text-[11px] text-muted">{l.lastAccess}</td>
                   <td className="px-5 py-3 text-right">
-                    <button className="text-muted hover:text-ink p-1.5"><Mail className="h-4 w-4" /></button>
+                    {l.email ? (
+                      <a href={`mailto:${l.email}`} className="text-muted hover:text-ink p-1.5 inline-flex"><Mail className="h-4 w-4" /></a>
+                    ) : (
+                      <button className="text-muted hover:text-ink p-1.5"><Mail className="h-4 w-4" /></button>
+                    )}
                   </td>
                 </tr>
               ))}

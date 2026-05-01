@@ -5,30 +5,30 @@ import { Topbar } from "@/components/topbar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CompanyHistoryChart } from "@/components/company-history-chart";
-import { companies } from "@/lib/mock-data";
+import { getCompanyBySlug, type DashboardMetric } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
 
 const countryFlag: Record<string, string> = {
   MX: "🇲🇽", BR: "🇧🇷", CO: "🇨🇴", CL: "🇨🇱", AR: "🇦🇷", PE: "🇵🇪",
 };
 
-export function generateStaticParams() {
-  return companies.map((c) => ({ slug: c.slug }));
-}
-
-export default function CompanyDetailPage({ params }: { params: { slug: string } }) {
-  const company = companies.find((c) => c.slug === params.slug);
+export default async function CompanyDetailPage({ params }: { params: { slug: string } }) {
+  const company = await getCompanyBySlug(params.slug);
   if (!company) return notFound();
 
   const last = company.metrics[company.metrics.length - 1];
   const prev = company.metrics[company.metrics.length - 2];
   const yoy = company.metrics[company.metrics.length - 5] || company.metrics[0];
-  const arrQoQ = ((last.arr - prev.arr) / prev.arr) * 100;
-  const arrYoY = ((last.arr - yoy.arr) / yoy.arr) * 100;
-  const runway = last.cash / last.burn;
-  const burnQoQ = ((last.burn - prev.burn) / prev.burn) * 100;
 
-  // Synthesize an "AI insight" line per company status
+  if (!last) return notFound();
+
+  const arrQoQ = prev && prev.arr > 0 ? ((last.arr - prev.arr) / prev.arr) * 100 : 0;
+  const arrYoY = yoy && yoy.arr > 0 ? ((last.arr - yoy.arr) / yoy.arr) * 100 : 0;
+  const runway = last.burn > 0 ? last.cash / last.burn : 0;
+  const burnQoQ = prev && prev.burn > 0 ? ((last.burn - prev.burn) / prev.burn) * 100 : 0;
+
   const aiInsight =
     company.status === "critical"
       ? `Runway is now ${runway.toFixed(1)} months — below the 9-month threshold you set. Recommend opening a bridge conversation in the next 14 days.`
@@ -63,23 +63,25 @@ export default function CompanyDetailPage({ params }: { params: { slug: string }
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="text-2xl font-serif font-bold text-ink">{company.name}</h2>
-                <span className="text-base">{countryFlag[company.country]}</span>
+                {company.country && <span className="text-base">{countryFlag[company.country] ?? ""}</span>}
                 <StatusBadge status={company.status} />
               </div>
-              <p className="text-sm text-muted mt-1">{company.description}</p>
+              {company.description && <p className="text-sm text-muted mt-1">{company.description}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Badge>{company.sector}</Badge>
+                {company.sector && <Badge>{company.sector}</Badge>}
                 <Badge>{company.stage}</Badge>
-                <Badge>{company.country}</Badge>
+                {company.country && <Badge>{company.country}</Badge>}
               </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">Founder</div>
               <div className="text-sm font-semibold text-ink mt-1">{company.founder.name}</div>
               <div className="text-[11px] text-muted">{company.founder.role}</div>
-              <a href={`mailto:${company.founder.email}`} className="text-[11px] text-teal-600 hover:underline inline-flex items-center gap-1 mt-0.5">
-                {company.founder.email} <ExternalLink className="h-2.5 w-2.5" />
-              </a>
+              {company.founder.email && (
+                <a href={`mailto:${company.founder.email}`} className="text-[11px] text-teal-600 hover:underline inline-flex items-center gap-1 mt-0.5">
+                  {company.founder.email} <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
             </div>
           </div>
 
@@ -105,7 +107,7 @@ export default function CompanyDetailPage({ params }: { params: { slug: string }
           <Stat label="Cash" value={fmtUSD(last.cash, { compact: true })} hint={`${runway.toFixed(1)} mo runway`} negative={runway < 9} />
           <Stat label="Monthly Burn" value={fmtUSD(last.burn, { compact: true })} delta={fmtPct(burnQoQ, 0)} positive={burnQoQ < 0} hintLabel="QoQ" />
           <Stat label="Headcount" value={fmtNum(last.headcount)} hint="FTE" />
-          <Stat label="ARR (YoY)" value={fmtPct(arrYoY, 0)} hint="vs Q1 2025" positive={arrYoY > 0} />
+          <Stat label="ARR (YoY)" value={fmtPct(arrYoY, 0)} hint={yoy ? `vs ${yoy.quarter}` : ""} positive={arrYoY > 0} />
         </div>
 
         {/* Charts */}
@@ -116,7 +118,7 @@ export default function CompanyDetailPage({ params }: { params: { slug: string }
           <ChartCard title="Headcount" subtitle="Full-time equivalents" metrics={company.metrics} metric="headcount" color="#1B3A6F" />
         </div>
 
-        {/* Recent submissions */}
+        {/* Recent submissions — placeholder until form_submissions is wired */}
         <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
           <div className="px-5 pt-4 pb-3 border-b border-line flex items-center justify-between">
             <div>
@@ -171,7 +173,7 @@ function Stat({ label, value, delta, hint, hintLabel, positive, negative }: { la
   );
 }
 
-function ChartCard(props: { title: string; subtitle: string; metrics: any[]; metric: any; color: string }) {
+function ChartCard(props: { title: string; subtitle: string; metrics: DashboardMetric[]; metric: "arr" | "burn" | "cash" | "headcount" | "revenue"; color: string }) {
   return (
     <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
       <div className="px-5 pt-4 pb-2">
@@ -179,7 +181,7 @@ function ChartCard(props: { title: string; subtitle: string; metrics: any[]; met
         <p className="text-[11px] text-muted mt-0.5">{props.subtitle}</p>
       </div>
       <div className="px-2 pb-3">
-        <CompanyHistoryChart metrics={props.metrics} metric={props.metric} color={props.color} />
+        <CompanyHistoryChart metrics={props.metrics as any} metric={props.metric} color={props.color} />
       </div>
     </div>
   );
