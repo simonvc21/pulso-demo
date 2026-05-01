@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   ArrowLeft, DollarSign, Hash, Percent, Type, AlignLeft, ChevronDown, Calendar,
@@ -23,6 +24,7 @@ import type { FormFieldType } from "@/lib/types";
 import type { CompanyOption } from "@/lib/dashboard-data";
 import type { DraftField, FormInput } from "./actions";
 import { createForm, updateForm } from "./actions";
+import { suggestFormFields, rewriteFieldLabel } from "./ai-actions";
 
 const palette: { type: FormFieldType; label: string; icon: any; example: string }[] = [
   { type: "currency", label: "Currency",  icon: DollarSign, example: "Quarterly revenue" },
@@ -65,6 +67,8 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
   const [selectedId, setSelectedId] = useState<string | null>(seed.fields[0]?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [rewritingFieldId, setRewritingFieldId] = useState<string | null>(null);
 
   // Recipients: empty array = "all" (special sentinel via UI checkbox).
   const [recipientsAll, setRecipientsAll] = useState(
@@ -182,6 +186,18 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
       <div className="grid grid-cols-12 gap-0 border-b border-line">
         {/* Left: palette */}
         <div className="col-span-12 lg:col-span-2 border-r border-line bg-white p-4 min-h-[calc(100vh-130px)]">
+          <button
+            onClick={() => setSuggestOpen(true)}
+            className="w-full text-left px-3 py-2.5 rounded-lg bg-gradient-to-br from-navy to-navy-700 text-white hover:shadow-cardHover transition-shadow flex items-center gap-2.5 mb-4"
+          >
+            <div className="h-7 w-7 rounded-md bg-gold flex items-center justify-center shrink-0">
+              <Sparkles className="h-3.5 w-3.5 text-navy" fill="currentColor" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[12px] font-semibold">Suggest with AI</div>
+              <div className="text-[10px] text-white/70 truncate">Describe the form, get fields</div>
+            </div>
+          </button>
           <div className="text-[10px] font-semibold text-muted tracking-[0.16em] uppercase mb-3">Add field</div>
           <div className="space-y-1.5">
             {palette.map((p) => {
@@ -360,7 +376,39 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
               <div className="text-[10px] font-semibold text-muted tracking-[0.16em] uppercase">Selected field</div>
               <div className="mt-3 space-y-3">
                 <div>
-                  <label className="text-[11px] font-medium text-ink">Label</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-medium text-ink">Label</label>
+                    <div className="flex items-center gap-1">
+                      <AiRewriteButton
+                        title="Rewrite to be clearer"
+                        intent="clearer"
+                        currentLabel={selected.label}
+                        pending={rewritingFieldId === selected.id}
+                        onStart={() => setRewritingFieldId(selected.id)}
+                        onDone={(newLabel) => {
+                          updateField(selected.id, { label: newLabel });
+                          setRewritingFieldId(null);
+                        }}
+                        onError={() => setRewritingFieldId(null)}
+                      >
+                        Clearer
+                      </AiRewriteButton>
+                      <AiRewriteButton
+                        title="Translate to Spanish"
+                        intent="spanish"
+                        currentLabel={selected.label}
+                        pending={rewritingFieldId === selected.id}
+                        onStart={() => setRewritingFieldId(selected.id)}
+                        onDone={(newLabel) => {
+                          updateField(selected.id, { label: newLabel });
+                          setRewritingFieldId(null);
+                        }}
+                        onError={() => setRewritingFieldId(null)}
+                      >
+                        ES
+                      </AiRewriteButton>
+                    </div>
+                  </div>
                   <input
                     value={selected.label}
                     onChange={(e) => updateField(selected.id, { label: e.target.value })}
@@ -425,7 +473,196 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
           )}
         </div>
       </div>
+
+      {suggestOpen && (
+        <SuggestModal
+          onClose={() => setSuggestOpen(false)}
+          onApply={(newFields, suggestedName) => {
+            setFields(newFields);
+            setSelectedId(newFields[0]?.id ?? null);
+            if (suggestedName && !name.trim()) setName(suggestedName);
+            setSuggestOpen(false);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function SuggestModal({
+  onClose,
+  onApply,
+}: {
+  onClose: () => void;
+  onApply: (fields: DraftField[], formName?: string) => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<DraftField[] | null>(null);
+
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !pending) onClose(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [pending, onClose]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setPending(true);
+    const res = await suggestFormFields(prompt);
+    setPending(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setPreview(res.fields);
+  };
+
+  if (!mounted) return null;
+
+  const modal = (
+    <div
+      className="fixed inset-0 z-[1000] bg-navy/40 overflow-y-auto"
+      onClick={() => !pending && onClose()}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="min-h-screen w-full flex justify-center px-4 py-12">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white rounded-2xl shadow-cardHover w-full max-w-xl p-6 h-fit self-start sm:self-center"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-gold text-navy flex items-center justify-center">
+                <Sparkles className="h-4 w-4" fill="currentColor" />
+              </div>
+              <div>
+                <h2 className="text-lg font-serif font-bold text-ink">Suggest fields with AI</h2>
+                <div className="text-[11px] text-muted">Powered by Gemini · uses fund context</div>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {!preview ? (
+            <form onSubmit={submit} className="mt-5">
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-ink tracking-wide uppercase mb-1.5">
+                  Describe this form
+                </span>
+                <textarea
+                  required
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={3}
+                  placeholder="A monthly check-in for early-stage SaaS founders covering revenue, hiring, and product milestones."
+                  className="w-full px-3 py-2.5 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+                />
+              </label>
+              {error && (
+                <div className="mt-3 text-[12px] text-coral bg-red-50 border border-red-100 rounded-md px-3 py-2">
+                  {error}
+                </div>
+              )}
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={pending}>Cancel</Button>
+                <Button type="submit" variant="gold" size="sm" className="gap-1.5" disabled={pending || !prompt.trim()}>
+                  {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {pending ? "Thinking…" : "Suggest fields"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="mt-5">
+              <div className="text-[11px] text-muted mb-2">
+                Replace the current {preview.length} fields with these? You can edit any of them after.
+              </div>
+              <div className="max-h-72 overflow-y-auto rounded-lg border border-line divide-y divide-line bg-paper">
+                {preview.map((f) => (
+                  <div key={f.id} className="px-3 py-2.5 flex items-start gap-3">
+                    <span className="text-[10px] tracking-[0.14em] uppercase text-muted font-semibold w-16 mt-0.5 shrink-0">{f.type}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] text-ink">{f.label}</div>
+                      <div className="text-[10px] text-muted mt-0.5">
+                        {f.group ?? "—"}
+                        {f.required && <span className="ml-2 text-gold-600">required</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setPreview(null)}
+                  className="text-[12px] text-muted hover:text-ink underline"
+                  disabled={pending}
+                >
+                  Try a different prompt
+                </button>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={pending}>Cancel</Button>
+                  <Button
+                    type="button"
+                    variant="gold"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => onApply(preview)}
+                  >
+                    <Check className="h-3.5 w-3.5" /> Use these fields
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}
+
+function AiRewriteButton({
+  intent, title, currentLabel, pending, onStart, onDone, onError, children,
+}: {
+  intent: "clearer" | "spanish" | "shorter";
+  title: string;
+  currentLabel: string;
+  pending: boolean;
+  onStart: () => void;
+  onDone: (newLabel: string) => void;
+  onError: (msg: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      disabled={pending || !currentLabel.trim()}
+      onClick={async () => {
+        onStart();
+        const res = await rewriteFieldLabel(currentLabel, intent);
+        if (res.ok) onDone(res.label);
+        else onError(res.error);
+      }}
+      className="text-[10px] uppercase tracking-wider text-gold-600 hover:bg-gold-50 px-1.5 py-0.5 rounded inline-flex items-center gap-1 disabled:opacity-50 disabled:pointer-events-none"
+    >
+      {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+      {children}
+    </button>
   );
 }
 

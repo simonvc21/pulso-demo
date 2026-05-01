@@ -6,7 +6,8 @@ import { TopbarBell } from "@/components/topbar-bell";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CompanyHistoryChart } from "@/components/company-history-chart";
-import { getCompanyBySlug, type DashboardMetric } from "@/lib/dashboard-data";
+import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
+import { getCompanyBySlug, getNewsletterUpdates, type DashboardMetric } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,10 @@ const countryFlag: Record<string, string> = {
 };
 
 export default async function CompanyDetailPage({ params }: { params: { slug: string } }) {
-  const company = await getCompanyBySlug(params.slug);
+  const [company, updates] = await Promise.all([
+    getCompanyBySlug(params.slug),
+    getNewsletterUpdates(20, { companySlug: params.slug }),
+  ]);
   if (!company) return notFound();
 
   const last = company.metrics[company.metrics.length - 1];
@@ -171,6 +175,9 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
             ))}
           </div>
         </div>
+
+        {/* Newsletter — narrative updates from this company */}
+        <PortfolioNewsletter updates={updates} />
       </div>
     </>
   );

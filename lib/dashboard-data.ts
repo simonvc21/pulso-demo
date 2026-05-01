@@ -750,17 +750,25 @@ function isNewsField(field: FormFieldRow): boolean {
   return false;
 }
 
-export async function getNewsletterUpdates(limit = 12): Promise<NewsletterUpdate[]> {
+export async function getNewsletterUpdates(
+  limit = 12,
+  opts?: { companySlug?: string }
+): Promise<NewsletterUpdate[]> {
   const supabase = createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("form_submissions")
     .select(
       "id, data_json, submitted_at, " +
-      "companies(slug, name), " +
+      "companies!inner(slug, name), " +
       "forms(name, fields_json)"
     )
-    .order("submitted_at", { ascending: false })
-    .limit(80); // generous upper bound; we filter client-side
+    .order("submitted_at", { ascending: false });
+
+  if (opts?.companySlug) {
+    query = query.eq("companies.slug", opts.companySlug);
+  }
+
+  const { data } = await query.limit(80);
 
   if (!data) return [];
 
