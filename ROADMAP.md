@@ -1,97 +1,206 @@
-# Pulso — Roadmap a MVP completo
+# Pulso — Roadmap
 
-**Estado actual:** demo click-through en Next.js 14 con datos mock (`lib/mock-data.ts`). Schema y auth en Supabase ya configurados (sesión 2 + 3). Falta cablear el frontend.
+**Estado actual (2026-05-01):** demo live en https://pulso-demo-three.vercel.app con Supabase Auth, RLS multi-tenant, todas las páginas GP cableadas a Postgres, /share y /fill funcionando con SECURITY DEFINER RPCs, builder de forms que crea + edita + envía. Login con `simon.villena2010@gmail.com` / `Pulso2026!`.
 
-**Objetivo MVP:** que un fondo real (Patagonia Fund I como pilot) pueda *usar* Pulso de verdad — invitar founders, recibir métricas reales, compartir con LPs.
+**Lo que ya funciona end-to-end:**
+- Marketing landing en /
+- Login con email+password y magic link
+- Dashboard, companies, forms, LPs, settings, fill, share — todo persiste en Postgres
+- Form builder crea y edita templates, toggle de tipo, opciones para select
+- Add LP modal real
+- Export CSV de companies
+- Share link a LP con watermark, expiración y view counter
 
----
-
-## Orden recomendado (de menor a mayor dependencia)
-
-La regla: cada capa desbloquea la siguiente. Saltarse una rompe la cadena.
-
-### Fase 1 — Auth + Persistencia ✅ infra lista, falta wiring
-
-**Lo que ya está hecho (sesiones 2 y 3):**
-- 8 tablas en Supabase (organizations, users, companies, metrics, forms, form_submissions, lps, share_links)
-- Seed: Patagonia Fund I + 8 companies + 64 métricas + 3 forms + 6 LPs
-- RLS policies activas en todas las tablas (16 policies)
-- Trigger `handle_new_user()`: cuando alguien hace signup en Supabase Auth, crea su row en `public.users`. Si su email es `simon.villena2010@gmail.com`, lo auto-asigna como GP de Patagonia Fund I.
-- Helper function `user_org_id()`: usada por las RLS policies para scope multi-tenant.
-
-**1.1 Supabase Auth (1 día)** — pendiente cablear en frontend
-- Magic link email + email/password + Google OAuth (los 3 métodos)
-- Por qué Supabase Auth vs Clerk: single vendor, RLS nativo via `auth.uid()`, mismo publishable key que la DB, sin extra mensual hasta ~50K MAU
-- Google OAuth requiere setup en Google Cloud Console (5-10 min) — opcional para MVP
-- `middleware.ts` con `@supabase/ssr` que protege `/dashboard`, `/companies`, `/forms`, `/lps`
-- Login page en `/login` con los 3 métodos
-
-**1.2 Reemplazar mock-data.ts con queries (3-4 días)**
-- `@supabase/supabase-js` + tipos generados (regenerar con `supabase gen types`)
-- Server components hacen queries directas con la sesión del user (RLS filtra por org)
-- Client components usan `createBrowserClient()` para mutations
-- Drizzle ORM opcional (mejor DX type-safe, pero @supabase/supabase-js basta para MVP)
-
-**Entregable de fase 1:** GP de Patagonia hace login con magic link, ve sus 8 companies cargadas desde Postgres, edita una, persiste. La app es real.
+**Objetivo MVP:** un fondo nuevo abre la cuenta, sube su portafolio actual en menos de 30 minutos, invita a sus founders, y le envía a sus LPs un letter el mismo día.
 
 ---
 
-### Fase 2 — AI Extraction (semana 3)
+## Fase 1 — Auth + persistencia ✅ HECHO
 
-**Por qué segundo:** es el "wow factor" diferenciador y lo que cierra ventas. Los GPs latam pagan por *no* tener que hacer data entry.
-
-**2.1 Claude API integration**
-- Endpoint `/api/extract` que recibe PDF/Excel y devuelve JSON estructurado
-- Usar Claude Sonnet 4.6 con tool use forzado al schema de `metrics`
-- Caché de extracciones por hash del archivo (Supabase Storage o tabla `extractions`)
-- Cost guard: máximo 3 extracciones por submission, mostrar costo al usuario
-
-**2.2 UI de upload-to-fill**
-- Ya existe el flujo en `/fill/[id]` con AI flags — solo falta cablearlo a la API real
-- Mostrar diff entre lo que el AI extrajo y lo que el founder editó (para mejorar el prompt)
-- Confidence score por campo
-
-**Entregable de fase 2:** founder de Brio sube su deck Q4, Pulso autocompleta ARR/cash/runway, founder confirma con un click.
+Sesiones 1-4. Skipping detail — ver historial de commits.
 
 ---
 
-### Fase 3 — Cadencias automáticas (semana 4)
+## Fase A — UX inmediato y polish del builder (1-2 días) — EMPIEZA AHORA
 
-**Por qué tercero:** sin esto, Pulso es "Google Forms con UI bonita". Las cadencias automáticas son el *pull* del producto.
+Lo que falta para que el GP-pilot no tenga fricción visible al hacer onboarding manual del primer fondo.
 
-**3.1 Resend para email**
-- Templates: invitación inicial, recordatorio mensual/trimestral, "tu LP letter está listo"
-- Branded por fondo (logo, color, firma del GP)
+**A.1 Drag-and-drop en el form builder**
+- Reemplazar las flechitas ↑↓ con DnD de verdad (`@dnd-kit/core` + `@dnd-kit/sortable`).
+- Persistir el orden en `forms.fields_json` (array order = render order).
+- Funciona en /forms/new y /forms/[slug]/edit.
 
-**3.2 Cron via Vercel Cron Jobs (o Supabase Edge Functions con pg_cron)**
-- Job diario que revisa `forms` con cadencia activa y dispara emails al founder cuando toca
-- Reminder a los 7 y 14 días si no respondió
-- Webhook de Resend para tracking de open/click → poblar response rates en `/forms`
+**A.2 Recipientes por startup**
+- Nueva tabla `form_recipients(form_id, company_id)` con UNIQUE.
+- En el panel derecho del builder, sección Recipients: pickea companies del fondo (default = todas).
+- `submit_public_form` ya valida company_slug; agregar `get_form_recipients(form_id)` para mostrar quién está en scope.
+- Quita el "8 founders · All active companies" hardcoded.
 
-**Entregable de fase 3:** GP setup el form trimestral una vez, los 8 founders reciben email automático cada Q sin que el GP haga nada.
+**A.3 Botón "Volver" en preview**
+- /fill/[id] y /share/[token] cuando se acceden con `?preview=1` (sólo el GP autenticado), muestran un banner sticky arriba con "← Volver al GP view" que regresa a /forms/[slug] o /lps.
+
+**A.4 Editar perfil de fondo en Settings**
+- Hoy Settings muestra fund.name/vintage/size_usd/deployed_usd como read-only.
+- Convertirlo en form editable con server action `updateFund`.
+- RLS: la policy `org_update_own` ya permite update si user.organization_id = id.
+
+**A.5 Editar company desde su detalle**
+- Botón "Edit" en /companies/[slug] arriba a la derecha (al lado de Email founder).
+- Edita name, sector, country, stage, status, flag, invested_usd, ownership_pct, founder_*, description.
+- Server action `updateCompany`.
+
+**A.6 LP login (Supabase Auth con role=lp)**
+- Mismo /login, pero al hacer login el trigger `handle_new_user` chequea si el email aparece en `lps.email`. Si sí, asigna role='lp' y organization_id de ese LP.
+- Nuevo layout `/lp/(layout)` para la zona LP — solo ve los share_links que le pertenecen.
+- Página `/lp/letters` lista todos los letters compartidos con ese LP (`share_links.lp_id = lps.id WHERE lps.organization_id = ?`).
+- Mantener share links anónimos por token para LPs que no quieren cuenta (ya está).
+
+**Entregable A:** demo navegable de punta a punta, builder pulido, fund/company editables, LPs con cuenta o por link.
 
 ---
 
-### Fase 4 — LP shares + Audit log (semana 5)
+## Fase B — Onboarding y multi-usuario (3-5 días)
 
-**Por qué cuarto:** desbloquea el lado LP del producto. Sin esto los GPs siguen mandando PDFs por email.
+Lo que destraba que un fondo nuevo se sume sin que yo (Simon) le haga el setup manual.
 
-- Tabla `share_links` ya existe en el schema
-- SECURITY DEFINER function `public.get_lp_letter(token)` para acceso anon sin exponer la tabla
-- Watermark dinámico (email del LP) embebido en el render
-- Audit log: quién vio qué letter, cuándo, desde qué IP (Supabase logs + tabla `share_link_views`)
-- Copy-protection: bloquear print/save (no es 100% pero filtra al 90%)
+**B.1 Onboarding wizard `/onboarding`**
+- Step 1: nombre del fondo, vintage, size_usd, currency, logo (subida a Supabase Storage).
+- Step 2: subir CSV / Excel / PDF / imagen del portafolio. Endpoint `/api/extract` con Claude Sonnet 4.7 + tool use forzado al schema de `companies` + `metrics`.
+- Step 3: review + edit de lo extraído. El usuario confirma cada company antes de insert.
+- Step 4: invitar founders por email (lista de mails, magic links).
+- Disparado automáticamente cuando alguien se loguea por primera vez sin organization_id.
 
-**Entregable:** GP genera link único por LP, tracking de quién lo abrió.
+**B.2 Invitar usuarios al fondo**
+- Tabla `user_invitations(id, organization_id, email, role, invited_by, accepted_at, expires_at)`.
+- Server action `inviteUser({email, role})` que mete una row + dispara magic link.
+- El trigger `handle_new_user` chequea si el email tiene una invitación pendiente; si sí, le asigna org+role.
+- /settings/team: lista usuarios + invitaciones pendientes, revocar, cambiar rol.
+- Roles: gp, managing_partner, analyst, viewer (y lp / founder fuera del lado GP).
+
+**B.3 Permisos por company (analista escópeo)**
+- Tabla `user_company_access(user_id, company_id)`.
+- RLS adicional: si role='analyst' y la company NO está en user_company_access, no la ve.
+- UI en /settings/team: por usuario analyst, checklist de companies que puede ver.
+
+**Entregable B:** un nuevo fondo se onboardea sin Slack de soporte. GP invita a su analista que solo ve 3 de 12 companies.
 
 ---
 
-### Fase 5 — Polish para pilot (semana 6)
+## Fase C — Email + cadencias automáticas (3 días)
 
-- Multi-currency (CLP, ARS, MXN, BRL → USD por trimestre con rates históricos)
-- CSV export para todo (los GPs hacen su modelo financiero en Excel, así es la realidad)
-- Onboarding wizard: subir CSV de companies actuales y poblar la DB
-- Alertas configurables (runway < X meses, ARR cae > Y%)
+**C.1 Resend para email**
+- Conectar Resend (cuenta nueva o existente). Domain del fondo via DNS records (DKIM/SPF) o `noreply@pulso.vc` fallback.
+- Templates: invitación a founder, recordatorio mensual/trimestral, "tu LP letter está listo".
+- Branded por fondo: logo, color, firma del GP.
+
+**C.2 Cron para cadencias**
+- Vercel Cron Jobs (preferido — gratis hasta cierto volumen) o Supabase pg_cron.
+- Job diario `daily-form-dispatch`: revisa `forms.cadence` + `forms.last_sent_at`, manda emails con tokens únicos `/fill/<form>?company=<slug>&token=...`.
+- Job diario `daily-reminders`: founders sin submission después de 7d → reminder; 14d → escalar al GP.
+- Webhook de Resend → tabla `email_events` para tracking open/click → poblar `forms.response_rate`.
+
+**C.3 Email-from-the-fund (deferred a fase white-label)**
+- Per ahora todos los emails salen desde `noreply@pulso.vc`. Cuando un fondo conecta su dominio (fase D), pasamos a `noreply@<sufondo>.com`.
+
+**Entregable C:** GP setup el form trimestral una vez, los founders reciben email automático cada Q.
+
+---
+
+## Fase D — Personalización y white-label (3-4 días)
+
+Para que cada fondo sienta que es *su* tool, no Pulso.
+
+**D.1 Logo del fondo**
+- Subida a Supabase Storage bucket `org-assets`.
+- Reemplaza el "PULSO" del sidebar/topbar/share/fill con el logo del fondo cuando esté disponible.
+- Mantener "Powered by Pulso" en footer del share (link de marketing).
+
+**D.2 Colores personalizables**
+- Settings → Branding: pickers para primary, accent, background.
+- Persistir en `organizations.theme_json`.
+- Inyectar en `<html style="--color-primary: ...">` desde el layout server component.
+
+**D.3 Logos por company**
+- Subida en /companies/[slug]/edit.
+- Reemplaza el cuadrado de inicial en el avatar.
+
+**D.4 Dark mode**
+- Toggle en topbar.
+- next-themes + Tailwind dark: classes en globals.
+
+**D.5 Editor del dashboard**
+- Cada widget (KPI card, bar chart, watch list, trend, activity) es draggable + resizable.
+- Persistir layout en `users.dashboard_layout_json` (per-usuario, no per-fondo, para que cada uno arme el suyo).
+- Botón "Add widget" con catálogo: KPIs custom, charts adicionales (cohorts, top movers, etc).
+
+**D.6 Switch de idioma EN/ES**
+- next-intl. Reemplazar todos los strings hardcoded por `t('...')`.
+- Detectar Accept-Language en server side, default a en.
+- Toggle en topbar.
+
+**Entregable D:** fondo con su logo, colores y dashboard custom. Light/dark. EN/ES.
+
+---
+
+## Fase E — Tabla tipo Excel (2 días)
+
+Nueva pestaña /data o /table — los GPs hacen sus modelos en Excel, así es la realidad.
+
+- Grilla por company × métrica × quarter.
+- Editable inline (click cell → input).
+- Columnas filtrables/sortables.
+- Export a CSV (ya está) y XLSX.
+- Vista alternativa "by company" (1 fila por company, todas las métricas) y "by quarter" (1 fila por quarter, todas las companies).
+
+---
+
+## Fase F — AI Chat (3-5 días)
+
+Sidebar derecho persistente. Distintos contextos según rol.
+
+**F.1 Chatbot para GP**
+- Claude Opus 4.7 con tool use.
+- Tools: `query_companies`, `query_metrics`, `query_submissions` — todos respetando RLS via service role + filtro por organization_id.
+- Ejemplos: "qué company tiene el peor runway?", "muéstrame el top 3 por ARR growth en Q1", "cuáles founders no respondieron este mes?".
+
+**F.2 Chatbot para LP**
+- Mismo Claude pero con scope reducido al subset de companies que el GP haya autorizado mostrar a ese LP.
+- "Cómo va Vextra?" → respuesta que solo usa los datos del último letter compartido.
+
+**F.3 Cost guard**
+- Cap diario por fondo. Cache de respuestas sobre prompts idénticos.
+
+---
+
+## Fase G — Settings avanzado (2 días)
+
+- Cancelar suscripción + downgrade.
+- Billing con Stripe (subscription per organization).
+- Audit log: quién hizo qué, cuándo, IP. Tabla `audit_log` poblada por triggers de Postgres.
+- Backup/export del fondo entero a JSON.
+- 2FA opcional (TOTP via Supabase Auth).
+
+---
+
+## Fase H — Compartir con LPs, seguro (2 días)
+
+- LP login (ya en fase A.6) + share links anónimos (ya está).
+- Nueva tabla `share_link_views(share_link_id, viewed_at, ip, user_agent)` para audit.
+- Copy/print protection en /share/[token]: CSS tricks + watermark con email del LP, JS para bloquear keyboard shortcuts (no es 100%, filtra el 90%).
+- "Revoke link" desde /lps/[id].
+- Expiración configurable por share (default 60d).
+- Email automático al GP cuando un LP abre el letter por primera vez.
+
+---
+
+## Fase I — Pulir para pilot real (semana N)
+
+Originalmente "fase 5". Estas tareas se hacen al final.
+
+- Multi-currency (CLP, ARS, MXN, BRL → USD por trimestre con rates históricos).
+- Alertas configurables: runway < X meses, ARR cae > Y%, form sin responder > Z días.
+- Sync con QuickBooks/Contabilizei/Xero para no pedirle nada al founder (long-tail).
+- App móvil (probablemente NUNCA — los GPs usan laptop).
 
 ---
 
@@ -103,20 +212,10 @@ La regla: cada capa desbloquea la siguiente. Saltarse una rompe la cadena.
 | Auth + DB | Supabase (Pro plan) | $25/mo |
 | Email | Resend | $20/mo |
 | AI | Claude API | ~$50/mo a esa escala |
+| Storage (logos, uploads) | Supabase Storage | incluido |
 | **Total runway** | | **~$115/mo** |
 
 A 10 fondos x ~$200/mo (precio sugerido) = $2K MRR con $115 de costos. Margen sano para iterar.
-
-**Cambio respecto a versión anterior:** eliminamos Clerk del stack. Supabase Auth cubre el caso, ahorra $25/mo y simplifica el stack a un único vendor para auth+DB.
-
----
-
-## Cosas que NO hay que hacer todavía
-
-- App móvil (los GPs usan laptop, no es prioridad)
-- Integraciones con QuickBooks/Carta (nice to have, no es bloqueador)
-- White-label (cuando haya 5+ fondos pagando)
-- Marketplace de templates entre fondos (network effect, no MVP)
 
 ---
 
@@ -124,7 +223,7 @@ A 10 fondos x ~$200/mo (precio sugerido) = $2K MRR con $115 de costos. Margen sa
 
 - Patagonia Fund I como pilot pagado a tarifa simbólica ($500/3 meses) o gratis a cambio de feedback semanal
 - Métricas de éxito del pilot:
-  - GP completa el setup sin Slack de soporte
-  - 6 de 8 founders responden el primer form sin recordatorio manual
-  - LP abre al menos 1 letter compartido
+  - GP completa el setup sin Slack de soporte (validar fase B)
+  - 6 de 8 founders responden el primer form sin recordatorio manual (validar fase C)
+  - LP abre al menos 1 letter compartido (validar fase A.6 + H)
 - Si los 3 se cumplen → cobrar $200/mo y empezar outbound a otros fondos LATAM

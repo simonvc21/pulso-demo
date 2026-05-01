@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getFormBySlug } from "@/lib/dashboard-data";
+import {
+  getFormBySlug,
+  getCompanyOptions,
+  getFormRecipientIds,
+} from "@/lib/dashboard-data";
 import { FormBuilder } from "../../form-builder";
 import type { FormInput } from "../../actions";
 
@@ -10,10 +13,10 @@ export default async function EditFormPage({ params }: { params: { id: string } 
   const form = await getFormBySlug(params.id);
   if (!form) notFound();
 
-  const supabase = createClient();
-  const { count } = await supabase
-    .from("companies")
-    .select("id", { count: "exact", head: true });
+  const [companies, recipientIds] = await Promise.all([
+    getCompanyOptions(),
+    getFormRecipientIds(form.id),
+  ]);
 
   const initial: FormInput = {
     name: form.name,
@@ -33,7 +36,8 @@ export default async function EditFormPage({ params }: { params: { id: string } 
       mode="edit"
       slug={form.slug}
       initial={initial}
-      recipientCount={count ?? 0}
+      companies={companies}
+      initialRecipientIds={recipientIds}
     />
   );
 }

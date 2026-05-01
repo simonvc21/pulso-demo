@@ -1,13 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCompanyOptions } from "@/lib/dashboard-data";
 import { FormBuilder } from "../form-builder";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewFormPage() {
-  const supabase = createClient();
-  const { count } = await supabase
-    .from("companies")
-    .select("id", { count: "exact", head: true });
-
-  return <FormBuilder mode="create" recipientCount={count ?? 0} />;
+  const companies = await getCompanyOptions();
+  return <FormBuilder mode="create" companies={companies} />;
 }

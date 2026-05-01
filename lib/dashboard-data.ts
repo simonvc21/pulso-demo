@@ -581,3 +581,53 @@ export async function getShareLetter(token: string): Promise<
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Form recipients + company picker options
+// ---------------------------------------------------------------------------
+
+export interface CompanyOption {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+export async function getCompanyOptions(): Promise<CompanyOption[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("companies")
+    .select("id, slug, name")
+    .order("name", { ascending: true });
+  return (data ?? []).map((c: any) => ({ id: c.id, slug: c.slug, name: c.name }));
+}
+
+export async function getFormRecipientIds(formId: string): Promise<string[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("form_recipients")
+    .select("company_id")
+    .eq("form_id", formId);
+  return (data ?? []).map((r: any) => r.company_id);
+}
+
+export interface LpLetterListItem {
+  token: string;
+  expiresAt: string | null;
+  viewCount: number;
+  createdAt: string;
+  organizationName: string;
+}
+
+export async function getLpLetters(): Promise<LpLetterListItem[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_lp_letters");
+  if (error || !data) return [];
+  const arr = Array.isArray(data) ? data : [];
+  return (arr as any[]).map((r) => ({
+    token: r.token,
+    expiresAt: r.expires_at,
+    viewCount: Number(r.view_count ?? 0),
+    createdAt: r.created_at,
+    organizationName: r.organization_name,
+  }));
+}

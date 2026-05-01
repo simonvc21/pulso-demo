@@ -45,7 +45,7 @@ export default async function FormDetailPage({ params }: { params: { id: string 
         }
         actions={
           <div className="flex items-center gap-2">
-            <Link href={`/fill/${form.slug}?company=vextra`}>
+            <Link href={`/fill/${form.slug}?company=vextra&preview=1`}>
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Eye className="h-3.5 w-3.5" /> Preview as founder
               </Button>

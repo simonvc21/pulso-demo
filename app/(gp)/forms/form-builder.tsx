@@ -4,13 +4,23 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, DollarSign, Hash, Percent, Type, AlignLeft, ChevronDown, Calendar,
-  GripVertical, Trash2, Send, Save, Sparkles, Mail, Repeat, Loader2, X,
+  GripVertical, Trash2, Send, Save, Sparkles, Mail, Repeat, Loader2, X, Check,
 } from "lucide-react";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { FormFieldType } from "@/lib/types";
+import type { CompanyOption } from "@/lib/dashboard-data";
 import type { DraftField, FormInput } from "./actions";
 import { createForm, updateForm } from "./actions";
 
@@ -40,11 +50,12 @@ const defaultNewForm: FormInput = {
 interface BuilderProps {
   mode: "create" | "edit";
   initial?: FormInput;
-  slug?: string; // required when mode === "edit"
-  recipientCount: number;
+  slug?: string;
+  companies: CompanyOption[];
+  initialRecipientIds?: string[];
 }
 
-export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProps) {
+export function FormBuilder({ mode, initial, slug, companies, initialRecipientIds }: BuilderProps) {
   const seed = initial ?? defaultNewForm;
   const [name, setName] = useState(seed.name);
   const [cadence, setCadence] = useState<FormInput["cadence"]>(seed.cadence);
@@ -53,10 +64,37 @@ export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProp
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Recipients: empty array = "all" (special sentinel via UI checkbox).
+  const [recipientsAll, setRecipientsAll] = useState(
+    !initialRecipientIds || initialRecipientIds.length === 0
+  );
+  const [recipientIds, setRecipientIds] = useState<string[]>(initialRecipientIds ?? []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    setFields((items) => {
+      const oldIdx = items.findIndex((f) => f.id === active.id);
+      const newIdx = items.findIndex((f) => f.id === over.id);
+      if (oldIdx === -1 || newIdx === -1) return items;
+      return arrayMove(items, oldIdx, newIdx);
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
-    const payload: FormInput = { name, cadence, fields };
+    const payload: FormInput = {
+      name,
+      cadence,
+      fields,
+      recipientCompanyIds: recipientsAll ? [] : recipientIds,
+    };
     const res = mode === "edit" && slug
       ? await updateForm(slug, payload)
       : await createForm(payload);
@@ -64,7 +102,7 @@ export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProp
       setSaving(false);
       setSaveError(res.error);
     }
-    // On success the action redirects, so the component unmounts.
+    // Success → action redirects; component unmounts.
   };
 
   const addField = (type: FormFieldType) => {
@@ -90,20 +128,17 @@ export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProp
     if (selectedId === id) setSelectedId(null);
   };
 
-  const move = (id: string, dir: -1 | 1) => {
-    setFields((p) => {
-      const idx = p.findIndex((f) => f.id === id);
-      const j = idx + dir;
-      if (idx < 0 || j < 0 || j >= p.length) return p;
-      const next = [...p];
-      [next[idx], next[j]] = [next[j], next[idx]];
-      return next;
-    });
+  const toggleRecipient = (id: string) => {
+    setRecipientIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   };
 
   const selected = fields.find((f) => f.id === selectedId) || null;
   const isEdit = mode === "edit";
   const backHref = isEdit && slug ? `/forms/${slug}` : "/forms";
+
+  const recipientLabel = recipientsAll
+    ? `All ${companies.length} companies`
+    : `${recipientIds.length} of ${companies.length} selected`;
 
   return (
     <>
@@ -171,7 +206,7 @@ export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProp
             <div className="flex items-center gap-1.5 text-gold font-semibold">
               <Sparkles className="h-3 w-3" /> AI tip
             </div>
-            <div className="mt-1 text-white/80">Pulso will auto-validate currency and percent fields against historical data and flag outliers before they hit your dashboard.</div>
+            <div className="mt-1 text-white/80">Drag fields to reorder. Pulso auto-validates currency and percent fields against historical data.</div>
           </div>
         </div>
 
@@ -184,27 +219,30 @@ export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProp
               className="w-full text-2xl font-serif font-bold text-ink bg-transparent focus:outline-none border-b-2 border-transparent focus:border-teal pb-1"
               placeholder="Form name"
             />
-            <p className="text-[12px] text-muted mt-2">Fields below appear in the order founders see them. Click a field to edit it.</p>
+            <p className="text-[12px] text-muted mt-2">Drag fields by the handle to reorder. Click a field to edit it.</p>
 
-            <div className="mt-5 space-y-2">
-              {fields.length === 0 && (
+            <div className="mt-5">
+              {fields.length === 0 ? (
                 <div className="bg-white border-2 border-dashed border-line rounded-xl p-10 text-center text-sm text-muted">
                   Add your first field from the left panel.
                 </div>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {fields.map((f) => (
+                        <SortableFieldRow
+                          key={f.id}
+                          field={f}
+                          selected={selectedId === f.id}
+                          onSelect={() => setSelectedId(f.id)}
+                          onRemove={() => removeField(f.id)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               )}
-              {fields.map((f, i) => (
-                <FieldRow
-                  key={f.id}
-                  field={f}
-                  selected={selectedId === f.id}
-                  onSelect={() => setSelectedId(f.id)}
-                  onRemove={() => removeField(f.id)}
-                  onMoveUp={() => move(f.id, -1)}
-                  onMoveDown={() => move(f.id, 1)}
-                  isFirst={i === 0}
-                  isLast={i === fields.length - 1}
-                />
-              ))}
             </div>
           </div>
         </div>
@@ -241,11 +279,57 @@ export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProp
             <label className="text-[11px] font-medium text-ink mb-1.5 block flex items-center gap-1.5">
               <Mail className="h-3 w-3 text-muted" /> Recipients
             </label>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-paper2 border border-line">
-              <div>
-                <div className="text-sm font-semibold text-ink">{recipientCount} founders</div>
-                <div className="text-[10px] text-muted">All active companies</div>
+            <div className="rounded-lg bg-paper2 border border-line p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-ink">{recipientLabel}</div>
+                  <div className="text-[10px] text-muted">
+                    {recipientsAll ? "Sends to every active company in your fund" : "Custom subset"}
+                  </div>
+                </div>
               </div>
+
+              <label className="mt-3 flex items-center gap-2 text-[12px] text-ink">
+                <input
+                  type="checkbox"
+                  checked={recipientsAll}
+                  onChange={(e) => setRecipientsAll(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded text-teal"
+                />
+                Send to all companies
+              </label>
+
+              {!recipientsAll && (
+                <div className="mt-3 max-h-56 overflow-auto rounded-md border border-line bg-white divide-y divide-line">
+                  {companies.length === 0 && (
+                    <div className="p-3 text-[11px] text-muted">No companies yet.</div>
+                  )}
+                  {companies.map((c) => {
+                    const checked = recipientIds.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => toggleRecipient(c.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 flex items-center gap-2 text-[12px] hover:bg-paper2",
+                          checked && "bg-teal-50"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-4 w-4 rounded border flex items-center justify-center shrink-0",
+                            checked ? "bg-teal border-teal" : "border-line bg-white"
+                          )}
+                        >
+                          {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                        </span>
+                        <span className="text-ink truncate">{c.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -287,7 +371,6 @@ export function FormBuilder({ mode, initial, slug, recipientCount }: BuilderProp
                     value={selected.type}
                     onChange={(e) => updateField(selected.id, {
                       type: e.target.value as DraftField["type"],
-                      // reset options when leaving 'select' so we don't carry stale data
                       options: e.target.value === "select" ? (selected.options ?? ["Option 1", "Option 2"]) : undefined,
                     })}
                     className="w-full mt-1 h-9 px-3 rounded-lg border border-line text-xs focus:outline-none focus:ring-2 focus:ring-teal/30"
@@ -356,30 +439,38 @@ function defaultLabelFor(t: FormFieldType): string {
   }[t];
 }
 
-function FieldRow({
-  field, selected, onSelect, onRemove, onMoveUp, onMoveDown, isFirst, isLast,
+function SortableFieldRow({
+  field, selected, onSelect, onRemove,
 }: {
   field: DraftField;
   selected: boolean;
   onSelect: () => void;
   onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  isFirst: boolean;
-  isLast: boolean;
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
   const TypeIcon = palette.find((p) => p.type === field.type)?.icon || Type;
+
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       onClick={onSelect}
       className={cn(
         "group bg-white rounded-xl border p-4 cursor-pointer transition-all",
-        selected ? "border-teal shadow-card ring-2 ring-teal/20" : "border-line hover:shadow-card"
+        selected ? "border-teal shadow-card ring-2 ring-teal/20" : "border-line hover:shadow-card",
+        isDragging && "shadow-cardHover"
       )}
     >
       <div className="flex items-start gap-3">
         <button
-          className="text-muted hover:text-ink mt-1.5 cursor-grab"
+          {...attributes}
+          {...listeners}
+          className="text-muted hover:text-ink mt-1.5 cursor-grab active:cursor-grabbing touch-none"
           aria-label="Drag handle"
           onClick={(e) => e.stopPropagation()}
         >
@@ -399,24 +490,13 @@ function FieldRow({
             <FieldPreview field={field} />
           </div>
         </div>
-        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-            disabled={isFirst}
-            className="text-muted hover:text-ink text-xs disabled:opacity-30"
-          >↑</button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-            disabled={isLast}
-            className="text-muted hover:text-ink text-xs disabled:opacity-30"
-          >↓</button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="text-muted hover:text-coral"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="text-muted hover:text-coral opacity-0 group-hover:opacity-100"
+          aria-label="Delete field"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );

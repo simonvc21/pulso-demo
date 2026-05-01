@@ -33,7 +33,7 @@ export default async function DashboardPage() {
                 <Download className="h-3.5 w-3.5" /> Export CSV
               </Button>
             </a>
-            <Link href="/share/q1-2026-lp-letter" target="_blank">
+            <Link href="/share/q1-2026-lp-letter?preview=1" target="_blank">
               <Button variant="gold" size="sm" className="gap-1.5">
                 <Share2 className="h-3.5 w-3.5" /> Share with LPs
               </Button>

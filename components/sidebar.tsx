@@ -18,9 +18,9 @@ const nav = [
 ];
 
 const secondary = [
-  { href: "/share/q1-2026-lp-letter", label: "LP view (preview)",     icon: Share2 },
-  { href: "/fill/q1-2026-financials", label: "Founder fill (preview)", icon: Send },
-  { href: "/settings",                label: "Settings",                icon: Settings },
+  { href: "/share/q1-2026-lp-letter?preview=1", label: "LP view (preview)",     icon: Share2 },
+  { href: "/fill/q1-2026-financials?preview=1", label: "Founder fill (preview)", icon: Send },
+  { href: "/settings",                          label: "Settings",                icon: Settings },
 ];
 
 export function Sidebar({ fundName, vintage, sizeUsd }: SidebarProps) {

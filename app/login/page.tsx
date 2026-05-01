@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
+  const next = searchParams.get("next");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,8 +30,10 @@ function LoginForm() {
       setError(error.message);
       return;
     }
-    router.push(next);
-    router.refresh();
+    const dest = next
+      ? `/auth/post-login?next=${encodeURIComponent(next)}`
+      : "/auth/post-login";
+    window.location.href = dest;
   }
 
   async function handleMagicLink() {
@@ -43,7 +45,8 @@ function LoginForm() {
     }
     setBusy("magic");
     const origin = window.location.origin;
-    const redirect = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
+    const finalNext = next ? `/auth/post-login?next=${encodeURIComponent(next)}` : "/auth/post-login";
+    const redirect = `${origin}/auth/callback?next=${encodeURIComponent(finalNext)}`;
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirect },

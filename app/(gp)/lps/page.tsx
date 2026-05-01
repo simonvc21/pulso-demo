@@ -25,7 +25,7 @@ export default async function LpsPage() {
         breadcrumb={`${lps.length} limited partners · ${fmtUSD(totalCommit, { compact: true })} committed`}
         actions={
           <div className="flex items-center gap-2">
-            <Link href="/share/q1-2026-lp-letter" target="_blank"><Button variant="outline" size="sm" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Preview LP letter</Button></Link>
+            <Link href="/share/q1-2026-lp-letter?preview=1" target="_blank"><Button variant="outline" size="sm" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Preview LP letter</Button></Link>
             <AddLpButton />
           </div>
         }

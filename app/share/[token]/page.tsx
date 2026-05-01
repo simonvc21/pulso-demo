@@ -2,15 +2,18 @@ import { Lock, Download, Eye, Calendar, Sparkles, Zap } from "lucide-react";
 import { fmtUSD, fmtPct } from "@/lib/utils";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
 import { getShareLetter } from "@/lib/dashboard-data";
+import { PreviewBackBar } from "@/components/preview-back-bar";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { token: string };
+  searchParams: { preview?: string };
 }
 
-export default async function LpSharePage({ params }: PageProps) {
+export default async function LpSharePage({ params, searchParams }: PageProps) {
   const result = await getShareLetter(params.token);
+  const isPreview = searchParams?.preview === "1";
 
   if (result.kind === "expired") {
     return <ExpiredView />;
@@ -61,6 +64,9 @@ export default async function LpSharePage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-paper relative">
+      {isPreview && (
+        <PreviewBackBar backHref="/lps" label={`LP letter as ${watermark}`} />
+      )}
       {/* Watermark overlay */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-[0.04] select-none">
         <div className="absolute inset-0 flex flex-wrap content-around justify-around -rotate-12">

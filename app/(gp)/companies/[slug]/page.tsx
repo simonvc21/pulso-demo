@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Mail, ExternalLink, Sparkles, FileText, MessageSquare } from "lucide-react";
+import { ArrowLeft, Mail, ExternalLink, Sparkles, FileText, MessageSquare, Pencil } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,11 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
         }
         actions={
           <div className="flex items-center gap-2">
+            <Link href={`/companies/${company.slug}/edit`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </Button>
+            </Link>
             {company.founder.email ? (
               <a href={`mailto:${company.founder.email}?subject=${encodeURIComponent(`${company.name} — quick check-in`)}`}>
                 <Button variant="outline" size="sm" className="gap-1.5">

@@ -74,15 +74,13 @@ export type Database = {
           stage?: Database["public"]["Enums"]["company_stage"]
           status?: Database["public"]["Enums"]["company_status"]
         }
-        Relationships: [
-          {
-            foreignKeyName: "companies_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      form_recipients: {
+        Row: { company_id: string; created_at: string; form_id: string }
+        Insert: { company_id: string; created_at?: string; form_id: string }
+        Update: { company_id?: string; created_at?: string; form_id?: string }
+        Relationships: []
       }
       form_submissions: {
         Row: {
@@ -115,22 +113,7 @@ export type Database = {
           submitted_at?: string
           submitted_by_email?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "form_submissions_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "form_submissions_form_id_fkey"
-            columns: ["form_id"]
-            isOneToOne: false
-            referencedRelation: "forms"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       forms: {
         Row: {
@@ -172,15 +155,7 @@ export type Database = {
           sent_to_count?: number
           slug?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "forms_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       lps: {
         Row: {
@@ -216,15 +191,7 @@ export type Database = {
           organization_id?: string
           type?: Database["public"]["Enums"]["lp_type"]
         }
-        Relationships: [
-          {
-            foreignKeyName: "lps_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       metrics: {
         Row: {
@@ -260,15 +227,7 @@ export type Database = {
           quarter?: string
           revenue_usd?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "metrics_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       organizations: {
         Row: {
@@ -337,22 +296,7 @@ export type Database = {
           view_count?: number
           watermark_email?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "share_links_lp_id_fkey"
-            columns: ["lp_id"]
-            isOneToOne: false
-            referencedRelation: "lps"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "share_links_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       users: {
         Row: {
@@ -382,19 +326,21 @@ export type Database = {
           organization_id?: string | null
           role?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "users_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
-    Views: { [_ in never]: never }
+    Views: {
+      form_recipient_summary: {
+        Row: {
+          company_ids: string[] | null
+          form_id: string | null
+          organization_id: string | null
+        }
+        Relationships: []
+      }
+    }
     Functions: {
+      get_lp_letters: { Args: never; Returns: Json }
       get_public_form: {
         Args: { p_company_slug: string; p_form_slug: string }
         Returns: Json

@@ -71,7 +71,7 @@ export default async function FormsPage({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {templates.map((t) => {
             const href = companySlug
-              ? `/fill/${t.slug}?company=${companySlug}`
+              ? `/fill/${t.slug}?company=${companySlug}&preview=1`
               : `/forms/${t.slug}`;
             return (
               <Link key={t.id} href={href} className="group">

@@ -20,6 +20,7 @@ export type FormInput = {
   name: string;
   cadence: "monthly" | "quarterly" | "annual" | "ad-hoc";
   fields: DraftField[];
+  recipientCompanyIds?: string[]; // empty/undefined = "all companies"
 };
 
 export type FormResult = { ok: true; slug: string } | { ok: false; error: string };
@@ -80,16 +81,29 @@ export async function createForm(input: FormInput): Promise<FormResult> {
     finalSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
   }
 
-  const { error } = await supabase.from("forms").insert({
-    organization_id: organizationId,
-    slug: finalSlug,
-    name: input.name.trim(),
-    cadence: toDbCadence(input.cadence),
-    fields_json: input.fields as any,
-    active: true,
-  });
+  const { data: inserted, error } = await supabase
+    .from("forms")
+    .insert({
+      organization_id: organizationId,
+      slug: finalSlug,
+      name: input.name.trim(),
+      cadence: toDbCadence(input.cadence),
+      fields_json: input.fields as any,
+      active: true,
+    })
+    .select("id")
+    .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error || !inserted) return { ok: false, error: error?.message ?? "Insert failed" };
+
+  if (input.recipientCompanyIds && input.recipientCompanyIds.length > 0) {
+    await supabase.from("form_recipients").insert(
+      input.recipientCompanyIds.map((cid) => ({
+        form_id: inserted.id,
+        company_id: cid,
+      }))
+    );
+  }
 
   revalidatePath("/forms");
   redirect(`/forms/${finalSlug}`);
@@ -122,6 +136,19 @@ export async function updateForm(slug: string, input: FormInput): Promise<FormRe
     .eq("id", existing.id);
 
   if (error) return { ok: false, error: error.message };
+
+  // Replace recipients atomically: delete + insert.
+  if (input.recipientCompanyIds !== undefined) {
+    await supabase.from("form_recipients").delete().eq("form_id", existing.id);
+    if (input.recipientCompanyIds.length > 0) {
+      await supabase.from("form_recipients").insert(
+        input.recipientCompanyIds.map((cid) => ({
+          form_id: existing.id,
+          company_id: cid,
+        }))
+      );
+    }
+  }
 
   revalidatePath("/forms");
   revalidatePath(`/forms/${slug}`);

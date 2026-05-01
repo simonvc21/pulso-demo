@@ -1,10 +1,10 @@
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, User, Building2, Mail, Shield, Calendar } from "lucide-react";
+import { LogOut, User, Mail, Shield } from "lucide-react";
 import { getCurrentUser, getFund } from "@/lib/dashboard-data";
-import { fmtUSD } from "@/lib/utils";
 import { signOut } from "./actions";
+import { FundForm } from "./fund-form";
 
 export const dynamic = "force-dynamic";
 
@@ -31,19 +31,20 @@ export default async function SettingsPage() {
         </Card>
 
         {/* Fund */}
-        <Card title="Fund" subtitle="The organization your account is scoped to via RLS">
-          <Field icon={Building2} label="Name" value={fund?.name ?? "—"} />
-          <Field icon={Calendar} label="Vintage" value={fund?.vintage ? String(fund.vintage) : "—"} />
-          <Field
-            icon={Building2}
-            label="Fund size"
-            value={fund?.size_usd ? fmtUSD(Number(fund.size_usd), { compact: true }) : "—"}
-          />
-          <Field
-            icon={Building2}
-            label="Deployed"
-            value={fund?.deployed_usd ? fmtUSD(Number(fund.deployed_usd), { compact: true }) : "—"}
-          />
+        <Card title="Fund" subtitle="Edit your fund's profile. Visible to your team and on LP letters.">
+          {fund ? (
+            <FundForm
+              initial={{
+                name: fund.name,
+                vintage: fund.vintage ?? null,
+                sizeUsd: Number(fund.size_usd ?? 0),
+                deployedUsd: Number(fund.deployed_usd ?? 0),
+                currency: fund.currency ?? "USD",
+              }}
+            />
+          ) : (
+            <div className="text-[12px] text-muted">Your account isn't assigned to a fund yet.</div>
+          )}
         </Card>
 
         {/* Integrations placeholder */}
