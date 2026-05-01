@@ -8,27 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { inviteUser, revokeInvitation, updateMemberRole, removeMember } from "../team-actions";
 import type { OrgMember, OrgInvitation } from "@/lib/dashboard-data";
+import { FUND_ROLES, roleLabel, type FundRole } from "@/lib/roles";
 
-const ROLES = [
-  { value: "gp", label: "GP" },
-  { value: "managing_partner", label: "Managing Partner" },
-  { value: "analyst", label: "Analyst" },
-  { value: "viewer", label: "Viewer" },
-] as const;
-
-type RoleValue = (typeof ROLES)[number]["value"];
-
-function roleLabel(role: string): string {
-  return ROLES.find((r) => r.value === role)?.label ?? role.toUpperCase();
-}
+const ROLES = FUND_ROLES;
+type RoleValue = FundRole;
 
 interface Props {
   initialMembers: OrgMember[];
   initialInvitations: OrgInvitation[];
   currentUserId: string | null;
+  canManage: boolean;
 }
 
-export function TeamPanel({ initialMembers, initialInvitations, currentUserId }: Props) {
+export function TeamPanel({ initialMembers, initialInvitations, currentUserId, canManage }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -54,9 +46,11 @@ export function TeamPanel({ initialMembers, initialInvitations, currentUserId }:
               {initialInvitations.length > 0 && ` · ${initialInvitations.length} pending`}
             </p>
           </div>
-          <Button variant="primary" size="sm" className="gap-1.5" onClick={() => setInviteOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> Invite
-          </Button>
+          {canManage && (
+            <Button variant="primary" size="sm" className="gap-1.5" onClick={() => setInviteOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Invite
+            </Button>
+          )}
         </div>
 
         {error && (
@@ -75,21 +69,27 @@ export function TeamPanel({ initialMembers, initialInvitations, currentUserId }:
                 <div className="text-sm font-medium text-ink truncate">{m.name ?? m.email}</div>
                 <div className="text-[11px] text-muted truncate">{m.email}</div>
               </div>
-              <select
-                value={m.role}
-                disabled={pending || m.id === currentUserId}
-                onChange={(e) =>
-                  handleAction(() => updateMemberRole(m.id, e.target.value as RoleValue))
-                }
-                className="h-8 px-2 rounded-md border border-line text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
-              >
-                {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
+              {canManage && m.id !== currentUserId ? (
+                <select
+                  value={m.role}
+                  disabled={pending}
+                  onChange={(e) =>
+                    handleAction(() => updateMemberRole(m.id, e.target.value as RoleValue))
+                  }
+                  className="h-8 px-2 rounded-md border border-line text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <Badge tone={ROLES.find((r) => r.value === m.role)?.tone ?? "default"}>
+                  {roleLabel(m.role)}
+                </Badge>
+              )}
               {m.id === currentUserId ? (
                 <Badge tone="teal">You</Badge>
-              ) : (
+              ) : canManage ? (
                 <button
                   onClick={() => {
                     if (!confirm(`Remove ${m.email} from the fund?`)) return;
@@ -102,7 +102,7 @@ export function TeamPanel({ initialMembers, initialInvitations, currentUserId }:
                 >
                   <UserMinus className="h-4 w-4" />
                 </button>
-              )}
+              ) : null}
             </div>
           ))}
           {initialMembers.length === 0 && (
@@ -131,14 +131,16 @@ export function TeamPanel({ initialMembers, initialInvitations, currentUserId }:
                       </div>
                     </div>
                     <Badge tone={expired ? "default" : "gold"}>{roleLabel(inv.role)}</Badge>
-                    <button
-                      onClick={() => handleAction(() => revokeInvitation(inv.id))}
-                      disabled={pending}
-                      className="text-muted hover:text-coral p-1.5"
-                      title="Revoke invitation"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                    {canManage && (
+                      <button
+                        onClick={() => handleAction(() => revokeInvitation(inv.id))}
+                        disabled={pending}
+                        className="text-muted hover:text-coral p-1.5"
+                        title="Revoke invitation"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 );
               })}

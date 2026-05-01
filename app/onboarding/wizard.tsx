@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createFund, importCompanies, finishOnboarding, type CompanyDraft } from "./actions";
 import { inviteUser } from "../(gp)/settings/team-actions";
+import { FUND_ROLES, type FundRole } from "@/lib/roles";
 
 type Step = 1 | 2 | 3;
 
@@ -39,7 +40,7 @@ export function OnboardingWizard({ userEmail, userName }: Props) {
   const [companiesImported, setCompaniesImported] = useState(0);
 
   // Step 3: invitations
-  const [invites, setInvites] = useState<{ email: string; role: "analyst" | "managing_partner" | "viewer" }[]>([
+  const [invites, setInvites] = useState<{ email: string; role: FundRole }[]>([
     { email: "", role: "analyst" },
   ]);
   const [invitesResults, setInvitesResults] = useState<Array<{ email: string; ok: boolean; error?: string }>>([]);
@@ -386,15 +387,15 @@ function Step2({
 function Step3({
   invites, setInvites, results, companiesImported, onBack, onFinish, pending,
 }: {
-  invites: { email: string; role: "analyst" | "managing_partner" | "viewer" }[];
-  setInvites: React.Dispatch<React.SetStateAction<{ email: string; role: "analyst" | "managing_partner" | "viewer" }[]>>;
+  invites: { email: string; role: FundRole }[];
+  setInvites: React.Dispatch<React.SetStateAction<{ email: string; role: FundRole }[]>>;
   results: Array<{ email: string; ok: boolean; error?: string }>;
   companiesImported: number;
   onBack: () => void;
   onFinish: () => void;
   pending: boolean;
 }) {
-  const update = (i: number, patch: Partial<{ email: string; role: "analyst" | "managing_partner" | "viewer" }>) =>
+  const update = (i: number, patch: Partial<{ email: string; role: FundRole }>) =>
     setInvites((p) => p.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   const remove = (i: number) => setInvites((p) => p.filter((_, idx) => idx !== i));
   const add = () => setInvites((p) => [...p, { email: "", role: "analyst" }]);
@@ -422,12 +423,12 @@ function Step3({
               />
               <select
                 value={inv.role}
-                onChange={(e) => update(i, { role: e.target.value as any })}
+                onChange={(e) => update(i, { role: e.target.value as FundRole })}
                 className="h-10 px-2 rounded-lg border border-line text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
               >
-                <option value="managing_partner">Managing Partner</option>
-                <option value="analyst">Analyst</option>
-                <option value="viewer">Viewer</option>
+                {FUND_ROLES.filter((r) => r.value !== "gp").map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
               </select>
               {result?.ok && <Badge tone="teal">Sent</Badge>}
               {result && !result.ok && <Badge tone="default">Failed</Badge>}

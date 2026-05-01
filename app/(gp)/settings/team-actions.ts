@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { FUND_ROLES, type FundRole } from "@/lib/roles";
 
-const VALID_ROLES = ["gp", "managing_partner", "analyst", "viewer"] as const;
-type Role = typeof VALID_ROLES[number];
+const VALID_ROLES = FUND_ROLES.map((r) => r.value) as readonly FundRole[];
+type Role = FundRole;
 
 type Result<T = void> = T extends void
   ? { ok: true } | { ok: false; error: string }

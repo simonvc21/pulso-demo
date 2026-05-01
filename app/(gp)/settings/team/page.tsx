@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { getOrgMembers, getCurrentUser } from "@/lib/dashboard-data";
+import { isAdminRole } from "@/lib/roles";
 import { TeamPanel } from "./team-panel";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function TeamPage() {
   const [members, profile] = await Promise.all([getOrgMembers(), getCurrentUser()]);
 
-  // The members coming from the RPC use public.users.id, not auth_user_id.
-  // We need that id to know which row is "you". Look it up from the current user.
   const me = members.members.find((m) => m.email.toLowerCase() === profile?.email?.toLowerCase());
   const currentUserId = me?.id ?? null;
+  const canManage = isAdminRole(profile?.role);
 
   return (
     <>
@@ -29,6 +29,7 @@ export default async function TeamPage() {
           initialMembers={members.members}
           initialInvitations={members.invitations}
           currentUserId={currentUserId}
+          canManage={canManage}
         />
       </div>
     </>
