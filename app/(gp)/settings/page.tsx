@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, User, Mail, Shield } from "lucide-react";
+import { LogOut, User, Mail, Shield, Users, ChevronRight } from "lucide-react";
 import { getCurrentUser, getFund } from "@/lib/dashboard-data";
 import { signOut } from "./actions";
 import { FundForm } from "./fund-form";
@@ -46,6 +47,22 @@ export default async function SettingsPage() {
             <div className="text-[12px] text-muted">Your account isn't assigned to a fund yet.</div>
           )}
         </Card>
+
+        {/* Team */}
+        <Link href="/settings/team" className="block group">
+          <div className="bg-white rounded-xl border border-line shadow-card hover:shadow-cardHover transition-shadow overflow-hidden">
+            <div className="px-5 py-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+                <Users className="h-5 w-5 text-teal-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-ink">Team</h3>
+                <p className="text-[11px] text-muted mt-0.5">Invite analysts and partners, manage roles, revoke access</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors" />
+            </div>
+          </div>
+        </Link>
 
         {/* Integrations placeholder */}
         <Card

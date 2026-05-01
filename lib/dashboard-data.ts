@@ -631,3 +631,51 @@ export async function getLpLetters(): Promise<LpLetterListItem[]> {
     organizationName: r.organization_name,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// Team / invitations
+// ---------------------------------------------------------------------------
+
+export interface OrgMember {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  createdAt: string;
+}
+
+export interface OrgInvitation {
+  id: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface OrgMembersResult {
+  members: OrgMember[];
+  invitations: OrgInvitation[];
+}
+
+export async function getOrgMembers(): Promise<OrgMembersResult> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_org_members");
+  if (error || !data) return { members: [], invitations: [] };
+
+  const payload = data as any;
+  const members = ((payload?.members ?? []) as any[]).map((m) => ({
+    id: m.id,
+    email: m.email,
+    name: m.name,
+    role: m.role,
+    createdAt: m.created_at,
+  }));
+  const invitations = ((payload?.invitations ?? []) as any[]).map((i) => ({
+    id: i.id,
+    email: i.email,
+    role: i.role,
+    expiresAt: i.expires_at,
+    createdAt: i.created_at,
+  }));
+  return { members, invitations };
+}

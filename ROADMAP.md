@@ -106,6 +106,45 @@ Lo que destraba que un fondo nuevo se sume sin que yo (Simon) le haga el setup m
 
 ---
 
+## Fase J — Notificaciones (in-app + AI alerts) (2-3 días)
+
+Bell icon en el topbar con feed de eventos. Mezcla notificaciones de actividad del sistema con alertas heurísticas y, después, alertas con LLM en Fase F.
+
+**J.1 Tabla `notifications` + bell + feed**
+- `notifications(id, organization_id, user_id, kind, title, body, link, metadata_json, read_at, created_at)`.
+- `kind` enum: `form_submitted`, `form_sent`, `reminder_sent`, `lp_viewed_letter`, `metric_alert_runway`, `metric_alert_arr_drop`, `metric_alert_burn_spike`, `member_joined`, `letter_published`.
+- RLS: cada user ve sus notificaciones (filtradas por user_id IS NULL OR user_id = current_user) dentro de su org.
+- Bell con contador de no-leídas en el topbar; dropdown con últimas 10; "Mark all as read" + página `/notifications` con historial completo.
+
+**J.2 Triggers automáticos del sistema**
+- Trigger Postgres `after_insert_form_submission` → notifica al GP con kind=form_submitted, link al detail de la company.
+- Trigger en `forms.last_sent_at` UPDATE → kind=form_sent (al GP que disparó el send).
+- Trigger en `share_links.view_count` UPDATE → kind=lp_viewed_letter (al GP de la org del share).
+- Trigger en `users` INSERT (cuando alguien acepta una invitación) → kind=member_joined al GP.
+- Trigger en `forms` UPDATE (when active flips false→true after a long pause, etc.) — opcional.
+
+**J.3 Alertas de métricas heurísticas (sin LLM)**
+- Cron diario `daily-metric-alerts` (Vercel Cron Job) corre reglas determinísticas sobre los últimos 2 quarters:
+  - `runway < 9 mo` → kind=metric_alert_runway
+  - `ARR cae > 10% QoQ` → kind=metric_alert_arr_drop
+  - `burn sube > 25% QoQ sin que ARR siga` → kind=metric_alert_burn_spike
+- Cada regla genera 1 notificación por company por trigger por trimestre (no spammear).
+- Reglas configurables por fondo en `/settings/alerts` (umbrales editables).
+
+**J.4 Alertas con AI (depende de Fase F)**
+- Cuando Fase F (AI chatbot) ya tenga el tool use sobre la DB, el mismo cron diario lanza una corrida de Claude con prompt "qué es lo más urgente que el GP debería saber esta semana?".
+- Resultado se guarda como kind=ai_insight con confidence + summary.
+- Cap de 3 ai_insights/semana por fondo para controlar costo.
+
+**J.5 Email digest**
+- Trigger sobre `notifications` INSERT → si el user tiene `email_digest_frequency = realtime`, manda mail al toque (Resend).
+- Si `daily` o `weekly`, cron junta las pendientes y manda un solo digest.
+- Configurable en `/settings/notifications`.
+
+**Entregable J:** GP abre la app y ve "Vextra acaba de enviar Q1 financials", "Brio runway < 9mo según último submit", "Andina abrió tu LP letter hace 2h". Click → va al sitio relevante. Email digest opcional.
+
+---
+
 ## Fase D — Personalización y white-label (3-4 días)
 
 Para que cada fondo sienta que es *su* tool, no Pulso.

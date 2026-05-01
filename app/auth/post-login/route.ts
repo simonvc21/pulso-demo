@@ -18,11 +18,15 @@ export async function GET(request: NextRequest) {
 
   const { data: row } = await supabase
     .from("users")
-    .select("role")
+    .select("role, organization_id")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   const role = row?.role ?? "viewer";
+  // No fund yet → onboarding wizard.
+  if (!row?.organization_id) {
+    return NextResponse.redirect(`${url.origin}/onboarding`);
+  }
   const dest = role === "lp" ? "/lp" : "/dashboard";
   return NextResponse.redirect(`${url.origin}${dest}`);
 }
