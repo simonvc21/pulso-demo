@@ -1,32 +1,63 @@
-"use client";
-
-import { useState } from "react";
 import { Lock, Download, Eye, Calendar, Sparkles, Zap } from "lucide-react";
-import { fund, fundKpis, companies } from "@/lib/mock-data";
 import { fmtUSD, fmtPct } from "@/lib/utils";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
+import { getShareLetter } from "@/lib/dashboard-data";
 
-// LP-side view — branded, watermarked, limited to what GPs share
-export default function LpSharePage({ params }: { params: { token: string } }) {
-  const k = fundKpis();
-  const [showAuth, setShowAuth] = useState(false);
+export const dynamic = "force-dynamic";
 
-  // Aggregated quarterly ARR trend (sum across portfolio)
-  const arrTrend = companies[0].metrics.map((m, i) => ({
-    quarter: m.quarter,
-    arr: companies.reduce((a, c) => a + c.metrics[i].arr, 0),
-  }));
+interface PageProps {
+  params: { token: string };
+}
 
-  // Aggregated, anonymized "top movers" for LPs (no critical company names)
-  const topMovers = [...companies]
+export default async function LpSharePage({ params }: PageProps) {
+  const result = await getShareLetter(params.token);
+
+  if (result.kind === "expired") {
+    return <ExpiredView />;
+  }
+  if (result.kind === "not_found") {
+    return <NotFoundView />;
+  }
+
+  const { organization: org, share, companies } = result.data;
+  const watermark = share.watermark_email ?? "view-only";
+
+  // Aggregate KPIs across the portfolio
+  const latest = (cms: typeof companies[number]["metrics"]) => cms[cms.length - 1];
+  const prev = (cms: typeof companies[number]["metrics"]) => cms[cms.length - 2];
+  const yoy = (cms: typeof companies[number]["metrics"]) => cms[cms.length - 5];
+
+  const arrTotal = companies.reduce((a, c) => a + (latest(c.metrics)?.arr ?? 0), 0);
+  const arrPrev = companies.reduce((a, c) => a + (prev(c.metrics)?.arr ?? 0), 0);
+  const arrYoY = companies.reduce((a, c) => a + (yoy(c.metrics)?.arr ?? 0), 0);
+  const qoqArrGrowth = arrPrev > 0 ? ((arrTotal - arrPrev) / arrPrev) * 100 : 0;
+  const yoyGrowth = arrYoY > 0 ? ((arrTotal - arrYoY) / arrYoY) * 100 : 0;
+
+  const arrTrend = (() => {
+    const buckets = new Map<string, number>();
+    for (const c of companies) {
+      for (const m of c.metrics) buckets.set(m.quarter, (buckets.get(m.quarter) ?? 0) + m.arr);
+    }
+    return Array.from(buckets.entries()).map(([quarter, arr]) => ({ quarter, arr }));
+  })();
+
+  const topMovers = companies
+    .filter((c) => c.status !== "critical")
     .map((c) => {
-      const last = c.metrics[c.metrics.length - 1];
-      const prev = c.metrics[c.metrics.length - 2];
-      return { name: c.name, sector: c.sector, country: c.country, qoq: ((last.arr - prev.arr) / prev.arr) * 100, arr: last.arr, status: c.status };
+      const last = latest(c.metrics);
+      const p = prev(c.metrics);
+      const qoq = p && p.arr > 0 ? ((last.arr - p.arr) / p.arr) * 100 : 0;
+      return { name: c.name, sector: c.sector, country: c.country, qoq, arr: last?.arr ?? 0 };
     })
-    .filter((c) => c.status !== "critical") // GP chose to hide critical names from LPs
     .sort((a, b) => b.qoq - a.qoq)
     .slice(0, 4);
+
+  const fundSize = org.size_usd;
+  const fundDeployed = org.deployed_usd;
+  const deployedPct = fundSize > 0 ? Math.round((fundDeployed / fundSize) * 100) : 0;
+  const expiresLabel = share.expires_at
+    ? new Date(share.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
 
   return (
     <div className="min-h-screen bg-paper relative">
@@ -35,7 +66,7 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
         <div className="absolute inset-0 flex flex-wrap content-around justify-around -rotate-12">
           {Array.from({ length: 30 }).map((_, i) => (
             <div key={i} className="text-3xl font-serif font-bold text-navy whitespace-nowrap mx-8 my-6">
-              CONFIDENTIAL · andina@familyoffice.cl · {fund.name}
+              CONFIDENTIAL · {watermark} · {org.name}
             </div>
           ))}
         </div>
@@ -50,13 +81,13 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
                 <Zap className="h-4 w-4 text-gold" fill="currentColor" />
               </div>
               <div>
-                <div className="text-base font-serif font-bold text-ink leading-tight">{fund.name}</div>
-                <div className="text-[11px] text-muted">Q1 2026 quarterly letter · prepared for Andina Capital Partners</div>
+                <div className="text-base font-serif font-bold text-ink leading-tight">{org.name}</div>
+                <div className="text-[11px] text-muted">Quarterly letter · prepared for {watermark}</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 text-[11px] text-muted bg-paper2 px-2.5 py-1 rounded-md">
-                <Lock className="h-3 w-3" /> View-only · expires May 30
+                <Lock className="h-3 w-3" /> View-only{expiresLabel ? ` · expires ${expiresLabel}` : ""}
               </span>
               <button className="h-9 px-3 rounded-lg border border-line bg-white text-xs font-medium text-ink hover:bg-paper2 inline-flex items-center gap-1.5">
                 <Download className="h-3.5 w-3.5" /> PDF
@@ -69,19 +100,19 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
           {/* Hero */}
           <div className="bg-white rounded-2xl shadow-card border border-line overflow-hidden">
             <div className="bg-navy text-white px-8 py-7">
-              <div className="text-[10px] tracking-[0.18em] uppercase font-semibold text-gold">LP Letter · Q1 2026</div>
+              <div className="text-[10px] tracking-[0.18em] uppercase font-semibold text-gold">LP Letter</div>
               <h1 className="mt-2 font-serif text-3xl font-bold leading-tight">
-                Patagonia Fund I — Quarterly portfolio update
+                {org.name} — Quarterly portfolio update
               </h1>
               <p className="mt-3 text-sm text-white/80 max-w-2xl">
-                Dear Andina team — the portfolio finished Q1 in strong shape. Total ARR is up {k.qoqArrGrowth.toFixed(1)}% QoQ, with two new investments this quarter. Below is the pulse of the fund as of April 30, 2026.
+                The portfolio finished the quarter in strong shape. Total ARR is {fmtPct(qoqArrGrowth, 1)} QoQ across {companies.length} companies. Below is the pulse of the fund.
               </p>
             </div>
             <div className="px-8 py-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <SimpleStat label="Total Invested" value={fmtUSD(fund.deployed, { compact: true })} hint={`${((fund.deployed / fund.size) * 100).toFixed(0)}% of fund deployed`} />
-              <SimpleStat label="Portfolio ARR" value={fmtUSD(k.arrTotal, { compact: true })} hint={`${fmtPct(k.qoqArrGrowth, 1)} QoQ`} positive />
-              <SimpleStat label="Companies" value={String(fund.companies)} hint="2 new in Q1" />
-              <SimpleStat label="Avg ARR Growth (YoY)" value={`${k.yoyGrowth.toFixed(0)}%`} hint="weighted, top quartile" positive />
+              <SimpleStat label="Total Invested" value={fmtUSD(fundDeployed, { compact: true })} hint={`${deployedPct}% of fund deployed`} />
+              <SimpleStat label="Portfolio ARR" value={fmtUSD(arrTotal, { compact: true })} hint={`${fmtPct(qoqArrGrowth, 1)} QoQ`} positive />
+              <SimpleStat label="Companies" value={String(companies.length)} hint={org.vintage ? `Vintage ${org.vintage}` : ""} />
+              <SimpleStat label="Avg ARR Growth (YoY)" value={`${yoyGrowth.toFixed(0)}%`} hint="weighted, top quartile" positive />
             </div>
           </div>
 
@@ -105,13 +136,13 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
               <h2 className="text-lg font-serif font-bold text-ink">Letter from the GP</h2>
               <div className="mt-4 prose prose-sm max-w-none text-ink leading-relaxed space-y-3">
                 <p className="text-[13.5px]">
-                  Q1 was, on balance, a strong quarter. ARR is at <strong>{fmtUSD(k.arrTotal, { compact: true })}</strong> across the portfolio with a <strong>{fmtPct(k.qoqArrGrowth, 1)} QoQ</strong> growth rate. Vextra (Mexico) and Lumen (Brazil) continue to be the standouts — both crossed important commercial milestones during the quarter and are well-capitalized for Series B conversations later this year.
+                  This was, on balance, a strong quarter. ARR is at <strong>{fmtUSD(arrTotal, { compact: true })}</strong> across the portfolio with a <strong>{fmtPct(qoqArrGrowth, 1)} QoQ</strong> growth rate. Top performers continue to be well-capitalized for next-stage conversations later this year.
                 </p>
                 <p className="text-[13.5px]">
-                  Two of our companies are in active monitoring. We are working closely with one founder on a bridge plan to extend runway to 14 months. We will share specifics privately on our next quarterly call.
+                  We are working closely with the founders of companies on our active monitoring list. We will share specifics privately on our next quarterly call.
                 </p>
                 <p className="text-[13.5px]">
-                  We deployed two new investments this quarter — one fintech (Mexico) and one logistics platform (Colombia). Both fit our thesis of LATAM-native infrastructure for the SMB economy.
+                  Both new investments closed this quarter fit our thesis of LATAM-native infrastructure for the SMB economy.
                 </p>
               </div>
             </div>
@@ -132,7 +163,7 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-ink">{c.name}</div>
-                      <div className="text-[11px] text-muted">{c.sector} · {c.country}</div>
+                      <div className="text-[11px] text-muted">{c.sector ?? "—"} · {c.country ?? "—"}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-semibold text-ink tabular-nums">{fmtUSD(c.arr, { compact: true })}</div>
@@ -153,7 +184,7 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
               <div className="text-[10px] text-gold tracking-[0.16em] uppercase font-semibold">Generated by Pulso</div>
               <h3 className="mt-1 text-base font-serif font-semibold">In one paragraph</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-white/90">
-                Patagonia Fund I returned strong Q1 results with portfolio ARR up {fmtPct(k.qoqArrGrowth, 1)} QoQ and {k.yoyGrowth.toFixed(0)}% YoY. The fund is {((fund.deployed / fund.size) * 100).toFixed(0)}% deployed across {fund.companies} companies in 6 LATAM countries. Two companies require active GP support; six are tracking ahead of plan.
+                {org.name} returned strong results with portfolio ARR up {fmtPct(qoqArrGrowth, 1)} QoQ and {yoyGrowth.toFixed(0)}% YoY. The fund is {deployedPct}% deployed across {companies.length} companies. The flagged companies receive active GP support; the rest are tracking ahead of plan.
               </p>
             </div>
           </div>
@@ -161,7 +192,7 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
           {/* Footer */}
           <div className="pt-4 pb-12 flex items-center justify-between text-[11px] text-muted border-t border-line">
             <div className="flex items-center gap-2">
-              <Calendar className="h-3 w-3" /> Generated April 30, 2026 · auto-updates as new data arrives
+              <Calendar className="h-3 w-3" /> Auto-updates as new founder data arrives · {share.view_count} view{share.view_count === 1 ? "" : "s"}
             </div>
             <div>
               Powered by <span className="font-semibold text-navy">Pulso</span>
@@ -169,16 +200,6 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
           </div>
         </div>
       </div>
-
-      {/* Soft auth prompt */}
-      {showAuth && (
-        <div className="fixed inset-0 z-50 bg-navy/40 flex items-center justify-center p-6" onClick={() => setShowAuth(false)}>
-          <div className="bg-white rounded-2xl p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="text-sm font-semibold">Verify your identity</div>
-            <div className="text-xs text-muted mt-1">Enter the code we sent to andina@familyoffice.cl</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -189,6 +210,40 @@ function SimpleStat({ label, value, hint, positive }: { label: string; value: st
       <div className="text-[10px] tracking-[0.14em] uppercase text-muted font-semibold">{label}</div>
       <div className="mt-1 font-serif text-2xl font-bold text-ink leading-none tabular-nums">{value}</div>
       {hint && <div className={`text-[11px] mt-1 ${positive ? "text-teal-600 font-medium" : "text-muted"}`}>{hint}</div>}
+    </div>
+  );
+}
+
+function ExpiredView() {
+  return (
+    <CenteredMessage
+      tone="muted"
+      title="This link has expired"
+      body="Reach out to the GP to request a new share link."
+    />
+  );
+}
+
+function NotFoundView() {
+  return (
+    <CenteredMessage
+      tone="muted"
+      title="Letter not found"
+      body="The link may be incorrect, revoked, or already replaced by a newer letter."
+    />
+  );
+}
+
+function CenteredMessage({ title, body }: { title: string; body: string; tone: "muted" }) {
+  return (
+    <div className="min-h-screen bg-paper flex items-center justify-center px-6">
+      <div className="bg-white border border-line rounded-2xl shadow-card max-w-md w-full p-8 text-center">
+        <div className="h-10 w-10 rounded-full bg-navy text-gold flex items-center justify-center mx-auto">
+          <Lock className="h-5 w-5" />
+        </div>
+        <h1 className="mt-4 text-xl font-serif font-bold text-ink">{title}</h1>
+        <p className="mt-2 text-sm text-muted">{body}</p>
+      </div>
     </div>
   );
 }

@@ -348,3 +348,236 @@ function formatShortDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+// ---------------------------------------------------------------------------
+// Form template detail (authenticated GP view)
+// ---------------------------------------------------------------------------
+
+export type FormFieldRow = {
+  id: string;
+  type: "currency" | "number" | "percent" | "text" | "longtext" | "select" | "date";
+  label: string;
+  required?: boolean;
+  group?: string;
+  options?: string[];
+};
+
+export interface FormTemplateDetail {
+  id: string;
+  slug: string;
+  name: string;
+  cadence: FormCadence;
+  fields: FormFieldRow[];
+  responseRate: number;
+  sentToCount: number;
+  lastSent: string | null;
+  active: boolean;
+  recentSubmissions: Array<{
+    id: string;
+    companyName: string;
+    submittedAt: string;
+    submittedBy: string | null;
+    aiExtracted: boolean;
+  }>;
+}
+
+export async function getFormBySlug(slug: string): Promise<FormTemplateDetail | null> {
+  const supabase = createClient();
+  const { data: form } = await supabase
+    .from("forms")
+    .select("id, slug, name, cadence, fields_json, response_rate, sent_to_count, last_sent_at, active")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!form) return null;
+
+  const { data: subs } = await supabase
+    .from("form_submissions")
+    .select("id, submitted_at, submitted_by_email, ai_extracted, companies(name)")
+    .eq("form_id", form.id)
+    .order("submitted_at", { ascending: false })
+    .limit(10);
+
+  return {
+    id: form.id,
+    slug: form.slug,
+    name: form.name,
+    cadence: form.cadence === "ad_hoc" ? "ad-hoc" : (form.cadence as FormCadence),
+    fields: Array.isArray(form.fields_json) ? (form.fields_json as unknown as FormFieldRow[]) : [],
+    responseRate: Number(form.response_rate ?? 0),
+    sentToCount: form.sent_to_count ?? 0,
+    lastSent: form.last_sent_at ? formatShortDate(form.last_sent_at) : null,
+    active: form.active,
+    recentSubmissions: (subs ?? []).map((s: any) => ({
+      id: s.id,
+      companyName: s.companies?.name ?? "Unknown",
+      submittedAt: relativeTime(s.submitted_at),
+      submittedBy: s.submitted_by_email,
+      aiExtracted: s.ai_extracted,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Current user profile (for settings + sidebar identity)
+// ---------------------------------------------------------------------------
+
+export interface CurrentUserProfile {
+  authUserId: string;
+  email: string;
+  name: string | null;
+  role: string;
+  organizationName: string | null;
+  organizationId: string | null;
+}
+
+export async function getCurrentUser(): Promise<CurrentUserProfile | null> {
+  const supabase = createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  if (!authUser) return null;
+
+  const { data: row } = await supabase
+    .from("users")
+    .select("email, name, role, organization_id, organizations(name)")
+    .eq("auth_user_id", authUser.id)
+    .maybeSingle();
+
+  return {
+    authUserId: authUser.id,
+    email: row?.email ?? authUser.email ?? "",
+    name: row?.name ?? null,
+    role: row?.role ?? "viewer",
+    organizationName: (row as any)?.organizations?.name ?? null,
+    organizationId: row?.organization_id ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public RPCs (anonymous founders + LPs)
+// ---------------------------------------------------------------------------
+
+export interface PublicFormPayload {
+  form: {
+    id: string;
+    slug: string;
+    name: string;
+    cadence: string;
+    fields: FormFieldRow[];
+  };
+  company: {
+    id: string;
+    slug: string;
+    name: string;
+    founder_name: string | null;
+    founder_email: string | null;
+  };
+  organization: { name: string };
+}
+
+export async function getPublicForm(
+  formSlug: string,
+  companySlug: string
+): Promise<PublicFormPayload | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_public_form", {
+    p_form_slug: formSlug,
+    p_company_slug: companySlug,
+  });
+  if (error || !data) return null;
+  const payload = data as any;
+  if (!payload?.form || !payload?.company) return null;
+  return {
+    form: {
+      id: payload.form.id,
+      slug: payload.form.slug,
+      name: payload.form.name,
+      cadence: payload.form.cadence,
+      fields: Array.isArray(payload.form.fields) ? payload.form.fields : [],
+    },
+    company: payload.company,
+    organization: payload.organization ?? { name: "" },
+  };
+}
+
+export interface ShareLetterPayload {
+  organization: {
+    name: string;
+    vintage: number | null;
+    size_usd: number;
+    deployed_usd: number;
+    currency: string;
+  };
+  share: {
+    token: string;
+    watermark_email: string | null;
+    expires_at: string | null;
+    view_count: number;
+  };
+  companies: Array<{
+    slug: string;
+    name: string;
+    sector: string | null;
+    country: string | null;
+    status: "healthy" | "watch" | "critical" | "no-data";
+    metrics: Array<{
+      quarter: string;
+      arr: number;
+      burn: number;
+      cash: number;
+      revenue: number;
+      headcount: number;
+    }>;
+  }>;
+}
+
+export async function getShareLetter(token: string): Promise<
+  | { kind: "ok"; data: ShareLetterPayload }
+  | { kind: "expired" }
+  | { kind: "not_found" }
+> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_share_letter", { p_token: token });
+  if (error || data == null) return { kind: "not_found" };
+  const payload = data as any;
+  if (payload?.expired) return { kind: "expired" };
+  if (!payload?.organization) return { kind: "not_found" };
+
+  const companies = (payload.companies ?? []).map((c: any) => ({
+    slug: c.slug,
+    name: c.name,
+    sector: c.sector,
+    country: c.country,
+    status: (c.status === "no_data" ? "no-data" : c.status) as ShareLetterPayload["companies"][number]["status"],
+    metrics: ((c.metrics ?? []) as any[])
+      .map((m) => ({
+        quarter: m.quarter,
+        arr: num(m.arr),
+        burn: num(m.burn),
+        cash: num(m.cash),
+        revenue: num(m.revenue),
+        headcount: num(m.headcount),
+      }))
+      .sort((a, b) => quarterSortKey(a.quarter) - quarterSortKey(b.quarter)),
+  }));
+
+  return {
+    kind: "ok",
+    data: {
+      organization: {
+        name: payload.organization.name,
+        vintage: payload.organization.vintage,
+        size_usd: num(payload.organization.size_usd),
+        deployed_usd: num(payload.organization.deployed_usd),
+        currency: payload.organization.currency ?? "USD",
+      },
+      share: {
+        token: payload.share?.token ?? token,
+        watermark_email: payload.share?.watermark_email ?? null,
+        expires_at: payload.share?.expires_at ?? null,
+        view_count: num(payload.share?.view_count ?? 0),
+      },
+      companies,
+    },
+  };
+}

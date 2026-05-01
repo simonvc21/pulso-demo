@@ -272,7 +272,6 @@ export type Database = {
       }
       organizations: {
         Row: {
-          clerk_org_id: string | null
           created_at: string
           currency: string
           deployed_usd: number | null
@@ -284,7 +283,6 @@ export type Database = {
           vintage: number | null
         }
         Insert: {
-          clerk_org_id?: string | null
           created_at?: string
           currency?: string
           deployed_usd?: number | null
@@ -296,7 +294,6 @@ export type Database = {
           vintage?: number | null
         }
         Update: {
-          clerk_org_id?: string | null
           created_at?: string
           currency?: string
           deployed_usd?: number | null
@@ -359,30 +356,30 @@ export type Database = {
       }
       users: {
         Row: {
-          clerk_user_id: string | null
+          auth_user_id: string | null
           created_at: string
           email: string
           id: string
           name: string | null
-          organization_id: string
+          organization_id: string | null
           role: string
         }
         Insert: {
-          clerk_user_id?: string | null
+          auth_user_id?: string | null
           created_at?: string
           email: string
           id?: string
           name?: string | null
-          organization_id: string
+          organization_id?: string | null
           role?: string
         }
         Update: {
-          clerk_user_id?: string | null
+          auth_user_id?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string | null
-          organization_id?: string
+          organization_id?: string | null
           role?: string
         }
         Relationships: [
@@ -397,7 +394,23 @@ export type Database = {
       }
     }
     Views: { [_ in never]: never }
-    Functions: { [_ in never]: never }
+    Functions: {
+      get_public_form: {
+        Args: { p_company_slug: string; p_form_slug: string }
+        Returns: Json
+      }
+      get_share_letter: { Args: { p_token: string }; Returns: Json }
+      submit_public_form: {
+        Args: {
+          p_ai_extracted?: boolean
+          p_company_slug: string
+          p_data: Json
+          p_form_slug: string
+        }
+        Returns: string
+      }
+      user_org_id: { Args: never; Returns: string }
+    }
     Enums: {
       company_stage: "Pre-seed" | "Seed" | "Series A" | "Series B"
       company_status: "healthy" | "watch" | "critical" | "no_data"
@@ -410,11 +423,7 @@ export type Database = {
         | "longtext"
         | "select"
         | "date"
-      lp_type:
-        | "Family Office"
-        | "Institutional"
-        | "Fund of Funds"
-        | "Individual"
+      lp_type: "Family Office" | "Institutional" | "Fund of Funds" | "Individual"
     }
     CompositeTypes: { [_ in never]: never }
   }

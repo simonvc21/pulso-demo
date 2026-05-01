@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, DollarSign, Hash, Percent, Type, AlignLeft, ChevronDown, Calendar, GripVertical, Trash2, Send, Save, Sparkles, Mail, Repeat, Eye } from "lucide-react";
+import { ArrowLeft, DollarSign, Hash, Percent, Type, AlignLeft, ChevronDown, Calendar, GripVertical, Trash2, Send, Save, Sparkles, Mail, Repeat, Eye, Loader2 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { FormFieldType } from "@/lib/types";
+import { createForm } from "../actions";
 
 interface DraftField {
   id: string;
@@ -38,10 +39,33 @@ const initialFields: DraftField[] = [
 
 export default function FormBuilderPage() {
   const [name, setName] = useState("Q2 2026 Financials");
-  const [cadence, setCadence] = useState("quarterly");
+  const [cadence, setCadence] = useState<"monthly" | "quarterly" | "annual" | "ad-hoc">("quarterly");
   const [fields, setFields] = useState<DraftField[]>(initialFields);
   const [selectedId, setSelectedId] = useState<string | null>("1");
   const [recipients] = useState(8);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    const res = await createForm({
+      name,
+      cadence,
+      fields: fields.map((f) => ({
+        id: f.id,
+        type: f.type,
+        label: f.label,
+        required: f.required,
+        group: f.group,
+      })),
+    });
+    if (!res.ok) {
+      setSaving(false);
+      setSaveError(res.error);
+    }
+    // On success the action redirects, so the component unmounts.
+  };
 
   const addField = (type: FormFieldType) => {
     const id = String(Date.now());
@@ -89,12 +113,27 @@ export default function FormBuilderPage() {
         }
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5"><Eye className="h-3.5 w-3.5" /> Preview</Button>
-            <Button variant="outline" size="sm" className="gap-1.5"><Save className="h-3.5 w-3.5" /> Save draft</Button>
-            <Button variant="gold" size="sm" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Schedule send</Button>
+            <Button variant="outline" size="sm" className="gap-1.5" disabled>
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </Button>
+            <Button
+              variant="gold"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {saving ? "Saving…" : "Save form"}
+            </Button>
           </div>
         }
       />
+      {saveError && (
+        <div className="mx-8 mt-4 text-[12px] text-coral bg-red-50 border border-red-100 rounded-md px-3 py-2">
+          {saveError}
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-0 border-b border-line">
         {/* Left: palette */}
@@ -173,7 +212,7 @@ export default function FormBuilderPage() {
               <Repeat className="h-3 w-3 text-muted" /> Cadence
             </label>
             <div className="grid grid-cols-2 gap-1.5">
-              {["monthly", "quarterly", "annual", "ad-hoc"].map((c) => (
+              {(["monthly", "quarterly", "annual", "ad-hoc"] as const).map((c) => (
                 <button
                   key={c}
                   onClick={() => setCadence(c)}
