@@ -52,12 +52,16 @@ export function AddLpButton() {
       </Button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-navy/30 flex items-center justify-center p-4" onClick={() => !pending && setOpen(false)}>
-          <form
-            onSubmit={handleSubmit}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-cardHover w-full max-w-md p-6"
-          >
+        <div
+          className="fixed inset-0 z-50 bg-navy/30 overflow-y-auto"
+          onClick={() => !pending && setOpen(false)}
+        >
+          <div className="min-h-full flex items-start sm:items-center justify-center p-4 py-8">
+            <form
+              onSubmit={handleSubmit}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-cardHover w-full max-w-md p-6 my-auto"
+            >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-serif font-bold text-ink">Add LP</h2>
               <button type="button" onClick={() => !pending && setOpen(false)} className="text-muted hover:text-ink">
@@ -136,7 +140,8 @@ export function AddLpButton() {
                 {pending ? "Saving…" : "Add LP"}
               </Button>
             </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
     </>
