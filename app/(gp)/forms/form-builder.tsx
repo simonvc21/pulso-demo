@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, DollarSign, Hash, Percent, Type, AlignLeft, ChevronDown, Calendar,
-  GripVertical, Trash2, Send, Save, Sparkles, Mail, Repeat, Loader2, X, Check,
+  GripVertical, Trash2, Send, Save, Sparkles, Mail, Repeat, Loader2, X, Check, Newspaper,
 } from "lucide-react";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
@@ -30,6 +30,7 @@ const palette: { type: FormFieldType; label: string; icon: any; example: string 
   { type: "percent",  label: "Percent",   icon: Percent,    example: "Gross margin" },
   { type: "text",     label: "Short text",icon: Type,       example: "Top hire this Q" },
   { type: "longtext", label: "Long text", icon: AlignLeft,  example: "Biggest risk next Q" },
+  { type: "news",     label: "News / Update", icon: Newspaper, example: "Recent news, milestones, press" },
   { type: "select",   label: "Choice",    icon: ChevronDown,example: "Hiring status" },
   { type: "date",     label: "Date",      icon: Calendar,   example: "Last close date" },
 ];
@@ -44,6 +45,7 @@ const defaultNewForm: FormInput = {
     { id: "f4", type: "currency", label: "Cash on hand",                 required: true,  group: "Balance Sheet" },
     { id: "f5", type: "number",   label: "Headcount (FTE)",              required: true,  group: "Team" },
     { id: "f6", type: "longtext", label: "Biggest risk for next quarter",required: false, group: "Narrative" },
+    { id: "f7", type: "news",     label: "Recent news, milestones, press",required: false, group: "Updates" },
   ],
 };
 
@@ -434,6 +436,7 @@ function defaultLabelFor(t: FormFieldType): string {
     percent: "New percent field",
     text: "New short-text field",
     longtext: "New long-text field",
+    news: "Recent news, milestones, press",
     select: "New choice field",
     date: "New date field",
   }[t];
@@ -504,8 +507,11 @@ function SortableFieldRow({
 
 function FieldPreview({ field }: { field: DraftField }) {
   const baseInput = "h-9 w-full max-w-sm px-3 rounded-lg border border-line bg-paper2 text-xs text-muted";
-  if (field.type === "longtext") {
-    return <textarea disabled placeholder="Founder's response will appear here…" className={cn(baseInput, "h-16 py-2")} />;
+  if (field.type === "longtext" || field.type === "news") {
+    const placeholder = field.type === "news"
+      ? "Founder's news, milestones, press, hires…"
+      : "Founder's response will appear here…";
+    return <textarea disabled placeholder={placeholder} className={cn(baseInput, "h-16 py-2")} />;
   }
   if (field.type === "select") {
     return (

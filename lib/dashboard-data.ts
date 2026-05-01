@@ -355,7 +355,7 @@ function formatShortDate(iso: string): string {
 
 export type FormFieldRow = {
   id: string;
-  type: "currency" | "number" | "percent" | "text" | "longtext" | "select" | "date";
+  type: "currency" | "number" | "percent" | "text" | "longtext" | "select" | "date" | "news";
   label: string;
   required?: boolean;
   group?: string;
@@ -722,4 +722,71 @@ export async function getUnreadNotificationCount(): Promise<number> {
     .select("id", { count: "exact", head: true })
     .is("read_at", null);
   return count ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Newsletter feed: extract news/update text from form_submissions.data_json
+// using the form's own fields_json schema to know which keys are narrative.
+// ---------------------------------------------------------------------------
+
+export interface NewsletterUpdate {
+  id: string;            // submission id (row may emit several updates if multiple news fields)
+  field_key: string;
+  company_slug: string;
+  company_name: string;
+  form_name: string;
+  field_label: string;
+  text: string;
+  submitted_at: string;
+}
+
+function isNewsField(field: FormFieldRow): boolean {
+  if (field.type === "news") return true;
+  // Heuristic for legacy forms: longtext fields whose group/label hints at news.
+  if (field.type === "longtext") {
+    const hay = `${field.group ?? ""} ${field.label ?? ""}`.toLowerCase();
+    return /\b(news|update|milestone|press|wins?)\b/.test(hay);
+  }
+  return false;
+}
+
+export async function getNewsletterUpdates(limit = 12): Promise<NewsletterUpdate[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("form_submissions")
+    .select(
+      "id, data_json, submitted_at, " +
+      "companies(slug, name), " +
+      "forms(name, fields_json)"
+    )
+    .order("submitted_at", { ascending: false })
+    .limit(80); // generous upper bound; we filter client-side
+
+  if (!data) return [];
+
+  const updates: NewsletterUpdate[] = [];
+  for (const s of data as any[]) {
+    const fields: FormFieldRow[] = Array.isArray(s.forms?.fields_json) ? s.forms.fields_json : [];
+    const newsFields = fields.filter(isNewsField);
+    if (newsFields.length === 0) continue;
+
+    const dataJson = (s.data_json ?? {}) as Record<string, unknown>;
+    for (const f of newsFields) {
+      const raw = dataJson[f.id];
+      const text = typeof raw === "string" ? raw.trim() : "";
+      if (!text) continue;
+      updates.push({
+        id: `${s.id}:${f.id}`,
+        field_key: f.id,
+        company_slug: s.companies?.slug ?? "",
+        company_name: s.companies?.name ?? "Unknown",
+        form_name: s.forms?.name ?? "",
+        field_label: f.label,
+        text,
+        submitted_at: s.submitted_at,
+      });
+      if (updates.length >= limit) return updates;
+    }
+  }
+  return updates;
 }

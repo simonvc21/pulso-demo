@@ -17,7 +17,8 @@ export type FormFieldType =
   | "text"
   | "longtext"
   | "select"
-  | "date";
+  | "date"
+  | "news";
 
 export interface FormField {
   id: string;

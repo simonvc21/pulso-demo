@@ -9,7 +9,7 @@ type Cadence = Database["public"]["Enums"]["form_cadence"];
 
 export type DraftField = {
   id: string;
-  type: "currency" | "number" | "percent" | "text" | "longtext" | "select" | "date";
+  type: "currency" | "number" | "percent" | "text" | "longtext" | "select" | "date" | "news";
   label: string;
   required?: boolean;
   group?: string;

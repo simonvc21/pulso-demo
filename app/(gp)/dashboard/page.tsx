@@ -9,12 +9,16 @@ import { WatchList } from "@/components/watch-list";
 import { ActivityFeed } from "@/components/activity-feed";
 import { Button } from "@/components/ui/button";
 import { fmtUSD } from "@/lib/utils";
-import { getDashboardData } from "@/lib/dashboard-data";
+import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
+import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const { organization, companies, kpis, arrTrend, watchList } = await getDashboardData();
+  const [{ organization, companies, kpis, arrTrend, watchList }, updates] = await Promise.all([
+    getDashboardData(),
+    getNewsletterUpdates(8),
+  ]);
 
   const fundName = organization?.name ?? "Your fund";
   const fundSize = Number(organization?.size_usd ?? 0);
@@ -131,6 +135,9 @@ export default async function DashboardPage() {
             <ActivityFeed />
           </div>
         </div>
+
+        {/* Newsletter — latest narrative updates from the portfolio */}
+        <PortfolioNewsletter updates={updates} />
       </div>
     </>
   );

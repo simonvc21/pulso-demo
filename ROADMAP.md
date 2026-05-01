@@ -198,16 +198,59 @@ Nueva pestaña /data o /table — los GPs hacen sus modelos en Excel, así es la
 Sidebar derecho persistente. Distintos contextos según rol.
 
 **F.1 Chatbot para GP**
-- Claude Opus 4.7 con tool use.
-- Tools: `query_companies`, `query_metrics`, `query_submissions` — todos respetando RLS via service role + filtro por organization_id.
-- Ejemplos: "qué company tiene el peor runway?", "muéstrame el top 3 por ARR growth en Q1", "cuáles founders no respondieron este mes?".
+- Gemini 2.5 (con la API key del proyecto) con tool calling.
+- Tools: `query_companies`, `query_metrics`, `query_submissions`, `query_lps`,
+  `query_news_updates` — todos respetando RLS via service role + filtro por organization_id.
+- Ejemplos: "qué company tiene el peor runway?", "muéstrame el top 3 por ARR growth en Q1", "cuáles founders no respondieron este mes?", "qué noticias tuvo Vextra el último Q?".
 
 **F.2 Chatbot para LP**
-- Mismo Claude pero con scope reducido al subset de companies que el GP haya autorizado mostrar a ese LP.
+- Mismo Gemini pero con scope reducido al subset de companies que el GP haya autorizado mostrar a ese LP.
 - "Cómo va Vextra?" → respuesta que solo usa los datos del último letter compartido.
 
 **F.3 Cost guard**
 - Cap diario por fondo. Cache de respuestas sobre prompts idénticos.
+
+---
+
+## Fase K — Newsletter + AI inteligente con Gemini (4-6 días)
+
+Funda la integración de Gemini en toda la plataforma y agrega el flujo de
+noticias/updates de cada startup como contenido editorial.
+
+**K.0 Stack de AI compartido** *(prerequisito de K.1-K.4)*
+- `lib/gemini.ts`: wrapper único sobre `@google/generative-ai`. Configura cliente con `GEMINI_API_KEY`. Helpers `generate(text)`, `generateJSON(schema, text)`, `generateWithTools(tools, prompt)`.
+- Toda llamada AI pasa por este wrapper — un solo lugar para retries, cost cap, logging, switch de modelo.
+- Decisión: arrancamos con `gemini-2.5-flash` para alertas + builder helper, `gemini-2.5-pro` para chatbot. Parametrizado en una constante `MODELS` para upgrade rápido.
+
+**K.1 Forms con campos de noticias / updates** *(simple, sin AI)*
+- Nuevo tipo de campo `news` (alias rico de `longtext`) y un grupo por defecto "Updates" sugerido al crear formularios.
+- Detectar campos de tipo `news` o etiquetados con grupo "Updates"/"News" en `form_submissions.data_json` para alimentar el newsletter.
+
+**K.2 Newsletter section en /dashboard**
+- Nueva sección al final del dashboard tipo "Latest from your portfolio".
+- Lee últimas N submissions con campos news/updates, agrupadas por company.
+- Render: card grande por update con logo de la company (cuando D.3 esté), fecha, párrafo del update, link al detail. Diseño tipo Substack/newsletter ejecutivo.
+- Filtros: por company, por keyword, por rango temporal.
+
+**K.3 Alertas heurísticas + AI body** *(extiende fase J.3)*
+- `run_metric_alerts()` sigue siendo el detector. Cuando matchea, antes de insertar en `notifications`, llama a Gemini para escribir el `body`: contexto + recomendación accionable basada en los últimos 4 quarters de la company.
+- Ejemplo: "Mira's runway dropped to 8.6 mo because burn jumped 45.8% QoQ. ARR is still growing 18% so it's likely investment, not crisis. Ask Camila about the new VP of Sales hire flagged last submission. Bridge conversation if no plan in 30d."
+- Se cachea por (company_id, alert_kind, quarter) para no re-pagar.
+
+**K.4 AI helper en form builder**
+- En /forms/new y /forms/[slug]/edit, botón "Suggest with AI".
+- Modal con input: "Describe this form in one sentence" → Gemini propone 6-10 campos con tipo, label, required, group.
+- Por campo individual: "Rewrite to be clearer" / "Translate to Spanish" / "Generate help text".
+
+**K.5 AI helper en LP letters** *(deferred a fase H polish)*
+- "Generate this quarter's commentary" → Gemini lee las metrics y submissions del trimestre, escribe el "Letter from the GP".
+- GP edita antes de enviar.
+
+**K.6 Vector DB (pgvector) — deferred**
+- Cuando el dataset crezca: enable extensión `vector`, embed `form_submissions.data_json` con `gemini-embedding-001`, RAG en chatbot Fase F.
+- No empezamos acá — para 8 companies × 8 quarters el LLM ingiere todo el portfolio en cada query directamente.
+
+**Entregable K:** dashboard tiene una sección de noticias con updates de los founders, las alertas son útiles (no genéricas), crear un form nuevo es asistido por AI, y todo sale con un solo `GEMINI_API_KEY` en env.
 
 ---
 

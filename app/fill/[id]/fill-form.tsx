@@ -353,12 +353,14 @@ function FieldInput({
         )}
       </label>
       <div className="mt-1">
-        {field.type === "longtext" ? (
+        {field.type === "longtext" || field.type === "news" ? (
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            rows={3}
-            placeholder="Type your response…"
+            rows={field.type === "news" ? 5 : 3}
+            placeholder={field.type === "news"
+              ? "Major hires, product launches, partnerships, press, milestones…"
+              : "Type your response…"}
             className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
           />
         ) : field.type === "select" ? (
