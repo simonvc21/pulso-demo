@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { getCompanyBySlug } from "@/lib/dashboard-data";
 import { CompanyEditForm } from "./edit-form";
 import type { CompanyInput } from "../../actions";
@@ -39,6 +40,7 @@ export default async function EditCompanyPage({ params }: { params: { slug: stri
   return (
     <>
       <Topbar
+        bell={<TopbarBell />}
         title={`Edit · ${company.name}`}
         breadcrumb={
           <Link href={`/companies/${company.slug}`} className="inline-flex items-center gap-1 hover:text-ink">

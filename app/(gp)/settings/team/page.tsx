@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { getOrgMembers, getCurrentUser } from "@/lib/dashboard-data";
 import { isAdminRole } from "@/lib/roles";
 import { TeamPanel } from "./team-panel";
@@ -17,6 +18,7 @@ export default async function TeamPage() {
   return (
     <>
       <Topbar
+        bell={<TopbarBell />}
         title="Team"
         breadcrumb={
           <Link href="/settings" className="inline-flex items-center gap-1 hover:text-ink">

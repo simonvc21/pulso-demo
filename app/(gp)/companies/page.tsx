@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { StatusBadge, Badge } from "@/components/ui/badge";
 import { getCompanyList, getFund } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct } from "@/lib/utils";
@@ -17,7 +18,11 @@ export default async function CompaniesPage() {
 
   return (
     <>
-      <Topbar title="Companies" breadcrumb={`${fundName} · ${companies.length} active`} />
+      <Topbar
+        title="Companies"
+        breadcrumb={`${fundName} · ${companies.length} active`}
+        bell={<TopbarBell />}
+      />
       <div className="px-8 py-6 animate-fade-in">
         <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
           <table className="w-full">

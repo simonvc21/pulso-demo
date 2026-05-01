@@ -679,3 +679,47 @@ export async function getOrgMembers(): Promise<OrgMembersResult> {
   }));
   return { members, invitations };
 }
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+export interface NotificationItem {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  readAt: string | null;
+  createdAt: string;
+  metadata: Record<string, unknown>;
+}
+
+export async function getNotifications(limit = 20): Promise<NotificationItem[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("notifications")
+    .select("id, kind, title, body, link, read_at, created_at, metadata_json")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  return (data ?? []).map((n: any) => ({
+    id: n.id,
+    kind: n.kind,
+    title: n.title,
+    body: n.body,
+    link: n.link,
+    readAt: n.read_at,
+    createdAt: n.created_at,
+    metadata: (n.metadata_json ?? {}) as Record<string, unknown>,
+  }));
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  const supabase = createClient();
+  const { count } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .is("read_at", null);
+  return count ?? 0;
+}

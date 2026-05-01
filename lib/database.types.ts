@@ -298,6 +298,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          kind: string
+          link: string | null
+          metadata_json: Json | null
+          organization_id: string
+          read_at: string | null
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          link?: string | null
+          metadata_json?: Json | null
+          organization_id: string
+          read_at?: string | null
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          link?: string | null
+          metadata_json?: Json | null
+          organization_id?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_invitations: {
         Row: {
           accepted_at: string | null
@@ -378,6 +417,7 @@ export type Database = {
     Functions: {
       get_lp_letters: { Args: never; Returns: Json }
       get_org_members: { Args: never; Returns: Json }
+      run_metric_alerts: { Args: never; Returns: Json }
       get_public_form: {
         Args: { p_company_slug: string; p_form_slug: string }
         Returns: Json

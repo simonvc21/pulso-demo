@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Mail, ExternalLink, Sparkles, FileText, MessageSquare, Pencil } from "lucide-react";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CompanyHistoryChart } from "@/components/company-history-chart";
@@ -39,6 +40,7 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
   return (
     <>
       <Topbar
+        bell={<TopbarBell />}
         title={`${company.name}`}
         breadcrumb={
           <Link href="/companies" className="inline-flex items-center gap-1 hover:text-ink transition-colors">

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Send, Eye, FileText, Sparkles, Users, CheckCircle2 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getFormBySlug, type FormCadence, type FormFieldRow } from "@/lib/dashboard-data";
@@ -37,6 +38,7 @@ export default async function FormDetailPage({ params }: { params: { id: string 
   return (
     <>
       <Topbar
+        bell={<TopbarBell />}
         title={form.name}
         breadcrumb={
           <Link href="/forms" className="inline-flex items-center gap-1 hover:text-ink">

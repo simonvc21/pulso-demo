@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getFormTemplates, type FormCadence } from "@/lib/dashboard-data";
@@ -25,6 +26,7 @@ export default async function FormsPage({
   return (
     <>
       <Topbar
+        bell={<TopbarBell />}
         title="Forms"
         breadcrumb={
           companySlug

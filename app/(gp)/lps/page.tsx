@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getLpRoster, getFund } from "@/lib/dashboard-data";
@@ -21,6 +22,7 @@ export default async function LpsPage() {
   return (
     <>
       <Topbar
+        bell={<TopbarBell />}
         title="LPs"
         breadcrumb={`${lps.length} limited partners · ${fmtUSD(totalCommit, { compact: true })} committed`}
         actions={

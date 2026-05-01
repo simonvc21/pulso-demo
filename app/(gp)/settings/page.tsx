@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, User, Mail, Shield, Users, ChevronRight } from "lucide-react";
@@ -14,7 +15,11 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <Topbar title="Settings" breadcrumb="Profile · fund · session" />
+      <Topbar
+        title="Settings"
+        breadcrumb="Profile · fund · session"
+        bell={<TopbarBell />}
+      />
       <div className="px-8 py-6 space-y-6 animate-fade-in max-w-3xl">
         {/* Profile */}
         <Card title="Your profile" subtitle="Read-only for the demo">

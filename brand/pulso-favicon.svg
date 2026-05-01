@@ -1,0 +1,7 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pulso">
+  <title>Pulso</title>
+  <rect width="64" height="64" rx="14" fill="#0A1F44"/>
+  <path d="M 10 32 L 20 32 L 24 25 L 29 41 L 34 14 L 39 47 L 44 30 L 48 32 L 56 32"
+        stroke="#14B8A6" stroke-width="3.2" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

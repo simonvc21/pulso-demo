@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download, Share2, Sparkles } from "lucide-react";
 import { Topbar } from "@/components/topbar";
+import { TopbarBell } from "@/components/topbar-bell";
 import { KpiCard } from "@/components/kpi-card";
 import { PortfolioBarChart } from "@/components/portfolio-bar-chart";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Topbar
+        bell={<TopbarBell />}
         title="Overview"
         breadcrumb={`${fundName} · Q1 2026`}
         actions={
