@@ -73,14 +73,16 @@ export function AddLpButton() {
 
   const modal = open ? (
     <div
-      className="fixed inset-0 z-[100] bg-navy/40 overflow-y-auto"
+      className="fixed inset-0 z-[1000] bg-navy/50 overflow-y-auto overscroll-contain"
       onClick={() => !pending && setOpen(false)}
+      role="dialog"
+      aria-modal="true"
     >
-      <div className="min-h-full flex items-start sm:items-center justify-center p-4 py-8">
+      <div className="min-h-screen w-full flex justify-center px-4 py-12">
         <form
           onSubmit={handleSubmit}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-2xl shadow-cardHover w-full max-w-md p-6 my-auto"
+          className="bg-white rounded-2xl shadow-cardHover w-full max-w-md p-6 h-fit self-start sm:self-center"
         >
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-serif font-bold text-ink">Add LP</h2>
