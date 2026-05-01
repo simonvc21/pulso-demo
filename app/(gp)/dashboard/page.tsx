@@ -28,10 +28,12 @@ export default async function DashboardPage() {
         breadcrumb={`${fundName} · Q1 2026`}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Download className="h-3.5 w-3.5" /> Export
-            </Button>
-            <Link href="/share/q1-2026-lp-letter">
+            <a href="/api/export/companies">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </Button>
+            </a>
+            <Link href="/share/q1-2026-lp-letter" target="_blank">
               <Button variant="gold" size="sm" className="gap-1.5">
                 <Share2 className="h-3.5 w-3.5" /> Share with LPs
               </Button>

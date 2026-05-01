@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getLpRoster, getFund } from "@/lib/dashboard-data";
 import { fmtUSD } from "@/lib/utils";
-import { Plus, Share2, Mail } from "lucide-react";
+import { Share2, Mail } from "lucide-react";
+import { AddLpButton } from "./add-lp-button";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +25,8 @@ export default async function LpsPage() {
         breadcrumb={`${lps.length} limited partners · ${fmtUSD(totalCommit, { compact: true })} committed`}
         actions={
           <div className="flex items-center gap-2">
-            <Link href="/share/q1-2026-lp-letter"><Button variant="outline" size="sm" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Preview LP letter</Button></Link>
-            <Button variant="primary" size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Add LP</Button>
+            <Link href="/share/q1-2026-lp-letter" target="_blank"><Button variant="outline" size="sm" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Preview LP letter</Button></Link>
+            <AddLpButton />
           </div>
         }
       />

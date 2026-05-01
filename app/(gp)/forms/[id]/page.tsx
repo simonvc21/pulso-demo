@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getFormBySlug, type FormCadence, type FormFieldRow } from "@/lib/dashboard-data";
+import { sendFormNow, deactivateForm } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +50,18 @@ export default async function FormDetailPage({ params }: { params: { id: string 
                 <Eye className="h-3.5 w-3.5" /> Preview as founder
               </Button>
             </Link>
-            <Button variant="gold" size="sm" className="gap-1.5">
-              <Send className="h-3.5 w-3.5" /> Send now
-            </Button>
+            {form.active ? (
+              <form action={async () => { "use server"; await deactivateForm(form.slug); }}>
+                <Button type="submit" variant="outline" size="sm" className="gap-1.5">
+                  Pause
+                </Button>
+              </form>
+            ) : null}
+            <form action={async () => { "use server"; await sendFormNow(form.slug); }}>
+              <Button type="submit" variant="gold" size="sm" className="gap-1.5">
+                <Send className="h-3.5 w-3.5" /> Send now
+              </Button>
+            </form>
           </div>
         }
       />
@@ -90,13 +100,13 @@ export default async function FormDetailPage({ params }: { params: { id: string 
               <h3 className="text-sm font-semibold text-ink">Fields</h3>
               <p className="text-[11px] text-muted mt-0.5">What founders are asked to submit</p>
             </div>
-            <Link href="/forms/new">
+            <Link href={`/forms/${form.slug}/edit`}>
               <Button variant="outline" size="sm">Edit fields</Button>
             </Link>
           </div>
           {form.fields.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-muted">
-              No fields yet. <Link href="/forms/new" className="text-teal-600 hover:underline">Add some →</Link>
+              No fields yet. <Link href={`/forms/${form.slug}/edit`} className="text-teal-600 hover:underline">Add some →</Link>
             </div>
           ) : (
             <div className="divide-y divide-line">

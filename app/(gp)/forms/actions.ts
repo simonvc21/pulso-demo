@@ -13,13 +13,16 @@ export type DraftField = {
   label: string;
   required?: boolean;
   group?: string;
+  options?: string[];
 };
 
-export type CreateFormInput = {
+export type FormInput = {
   name: string;
   cadence: "monthly" | "quarterly" | "annual" | "ad-hoc";
   fields: DraftField[];
 };
+
+export type FormResult = { ok: true; slug: string } | { ok: false; error: string };
 
 function slugify(s: string): string {
   return s
@@ -29,12 +32,15 @@ function slugify(s: string): string {
     .slice(0, 60);
 }
 
-export type CreateFormResult = { ok: true; slug: string } | { ok: false; error: string };
+function toDbCadence(c: FormInput["cadence"]): Cadence {
+  return c === "ad-hoc" ? "ad_hoc" : (c as Cadence);
+}
 
-export async function createForm(input: CreateFormInput): Promise<CreateFormResult> {
-  if (!input.name.trim()) return { ok: false, error: "Name is required" };
-  if (input.fields.length === 0) return { ok: false, error: "Add at least one field" };
+type GpCtx =
+  | { ok: false; error: string }
+  | { ok: true; supabase: ReturnType<typeof createClient>; organizationId: string };
 
+async function requireGpOrg(): Promise<GpCtx> {
   const supabase = createClient();
   const {
     data: { user },
@@ -50,10 +56,17 @@ export async function createForm(input: CreateFormInput): Promise<CreateFormResu
   if (!userRow?.organization_id) {
     return { ok: false, error: "Your account isn't assigned to a fund yet." };
   }
+  return { ok: true, supabase, organizationId: userRow.organization_id };
+}
 
-  const cadenceDb: Cadence = input.cadence === "ad-hoc" ? "ad_hoc" : (input.cadence as Cadence);
+export async function createForm(input: FormInput): Promise<FormResult> {
+  if (!input.name.trim()) return { ok: false, error: "Name is required" };
+  if (input.fields.length === 0) return { ok: false, error: "Add at least one field" };
 
-  // Make slug unique by appending a short suffix if collision
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  const { supabase, organizationId } = ctx;
+
   const baseSlug = slugify(input.name) || "form";
   let finalSlug = baseSlug;
   for (let i = 0; i < 5; i++) {
@@ -61,17 +74,17 @@ export async function createForm(input: CreateFormInput): Promise<CreateFormResu
       .from("forms")
       .select("id")
       .eq("slug", finalSlug)
-      .eq("organization_id", userRow.organization_id)
+      .eq("organization_id", organizationId)
       .maybeSingle();
     if (!existing) break;
     finalSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
   }
 
   const { error } = await supabase.from("forms").insert({
-    organization_id: userRow.organization_id,
+    organization_id: organizationId,
     slug: finalSlug,
     name: input.name.trim(),
-    cadence: cadenceDb,
+    cadence: toDbCadence(input.cadence),
     fields_json: input.fields as any,
     active: true,
   });
@@ -80,4 +93,89 @@ export async function createForm(input: CreateFormInput): Promise<CreateFormResu
 
   revalidatePath("/forms");
   redirect(`/forms/${finalSlug}`);
+}
+
+export async function updateForm(slug: string, input: FormInput): Promise<FormResult> {
+  if (!input.name.trim()) return { ok: false, error: "Name is required" };
+  if (input.fields.length === 0) return { ok: false, error: "Add at least one field" };
+
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  const { supabase, organizationId } = ctx;
+
+  const { data: existing } = await supabase
+    .from("forms")
+    .select("id, slug")
+    .eq("slug", slug)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, error: "Form not found" };
+
+  const { error } = await supabase
+    .from("forms")
+    .update({
+      name: input.name.trim(),
+      cadence: toDbCadence(input.cadence),
+      fields_json: input.fields as any,
+    })
+    .eq("id", existing.id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${slug}`);
+  redirect(`/forms/${slug}`);
+}
+
+// "Send" the form — for the demo this just stamps last_sent_at and bumps
+// sent_to_count to the number of active companies in the org.
+export async function sendFormNow(slug: string): Promise<FormResult> {
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  const { supabase, organizationId } = ctx;
+
+  const { data: form } = await supabase
+    .from("forms")
+    .select("id, slug")
+    .eq("slug", slug)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (!form) return { ok: false, error: "Form not found" };
+
+  const { count } = await supabase
+    .from("companies")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId);
+
+  const { error } = await supabase
+    .from("forms")
+    .update({
+      last_sent_at: new Date().toISOString(),
+      sent_to_count: count ?? 0,
+    })
+    .eq("id", form.id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${slug}`);
+  return { ok: true, slug };
+}
+
+export async function deactivateForm(slug: string): Promise<FormResult> {
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  const { supabase, organizationId } = ctx;
+
+  const { error } = await supabase
+    .from("forms")
+    .update({ active: false })
+    .eq("slug", slug)
+    .eq("organization_id", organizationId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${slug}`);
+  return { ok: true, slug };
 }

@@ -47,8 +47,22 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
         }
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5"><Mail className="h-3.5 w-3.5" /> Email founder</Button>
-            <Button variant="primary" size="sm" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Send a form</Button>
+            {company.founder.email ? (
+              <a href={`mailto:${company.founder.email}?subject=${encodeURIComponent(`${company.name} — quick check-in`)}`}>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Mail className="h-3.5 w-3.5" /> Email founder
+                </Button>
+              </a>
+            ) : (
+              <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                <Mail className="h-3.5 w-3.5" /> No founder email
+              </Button>
+            )}
+            <Link href={`/forms?company=${company.slug}`}>
+              <Button variant="primary" size="sm" className="gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Send a form
+              </Button>
+            </Link>
           </div>
         }
       />
@@ -125,7 +139,9 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
               <h3 className="text-sm font-semibold text-ink">Recent submissions</h3>
               <p className="text-[11px] text-muted mt-0.5">Founder responses from the last 90 days</p>
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> View all</Button>
+            <Link href="/forms">
+              <Button variant="outline" size="sm" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> View all forms</Button>
+            </Link>
           </div>
           <div className="divide-y divide-line">
             {[
