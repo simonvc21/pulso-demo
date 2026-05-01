@@ -11,6 +11,12 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
   const k = fundKpis();
   const [showAuth, setShowAuth] = useState(false);
 
+  // Aggregated quarterly ARR trend (sum across portfolio)
+  const arrTrend = companies[0].metrics.map((m, i) => ({
+    quarter: m.quarter,
+    arr: companies.reduce((a, c) => a + c.metrics[i].arr, 0),
+  }));
+
   // Aggregated, anonymized "top movers" for LPs (no critical company names)
   const topMovers = [...companies]
     .map((c) => {
@@ -90,7 +96,7 @@ export default function LpSharePage({ params }: { params: { token: string } }) {
                 <Eye className="h-3 w-3" /> Live data
               </span>
             </div>
-            <div className="px-4 pb-3"><ArrTrendChart /></div>
+            <div className="px-4 pb-3"><ArrTrendChart data={arrTrend} /></div>
           </div>
 
           {/* GP commentary */}

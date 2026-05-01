@@ -1,20 +1,19 @@
 "use client";
 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { companies } from "@/lib/mock-data";
 
-export function ArrTrendChart() {
-  // Build a stacked series: {quarter, totalARR}
-  const quarters = companies[0].metrics.map((m) => m.quarter);
-  const data = quarters.map((q, i) => ({
-    quarter: q,
-    arr: companies.reduce((a, c) => a + c.metrics[i].arr, 0) / 1_000_000,
-  }));
+export interface ArrTrendPoint {
+  quarter: string;
+  arr: number; // USD
+}
+
+export function ArrTrendChart({ data }: { data: ArrTrendPoint[] }) {
+  const series = data.map((p) => ({ quarter: p.quarter, arr: p.arr / 1_000_000 }));
 
   return (
     <div className="h-[260px] w-full">
       <ResponsiveContainer>
-        <AreaChart data={data} margin={{ top: 14, right: 12, left: -10, bottom: 0 }}>
+        <AreaChart data={series} margin={{ top: 14, right: 12, left: -10, bottom: 0 }}>
           <defs>
             <linearGradient id="arrGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#14B8A6" stopOpacity={0.4} />

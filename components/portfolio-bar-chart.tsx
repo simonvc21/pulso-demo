@@ -1,7 +1,12 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import type { Company } from "@/lib/types";
+
+export interface PortfolioBarItem {
+  name: string;
+  status: "healthy" | "watch" | "critical" | "no-data";
+  metrics: { arr: number }[];
+}
 
 const statusColor: Record<string, string> = {
   healthy: "#14B8A6",
@@ -10,14 +15,14 @@ const statusColor: Record<string, string> = {
   "no-data": "#94A3B8",
 };
 
-export function PortfolioBarChart({ companies }: { companies: Company[] }) {
+export function PortfolioBarChart({ companies }: { companies: PortfolioBarItem[] }) {
   const data = [...companies]
-    .sort((a, b) => b.metrics[b.metrics.length - 1].arr - a.metrics[a.metrics.length - 1].arr)
     .map((c) => ({
       name: c.name,
-      arr: c.metrics[c.metrics.length - 1].arr / 1_000_000,
+      arr: (c.metrics[c.metrics.length - 1]?.arr ?? 0) / 1_000_000,
       status: c.status,
-    }));
+    }))
+    .sort((a, b) => b.arr - a.arr);
 
   return (
     <div className="h-[260px] w-full">

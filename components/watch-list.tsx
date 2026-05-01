@@ -1,17 +1,28 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { watchList } from "@/lib/mock-data";
 
-export function WatchList() {
+export interface WatchListItem {
+  slug: string;
+  name: string;
+  status: "healthy" | "watch" | "critical" | "no-data";
+  flag: string | null;
+}
+
+export function WatchList({ items }: { items: WatchListItem[] }) {
   return (
     <div className="bg-navy text-white rounded-xl overflow-hidden h-full flex flex-col">
       <div className="px-5 pt-4 pb-3 border-b border-white/10 flex items-center justify-between">
         <h3 className="text-[10px] font-semibold text-gold tracking-[0.18em] uppercase">Companies needing attention</h3>
-        <span className="text-[11px] text-white/60">{watchList.length} flagged</span>
+        <span className="text-[11px] text-white/60">{items.length} flagged</span>
       </div>
       <div className="flex-1 divide-y divide-white/5">
-        {watchList.map((c) => (
+        {items.length === 0 && (
+          <div className="px-5 py-6 text-[12px] text-white/60">
+            No companies flagged. Nice.
+          </div>
+        )}
+        {items.map((c) => (
           <Link
             key={c.slug}
             href={`/companies/${c.slug}`}

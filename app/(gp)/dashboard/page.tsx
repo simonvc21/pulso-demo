@@ -7,18 +7,25 @@ import { ArrTrendChart } from "@/components/arr-trend-chart";
 import { WatchList } from "@/components/watch-list";
 import { ActivityFeed } from "@/components/activity-feed";
 import { Button } from "@/components/ui/button";
-import { fund, fundKpis, companies } from "@/lib/mock-data";
 import { fmtUSD } from "@/lib/utils";
+import { getDashboardData } from "@/lib/dashboard-data";
 
-export default function DashboardPage() {
-  const k = fundKpis();
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const { organization, companies, kpis, arrTrend, watchList } = await getDashboardData();
+
+  const fundName = organization?.name ?? "Your fund";
+  const fundSize = Number(organization?.size_usd ?? 0);
+  const fundDeployed = Number(organization?.deployed_usd ?? 0);
+  const deployedPct = fundSize > 0 ? Math.round((fundDeployed / fundSize) * 100) : 0;
   const newThisQ = 2;
 
   return (
     <>
       <Topbar
         title="Overview"
-        breadcrumb={`${fund.name} · Q1 2026`}
+        breadcrumb={`${fundName} · Q1 2026`}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5">
@@ -42,7 +49,7 @@ export default function DashboardPage() {
           <div className="flex-1 min-w-0">
             <div className="text-[10px] text-gold font-semibold tracking-[0.16em] uppercase">Pulso AI · This week</div>
             <div className="text-sm mt-1 leading-relaxed">
-              Portfolio ARR grew <span className="font-semibold text-teal">+8.2% QoQ</span>, driven by Vextra and Lumen. <span className="text-gold">2 companies</span> now have less than 12 months of runway — Brio is the most pressing.
+              Portfolio ARR grew <span className="font-semibold text-teal">{kpis.qoqArrGrowth >= 0 ? "+" : ""}{kpis.qoqArrGrowth.toFixed(1)}% QoQ</span>, driven by Vextra and Lumen. <span className="text-gold">{watchList.length} companies</span> need attention — Brio is the most pressing.
             </div>
           </div>
           <button className="text-[11px] text-white/70 hover:text-white">Dismiss</button>
@@ -52,27 +59,27 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             label="Total Invested"
-            value={fmtUSD(fund.deployed, { compact: true })}
+            value={fmtUSD(fundDeployed, { compact: true })}
             delta={{ text: "+ $4.1M QoQ", trend: "up" }}
-            hint="60% deployed"
+            hint={`${deployedPct}% deployed`}
           />
           <KpiCard
             label="Portfolio ARR"
-            value={fmtUSD(k.arrTotal, { compact: true })}
-            delta={{ text: `${k.qoqArrGrowth >= 0 ? "+" : ""}${k.qoqArrGrowth.toFixed(1)}% QoQ`, trend: k.qoqArrGrowth >= 0 ? "up" : "down" }}
+            value={fmtUSD(kpis.arrTotal, { compact: true })}
+            delta={{ text: `${kpis.qoqArrGrowth >= 0 ? "+" : ""}${kpis.qoqArrGrowth.toFixed(1)}% QoQ`, trend: kpis.qoqArrGrowth >= 0 ? "up" : "down" }}
             hint={`${newThisQ} new this Q`}
           />
           <KpiCard
             label="Avg ARR Growth (YoY)"
-            value={`${k.yoyGrowth.toFixed(0)}%`}
+            value={`${kpis.yoyGrowth.toFixed(0)}%`}
             delta={{ text: "Top quartile", trend: "up" }}
             hint="weighted by ARR"
           />
           <KpiCard
             label="Portfolio Runway"
-            value={`${k.runwayMonths.toFixed(1)} mo`}
+            value={`${kpis.runwayMonths.toFixed(1)} mo`}
             delta={{ text: "− 1.8 mo QoQ", trend: "down" }}
-            hint={`${fmtUSD(k.cash, { compact: true })} cash`}
+            hint={`${fmtUSD(kpis.cash, { compact: true })} cash`}
           />
         </div>
 
@@ -98,7 +105,7 @@ export default function DashboardPage() {
 
           {/* Watch list */}
           <div className="lg:col-span-1">
-            <WatchList />
+            <WatchList items={watchList} />
           </div>
         </div>
 
@@ -113,7 +120,7 @@ export default function DashboardPage() {
               <div className="text-[11px] text-muted">Live · pulled from founder submissions</div>
             </div>
             <div className="px-2 pb-2">
-              <ArrTrendChart />
+              <ArrTrendChart data={arrTrend} />
             </div>
           </div>
           <div className="lg:col-span-1">
