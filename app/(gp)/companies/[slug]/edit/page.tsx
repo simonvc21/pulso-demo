@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { TopbarBell } from "@/components/topbar-bell";
 import { getCompanyBySlug } from "@/lib/dashboard-data";
 import { CompanyEditForm } from "./edit-form";
+import { CompanyLogoUploader } from "./logo-uploader";
 import type { CompanyInput } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +49,8 @@ export default async function EditCompanyPage({ params }: { params: { slug: stri
           </Link>
         }
       />
-      <div className="px-8 py-6 max-w-3xl">
+      <div className="px-8 py-6 max-w-3xl space-y-6">
+        <CompanyLogoUploader companySlug={company.slug} initialLogoUrl={company.logoUrl ?? null} />
         <CompanyEditForm slug={company.slug} initial={initial} />
       </div>
     </>

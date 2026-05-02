@@ -4,9 +4,10 @@ import { TopbarBell } from "@/components/topbar-bell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, User, Mail, Shield, Users, ChevronRight } from "lucide-react";
-import { getCurrentUser, getFund } from "@/lib/dashboard-data";
+import { getCurrentUser, getFund, parseTheme } from "@/lib/dashboard-data";
 import { signOut } from "./actions";
 import { FundForm } from "./fund-form";
+import { BrandingForm } from "./branding-form";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,25 @@ export default async function SettingsPage() {
                 sizeUsd: Number(fund.size_usd ?? 0),
                 deployedUsd: Number(fund.deployed_usd ?? 0),
                 currency: fund.currency ?? "USD",
+              }}
+            />
+          ) : (
+            <div className="text-[12px] text-muted">Your account isn't assigned to a fund yet.</div>
+          )}
+        </Card>
+
+        {/* Branding */}
+        <Card
+          title="Branding"
+          subtitle="Logo and colors. Shows up in the sidebar, on LP letters, and across the app."
+        >
+          {fund ? (
+            <BrandingForm
+              initial={{
+                logoUrl: fund.logo_url ?? null,
+                primary: parseTheme(fund.theme_json).primary ?? "#14b8a6",
+                accent: parseTheme(fund.theme_json).accent ?? "#f4b740",
+                navy: parseTheme(fund.theme_json).navy ?? "#0a1f44",
               }}
             />
           ) : (

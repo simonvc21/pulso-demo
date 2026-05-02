@@ -8,16 +8,36 @@ type LpRow = Database["public"]["Tables"]["lps"]["Row"];
 
 export type FundSummary = Pick<
   OrganizationRow,
-  "id" | "name" | "size_usd" | "deployed_usd" | "vintage" | "currency"
+  "id" | "name" | "size_usd" | "deployed_usd" | "vintage" | "currency" | "logo_url" | "theme_json"
 >;
 
 export async function getFund(): Promise<FundSummary | null> {
   const supabase = createClient();
   const { data } = await supabase
     .from("organizations")
-    .select("id, name, size_usd, deployed_usd, vintage, currency")
+    .select("id, name, size_usd, deployed_usd, vintage, currency, logo_url, theme_json")
     .limit(1);
   return data?.[0] ?? null;
+}
+
+export interface FundTheme {
+  primary?: string;
+  accent?: string;
+  navy?: string;
+}
+
+export function parseTheme(raw: unknown): FundTheme {
+  if (!raw || typeof raw !== "object") return {};
+  const t = raw as Record<string, unknown>;
+  const valid = (v: unknown): string | undefined => {
+    if (typeof v !== "string") return undefined;
+    return /^#[0-9a-fA-F]{6}$/.test(v) ? v : undefined;
+  };
+  return {
+    primary: valid(t.primary),
+    accent: valid(t.accent),
+    navy: valid(t.navy),
+  };
 }
 
 export interface DashboardMetric {
@@ -165,6 +185,7 @@ export interface CompanyListItem {
   invested: number;
   description: string | null;
   lastUpdate: string;
+  logoUrl: string | null;
   metrics: DashboardMetric[];
 }
 
@@ -173,7 +194,7 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, " +
+      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
     )
     .order("name", { ascending: true });
@@ -188,6 +209,7 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
     invested: num(c.invested_usd),
     description: c.description,
     lastUpdate: relativeTime(c.last_update_at),
+    logoUrl: c.logo_url ?? null,
     metrics: ((c.metrics ?? []) as MetricRow[])
       .map((m) => ({
         quarter: m.quarter,
@@ -212,7 +234,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, founder_name, founder_email, founder_role, " +
+      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
     )
     .eq("slug", slug)
@@ -230,6 +252,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
     invested: num(c.invested_usd),
     description: c.description,
     lastUpdate: relativeTime(c.last_update_at),
+    logoUrl: c.logo_url ?? null,
     ownership: num(c.ownership_pct),
     flag: c.flag,
     founder: {

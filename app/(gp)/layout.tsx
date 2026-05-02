@@ -1,17 +1,28 @@
 import { Sidebar } from "@/components/sidebar";
 import { ChatDock } from "@/components/chat-dock";
-import { getFund } from "@/lib/dashboard-data";
+import { getFund, parseTheme } from "@/lib/dashboard-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function GpLayout({ children }: { children: React.ReactNode }) {
   const fund = await getFund();
+  const theme = parseTheme(fund?.theme_json);
+
+  // CSS variables for the brand palette. Kept conservative — only override
+  // the navy and gold tokens; everything else falls back to the defaults
+  // baked into Tailwind. Components can read these via `style={{ backgroundColor: 'var(--theme-navy)' }}`.
+  const styleOverrides: Record<string, string> = {};
+  if (theme.navy) styleOverrides["--theme-navy"] = theme.navy;
+  if (theme.primary) styleOverrides["--theme-primary"] = theme.primary;
+  if (theme.accent) styleOverrides["--theme-accent"] = theme.accent;
+
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen" style={styleOverrides as React.CSSProperties}>
       <Sidebar
         fundName={fund?.name ?? "Your fund"}
         vintage={fund?.vintage ?? null}
         sizeUsd={Number(fund?.size_usd ?? 0)}
+        logoUrl={fund?.logo_url ?? null}
       />
       <main className="flex-1 min-w-0">{children}</main>
       <ChatDock

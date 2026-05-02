@@ -149,23 +149,23 @@ Bell icon en el topbar con feed de eventos. Mezcla notificaciones de actividad d
 
 Para que cada fondo sienta que es *su* tool, no Pulso.
 
-**D.1 Logo del fondo**
-- Subida a Supabase Storage bucket `org-assets`.
-- Reemplaza el "PULSO" del sidebar/topbar/share/fill con el logo del fondo cuando esté disponible.
-- Mantener "Powered by Pulso" en footer del share (link de marketing).
+**D.1 Logo del fondo** ✅
+- Subida a Supabase Storage bucket `org-assets` (RLS scoped por org via path matching).
+- Reemplaza el "PULSO" del sidebar con el logo cuando está cargado.
+- "Powered by Pulso" sigue en footer.
 
-**D.2 Colores personalizables**
-- Settings → Branding: pickers para primary, accent, background.
-- Persistir en `organizations.theme_json`.
-- Inyectar en `<html style="--color-primary: ...">` desde el layout server component.
+**D.2 Colores personalizables** ✅
+- Settings → Branding: 3 color pickers (primary, accent, navy) con campo hex texto.
+- Persiste en `organizations.theme_json`.
+- Inyectado como CSS vars (`--theme-primary`, `--theme-accent`, `--theme-navy`) en `(gp)/layout.tsx`.
 
-**D.3 Logos por company**
-- Subida en /companies/[slug]/edit.
-- Reemplaza el cuadrado de inicial en el avatar.
+**D.3 Logos por company** ✅
+- Subida en `/companies/[slug]/edit` con su propio uploader.
+- Reemplaza el cuadrado-inicial en el list y en el detail page.
 
-**D.4 Dark mode**
+**D.4 Dark mode** *(pendiente)*
 - Toggle en topbar.
-- next-themes + Tailwind dark: classes en globals.
+- next-themes + Tailwind dark: classes en globals. Tocar las brand classes para soportar dark.
 
 **D.5 Editor del dashboard**
 - Cada widget (KPI card, bar chart, watch list, trend, activity) es draggable + resizable.

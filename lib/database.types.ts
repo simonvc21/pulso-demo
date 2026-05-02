@@ -28,6 +28,7 @@ export type Database = {
           id: string
           invested_usd: number
           last_update_at: string | null
+          logo_url: string | null
           name: string
           organization_id: string
           ownership_pct: number
@@ -47,6 +48,7 @@ export type Database = {
           id?: string
           invested_usd?: number
           last_update_at?: string | null
+          logo_url?: string | null
           name: string
           organization_id: string
           ownership_pct?: number
@@ -66,6 +68,7 @@ export type Database = {
           id?: string
           invested_usd?: number
           last_update_at?: string | null
+          logo_url?: string | null
           name?: string
           organization_id?: string
           ownership_pct?: number
@@ -235,9 +238,11 @@ export type Database = {
           currency: string
           deployed_usd: number | null
           id: string
+          logo_url: string | null
           name: string
           size_usd: number | null
           slug: string
+          theme_json: Json | null
           updated_at: string
           vintage: number | null
         }
@@ -246,9 +251,11 @@ export type Database = {
           currency?: string
           deployed_usd?: number | null
           id?: string
+          logo_url?: string | null
           name: string
           size_usd?: number | null
           slug: string
+          theme_json?: Json | null
           updated_at?: string
           vintage?: number | null
         }
@@ -257,9 +264,11 @@ export type Database = {
           currency?: string
           deployed_usd?: number | null
           id?: string
+          logo_url?: string | null
           name?: string
           size_usd?: number | null
           slug?: string
+          theme_json?: Json | null
           updated_at?: string
           vintage?: number | null
         }

@@ -49,9 +49,18 @@ export default async function CompaniesPage() {
                   <tr key={c.slug} className="hover:bg-paper transition-colors group">
                     <td className="px-5 py-3">
                       <Link href={`/companies/${c.slug}`} className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-navy flex items-center justify-center text-gold font-serif font-bold text-sm shrink-0">
-                          {c.name[0]}
-                        </div>
+                        {c.logoUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={c.logoUrl}
+                            alt={c.name}
+                            className="h-9 w-9 rounded-lg object-contain bg-white border border-line shrink-0"
+                          />
+                        ) : (
+                          <div className="h-9 w-9 rounded-lg bg-navy flex items-center justify-center text-gold font-serif font-bold text-sm shrink-0">
+                            {c.name[0]}
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-semibold text-ink">{c.name}</span>

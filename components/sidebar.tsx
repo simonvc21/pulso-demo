@@ -8,6 +8,7 @@ interface SidebarProps {
   fundName: string;
   vintage: number | null;
   sizeUsd: number;
+  logoUrl?: string | null;
 }
 
 const nav = [
@@ -23,19 +24,32 @@ const secondary = [
   { href: "/settings",                          label: "Settings",                icon: Settings },
 ];
 
-export function Sidebar({ fundName, vintage, sizeUsd }: SidebarProps) {
+export function Sidebar({ fundName, vintage, sizeUsd, logoUrl }: SidebarProps) {
   const path = usePathname() || "";
   const sizeM = sizeUsd > 0 ? `$${(sizeUsd / 1_000_000).toFixed(0)}M` : "—";
   return (
     <aside className="hidden lg:flex flex-col w-60 shrink-0 bg-navy text-white h-screen sticky top-0">
       {/* Brand */}
       <div className="px-5 pt-6 pb-5 flex items-center gap-2.5">
-        <div className="h-8 w-8 rounded-full bg-gold flex items-center justify-center">
-          <Zap className="h-4 w-4 text-navy" strokeWidth={2.5} fill="currentColor" />
-        </div>
+        {logoUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={logoUrl}
+            alt={fundName}
+            className="h-8 w-8 rounded-md object-contain bg-white p-0.5"
+          />
+        ) : (
+          <div className="h-8 w-8 rounded-full bg-gold flex items-center justify-center">
+            <Zap className="h-4 w-4 text-navy" strokeWidth={2.5} fill="currentColor" />
+          </div>
+        )}
         <div>
-          <div className="text-[11px] tracking-[0.16em] font-semibold text-white">PULSO</div>
-          <div className="text-[10px] text-white/60 mt-0.5">{fundName}</div>
+          <div className="text-[11px] tracking-[0.16em] font-semibold text-white">
+            {logoUrl ? fundName.toUpperCase().slice(0, 12) : "PULSO"}
+          </div>
+          <div className="text-[10px] text-white/60 mt-0.5">
+            {logoUrl ? "Powered by Pulso" : fundName}
+          </div>
         </div>
       </div>
 

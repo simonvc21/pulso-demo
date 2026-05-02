@@ -82,9 +82,18 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
         {/* Hero */}
         <div className="bg-white rounded-xl border border-line shadow-card p-6">
           <div className="flex items-start gap-5">
-            <div className="h-14 w-14 rounded-xl bg-navy flex items-center justify-center text-gold font-serif text-2xl font-bold shrink-0">
-              {company.name[0]}
-            </div>
+            {company.logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={company.logoUrl}
+                alt={company.name}
+                className="h-14 w-14 rounded-xl object-contain bg-white border border-line shrink-0"
+              />
+            ) : (
+              <div className="h-14 w-14 rounded-xl bg-navy flex items-center justify-center text-gold font-serif text-2xl font-bold shrink-0">
+                {company.name[0]}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="text-2xl font-serif font-bold text-ink">{company.name}</h2>
