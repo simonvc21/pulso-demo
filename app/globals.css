@@ -4,11 +4,27 @@
 
 :root {
   --font-serif: Georgia, Cambria, serif;
+
+  /* Surface tokens consumed by Tailwind via tailwind.config.ts. RGB triplets
+     so we can use Tailwind opacity modifiers (e.g. bg-paper/70). */
+  --c-ink:    15 23 42;     /* #0F172A */
+  --c-paper:  247 248 251;  /* #F7F8FB */
+  --c-paper2: 238 241 246;  /* #EEF1F6 */
+  --c-line:   221 227 236;  /* #DDE3EC */
+  --c-muted:  100 116 139;  /* #64748B */
+}
+
+.dark {
+  --c-ink:    230 232 240;  /* light text */
+  --c-paper:  10 18 32;     /* near-black navy */
+  --c-paper2: 17 27 46;     /* slightly raised */
+  --c-line:   38 50 73;
+  --c-muted:  148 163 184;
 }
 
 html, body {
-  background: #F7F8FB;
-  color: #0F172A;
+  background: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -16,8 +32,8 @@ html, body {
 
 /* Subtle scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #DDE3EC; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #C7D0DD; }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-muted) / 0.6); }
 
 /* Hide native number input arrows in Chrome/Safari */
 input[type="number"]::-webkit-outer-spin-button,
@@ -30,3 +46,9 @@ input[type="number"] { -moz-appearance: textfield; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+
+/* In dark mode, components that use plain bg-white become a slightly raised
+   paper2 card so the UI doesn't have giant white sheets. */
+.dark .bg-white {
+  background-color: rgb(var(--c-paper2));
+}

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { fmtUSD } from "@/lib/utils";
 import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,18 +31,18 @@ export default async function DashboardPage() {
     <>
       <Topbar
         bell={<TopbarBell />}
-        title="Overview"
+        title={ts("dashboard.title")}
         breadcrumb={`${fundName} · Q1 2026`}
         actions={
           <div className="flex items-center gap-2">
             <a href="/api/export/companies">
               <Button variant="outline" size="sm" className="gap-1.5">
-                <Download className="h-3.5 w-3.5" /> Export CSV
+                <Download className="h-3.5 w-3.5" /> {ts("dashboard.export_csv")}
               </Button>
             </a>
             <Link href="/share/q1-2026-lp-letter?preview=1" target="_blank">
               <Button variant="gold" size="sm" className="gap-1.5">
-                <Share2 className="h-3.5 w-3.5" /> Share with LPs
+                <Share2 className="h-3.5 w-3.5" /> {ts("dashboard.share_with_lps")}
               </Button>
             </Link>
           </div>
@@ -55,7 +56,7 @@ export default async function DashboardPage() {
             <Sparkles className="h-4 w-4 text-gold" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-gold font-semibold tracking-[0.16em] uppercase">Pulso AI · This week</div>
+            <div className="text-[10px] text-gold font-semibold tracking-[0.16em] uppercase">{ts("dashboard.ai_banner_label")}</div>
             <div className="text-sm mt-1 leading-relaxed">
               Portfolio ARR grew <span className="font-semibold text-teal">{kpis.qoqArrGrowth >= 0 ? "+" : ""}{kpis.qoqArrGrowth.toFixed(1)}% QoQ</span>, driven by Vextra and Lumen. <span className="text-gold">{watchList.length} companies</span> need attention — Brio is the most pressing.
             </div>
@@ -66,28 +67,28 @@ export default async function DashboardPage() {
         {/* KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            label="Total Invested"
+            label={ts("dashboard.kpi_total_invested")}
             value={fmtUSD(fundDeployed, { compact: true })}
             delta={{ text: "+ $4.1M QoQ", trend: "up" }}
-            hint={`${deployedPct}% deployed`}
+            hint={`${deployedPct}% ${ts("dashboard.deployed")}`}
           />
           <KpiCard
-            label="Portfolio ARR"
+            label={ts("dashboard.kpi_portfolio_arr")}
             value={fmtUSD(kpis.arrTotal, { compact: true })}
             delta={{ text: `${kpis.qoqArrGrowth >= 0 ? "+" : ""}${kpis.qoqArrGrowth.toFixed(1)}% QoQ`, trend: kpis.qoqArrGrowth >= 0 ? "up" : "down" }}
-            hint={`${newThisQ} new this Q`}
+            hint={`${newThisQ} ${ts("dashboard.new_this_q")}`}
           />
           <KpiCard
-            label="Avg ARR Growth (YoY)"
+            label={ts("dashboard.kpi_yoy_growth")}
             value={`${kpis.yoyGrowth.toFixed(0)}%`}
-            delta={{ text: "Top quartile", trend: "up" }}
-            hint="weighted by ARR"
+            delta={{ text: ts("dashboard.top_quartile"), trend: "up" }}
+            hint={ts("dashboard.weighted_by_arr")}
           />
           <KpiCard
-            label="Portfolio Runway"
+            label={ts("dashboard.kpi_runway")}
             value={`${kpis.runwayMonths.toFixed(1)} mo`}
             delta={{ text: "− 1.8 mo QoQ", trend: "down" }}
-            hint={`${fmtUSD(kpis.cash, { compact: true })} cash`}
+            hint={`${fmtUSD(kpis.cash, { compact: true })} ${ts("dashboard.cash")}`}
           />
         </div>
 
@@ -97,7 +98,7 @@ export default async function DashboardPage() {
           <div className="lg:col-span-2 bg-white rounded-xl border border-line shadow-card overflow-hidden">
             <div className="px-5 pt-4 pb-2 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-ink">Portfolio ARR by company</h3>
+                <h3 className="text-sm font-semibold text-ink">{ts("dashboard.arr_by_company")}</h3>
                 <p className="text-[11px] text-muted mt-0.5">Q1 2026 · USD, normalized</p>
               </div>
               <div className="flex gap-1 text-[10px]">
@@ -122,10 +123,10 @@ export default async function DashboardPage() {
           <div className="lg:col-span-2 bg-white rounded-xl border border-line shadow-card overflow-hidden">
             <div className="px-5 pt-4 pb-2 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-ink">Total portfolio ARR trend</h3>
-                <p className="text-[11px] text-muted mt-0.5">Last 8 quarters</p>
+                <h3 className="text-sm font-semibold text-ink">{ts("dashboard.trend")}</h3>
+                <p className="text-[11px] text-muted mt-0.5">{ts("dashboard.last_8q")}</p>
               </div>
-              <div className="text-[11px] text-muted">Live · pulled from founder submissions</div>
+              <div className="text-[11px] text-muted">{ts("dashboard.live_caption")}</div>
             </div>
             <div className="px-2 pb-2">
               <ArrTrendChart data={arrTrend} />

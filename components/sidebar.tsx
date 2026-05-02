@@ -3,28 +3,38 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "./theme-toggle";
+import { LocaleSwitcher } from "./locale-switcher";
 
 interface SidebarProps {
   fundName: string;
   vintage: number | null;
   sizeUsd: number;
   logoUrl?: string | null;
+  labels: {
+    overview: string;
+    companies: string;
+    forms: string;
+    lps: string;
+    settings: string;
+    lp_preview: string;
+    founder_preview: string;
+    fund: string;
+  };
 }
 
-const nav = [
-  { href: "/dashboard", label: "Overview",   icon: LayoutDashboard },
-  { href: "/companies", label: "Companies",  icon: Building2 },
-  { href: "/forms",     label: "Forms",      icon: FileText },
-  { href: "/lps",       label: "LPs",        icon: Users },
-];
-
-const secondary = [
-  { href: "/share/q1-2026-lp-letter?preview=1", label: "LP view (preview)",     icon: Share2 },
-  { href: "/fill/q1-2026-financials?preview=1", label: "Founder fill (preview)", icon: Send },
-  { href: "/settings",                          label: "Settings",                icon: Settings },
-];
-
-export function Sidebar({ fundName, vintage, sizeUsd, logoUrl }: SidebarProps) {
+export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, labels }: SidebarProps) {
+  const nav = [
+    { href: "/dashboard", label: labels.overview,  icon: LayoutDashboard },
+    { href: "/companies", label: labels.companies, icon: Building2 },
+    { href: "/forms",     label: labels.forms,     icon: FileText },
+    { href: "/lps",       label: labels.lps,       icon: Users },
+  ];
+  const secondary = [
+    { href: "/share/q1-2026-lp-letter?preview=1", label: labels.lp_preview,      icon: Share2 },
+    { href: "/fill/q1-2026-financials?preview=1", label: labels.founder_preview, icon: Send },
+    { href: "/settings",                          label: labels.settings,         icon: Settings },
+  ];
   const path = usePathname() || "";
   const sizeM = sizeUsd > 0 ? `$${(sizeUsd / 1_000_000).toFixed(0)}M` : "—";
   return (
@@ -87,9 +97,15 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl }: SidebarProps) {
         ))}
       </div>
 
+      {/* Theme + locale controls */}
+      <div className="px-3 py-3 border-t border-white/10 flex items-center justify-between gap-2">
+        <ThemeToggle />
+        <LocaleSwitcher />
+      </div>
+
       {/* Fund pill */}
       <div className="m-3 p-3 rounded-lg bg-navy-700 border border-white/5">
-        <div className="text-[10px] text-gold font-semibold tracking-wider uppercase">Fund</div>
+        <div className="text-[10px] text-gold font-semibold tracking-wider uppercase">{labels.fund}</div>
         <div className="text-sm font-semibold text-white mt-1">{fundName}</div>
         <div className="text-[11px] text-white/60 mt-0.5">
           {vintage ? `Vintage ${vintage} · ` : ""}{sizeM}

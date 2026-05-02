@@ -1,0 +1,58 @@
+{
+  "sidebar": {
+    "overview": "Resumen",
+    "companies": "Empresas",
+    "forms": "Formularios",
+    "lps": "LPs",
+    "settings": "Ajustes",
+    "lp_preview": "Vista LP (preview)",
+    "founder_preview": "Founder fill (preview)",
+    "fund": "Fondo"
+  },
+  "topbar": {
+    "search": "Buscar empresas, founders…"
+  },
+  "dashboard": {
+    "title": "Resumen",
+    "export_csv": "Exportar CSV",
+    "share_with_lps": "Compartir con LPs",
+    "ai_banner_label": "Pulso AI · Esta semana",
+    "kpi_total_invested": "Total Invertido",
+    "kpi_portfolio_arr": "ARR del Portafolio",
+    "kpi_yoy_growth": "Crecimiento ARR (YoY)",
+    "kpi_runway": "Runway del Portafolio",
+    "deployed": "desplegado",
+    "new_this_q": "nuevas este Q",
+    "top_quartile": "Cuartil superior",
+    "weighted_by_arr": "ponderado por ARR",
+    "cash": "caja",
+    "arr_by_company": "ARR por empresa",
+    "trend": "Tendencia ARR total",
+    "live_caption": "En vivo · datos de las submissions",
+    "last_8q": "Últimos 8 trimestres",
+    "newsletter_label": "Newsletter del portafolio",
+    "newsletter_title": "Lo último de tu portafolio",
+    "newsletter_empty": "Aún no hay updates de founders."
+  },
+  "auth": {
+    "sign_in": "Iniciar sesión",
+    "sign_in_hint": "Usá tu email y contraseña, o pedí un magic link.",
+    "email": "Email",
+    "password": "Contraseña",
+    "send_magic_link": "Enviarme un magic link",
+    "or": "o",
+    "trouble": "¿Problemas para entrar? Escribí a"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "breadcrumb": "Perfil · fondo · sesión",
+    "your_profile": "Tu perfil",
+    "fund_card": "Fondo",
+    "branding": "Branding",
+    "branding_subtitle": "Logo y colores. Aparecen en la sidebar, en cartas a LPs y en toda la app.",
+    "team": "Equipo",
+    "team_subtitle": "Invitá analistas y partners, gestioná roles, revocá accesos",
+    "session": "Sesión",
+    "sign_out": "Cerrar sesión"
+  }
+}

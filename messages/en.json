@@ -1,0 +1,58 @@
+{
+  "sidebar": {
+    "overview": "Overview",
+    "companies": "Companies",
+    "forms": "Forms",
+    "lps": "LPs",
+    "settings": "Settings",
+    "lp_preview": "LP view (preview)",
+    "founder_preview": "Founder fill (preview)",
+    "fund": "Fund"
+  },
+  "topbar": {
+    "search": "Search companies, founders…"
+  },
+  "dashboard": {
+    "title": "Overview",
+    "export_csv": "Export CSV",
+    "share_with_lps": "Share with LPs",
+    "ai_banner_label": "Pulso AI · This week",
+    "kpi_total_invested": "Total Invested",
+    "kpi_portfolio_arr": "Portfolio ARR",
+    "kpi_yoy_growth": "Avg ARR Growth (YoY)",
+    "kpi_runway": "Portfolio Runway",
+    "deployed": "deployed",
+    "new_this_q": "new this Q",
+    "top_quartile": "Top quartile",
+    "weighted_by_arr": "weighted by ARR",
+    "cash": "cash",
+    "arr_by_company": "Portfolio ARR by company",
+    "trend": "Total portfolio ARR trend",
+    "live_caption": "Live · pulled from founder submissions",
+    "last_8q": "Last 8 quarters",
+    "newsletter_label": "Portfolio newsletter",
+    "newsletter_title": "Latest from your portfolio",
+    "newsletter_empty": "No founder updates yet."
+  },
+  "auth": {
+    "sign_in": "Sign in",
+    "sign_in_hint": "Use your email and password, or get a magic link.",
+    "email": "Email",
+    "password": "Password",
+    "send_magic_link": "Send me a magic link",
+    "or": "or",
+    "trouble": "Trouble signing in? Email"
+  },
+  "settings": {
+    "title": "Settings",
+    "breadcrumb": "Profile · fund · session",
+    "your_profile": "Your profile",
+    "fund_card": "Fund",
+    "branding": "Branding",
+    "branding_subtitle": "Logo and colors. Shows up in the sidebar, on LP letters, and across the app.",
+    "team": "Team",
+    "team_subtitle": "Invite analysts and partners, manage roles, revoke access",
+    "session": "Session",
+    "sign_out": "Sign out"
+  }
+}
