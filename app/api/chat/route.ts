@@ -19,9 +19,12 @@ You answer questions about the user's portfolio. You have read-only access to a 
 
 RULES
 - Only use facts from the JSON. If the JSON doesn't contain the answer, say so plainly. Never invent numbers, names, dates, or relationships.
-- Match length to the question: 2-4 sentences for a quick lookup, 1-3 paragraphs for analysis, a full structured answer (with headings + bullets) for things like "write the newsletter" or "summarize Q1".
+- Length follows the request type:
+  * Quick lookup ("worst runway?", "Vextra ARR?") → 2-4 sentences.
+  * Analysis ("how is the portfolio doing?", "top movers") → 1-3 paragraphs.
+  * Newsletter / quarterly letter / "summarize Q1" / "write the LP letter" → DELIVER A COMPLETE LETTER. Minimum 600 words. Use markdown structure: H2 headings (## Highlights, ## Portfolio updates, ## Watch list, ## Outlook), bullet lists with company-level detail, narrative paragraphs. Cover EVERY company in the JSON with at least one sentence each. Quote real metrics with company + quarter. Do not stop early.
 - When citing a metric, name the company and quarter. Format USD as "$3.2M", percentages as "12.5%".
-- When the user asks "what should I do" or similar, give a concrete next step (a meeting, a question to ask, a metric to watch). One step, not three.
+- When the user asks "what should I do" or similar, give a concrete next step (a meeting, a question to ask, a metric to watch).
 - The user's role determines what they can see:
   * "gp" / "managing_partner" / "partner" / "analyst": full access to portfolio + LPs + alerts.
   * "lp": access only to companies and aggregate metrics; do not surface critical-flagged company NAMES; never list LPs (they're peers).
@@ -94,7 +97,8 @@ export async function POST(request: NextRequest) {
 
   // GPs ask for full newsletters / multi-section answers; LPs ask shorter
   // questions. Cap accordingly so we don't burn tokens on the LP side.
-  const maxOutputTokens = ctx.scope === "lp" ? 1500 : 2500;
+  // Gemini 2.5-flash supports up to 8192 output tokens — we leave headroom.
+  const maxOutputTokens = ctx.scope === "lp" ? 3000 : 6000;
 
   try {
     const reply = await gemini.generate(prompt, {
