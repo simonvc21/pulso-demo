@@ -20,8 +20,8 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Login** (`/login`) with magic link + password fallback.
 - **Dashboard** (`/dashboard`) — fund KPIs (Total invested, Portfolio ARR, YoY growth, Runway), bar chart of ARR by company, watch list, ARR trend, activity feed, AI banner (dismissable, persists 24h via localStorage), portfolio newsletter section with founder updates.
 - **Companies list** (`/companies`) — table with logo, sector, country, stage, invested, latest ARR, QoQ delta, status badge.
-- **Company detail** (`/companies/[slug]`) — hero with logo + founder, stat grid (invested / ARR / cash / burn / headcount / YoY), quarterly history charts (ARR / cash / revenue / headcount), recent submissions list, AI insight callout, newsletter feed scoped to the company.
-- **Company edit** (`/companies/[slug]/edit`) — full editor incl. logo uploader.
+- **Company detail** (`/companies/[slug]`) — hero with logo + founder, **investment-instrument badge (SAFE / Convertible Note / Equity / SAFT / Warrant / Loan / Other) with cap + discount summary**, **website + LinkedIn link icons**, stat grid (invested / ARR / cash / burn / headcount / YoY), quarterly history charts (ARR / cash / revenue / headcount), recent submissions list, AI insight callout, newsletter feed scoped to the company.
+- **Company edit** (`/companies/[slug]/edit`) — full editor incl. logo uploader, investment-terms section (instrument + conditional cap/discount for SAFE/Convertible), Links section (website + LinkedIn).
 - **Forms list** (`/forms`) — template cards with cadence, field count, response rate.
 - **Form detail** (`/forms/[slug]`) — fields grouped, recent submissions list with AI-assisted badge, send-now / pause buttons.
 - **Form builder** (`/forms/new` and `/forms/[slug]/edit`):
@@ -40,7 +40,10 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **AI chatbot dock** — floating button bottom-right on every GP and LP page, opens slide-over panel. Powered by Gemini 2.5-flash with the org's full JSON context (companies, metrics, news, LPs, alerts, **investment thesis**). 8000 token cap (3000 for LPs). Per-org daily cap 150 calls. Multi-turn within an open conversation.
 
 ### LP-side surfaces
-- **LP portal** (`/lp`) — letters list with view counts and expiry, "Sign out" + "Switch to GP view" if user is dual-role.
+- **LP portal** (`/lp`) — letters list with view counts and expiry, prominent "Portfolio" callout (L.7), "Sign out" + "Switch to GP view" if user is dual-role.
+- **LP portfolio list** (`/lp/companies`) — read-only table of every active company with logo, sector, stage, ARR, QoQ delta, status badge.
+- **LP company detail** (`/lp/companies/[slug]`) — read-only mirror of the GP detail page: hero with logos + sector/stage/instrument/website/linkedin, KPI grid (Invested / ARR / Cash / Headcount / YoY), 4 quarterly charts (ARR / cash / revenue / headcount), narrative newsletter from founder submissions, AI insight callout. No edit / no Send-form buttons.
+- **LP layout header**: Letters and Portfolio nav buttons.
 - **LP letter** (`/share/[token]`) — branded, watermarked, fund hero with KPIs, **"Our thesis" card when set**, GP commentary, ARR trend chart, top movers, AI summary, view counter, expiry banner. Public/anonymous via SECURITY DEFINER RPC `get_share_letter`.
 - **LP chatbot** — same dock, scoped JSON (no LP roster, no critical-flagged company names), 4000 token cap.
 

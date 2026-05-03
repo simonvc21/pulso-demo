@@ -39,7 +39,9 @@ All the URLs you need. Last updated: 2026-05-02.
 ### LP-side
 | Path | What |
 |---|---|
-| `/lp` | LP letters list |
+| `/lp` | LP home: letters list + portfolio callout |
+| `/lp/companies` | LP portfolio list (read-only) |
+| `/lp/companies/[slug]` | LP company detail with charts (read-only) |
 | `/share/[token]` | Public LP letter (anonymous-safe) |
 
 ### Founder-side

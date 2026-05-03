@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { ChevronRight, FileText, Calendar, Eye } from "lucide-react";
-import { getLpLetters } from "@/lib/dashboard-data";
+import { ChevronRight, FileText, Calendar, Eye, Briefcase } from "lucide-react";
+import { getLpLetters, getCompanyList } from "@/lib/dashboard-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function LpHomePage() {
-  const letters = await getLpLetters();
+  const [letters, companies] = await Promise.all([getLpLetters(), getCompanyList()]);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
@@ -16,6 +16,22 @@ export default async function LpHomePage() {
       <p className="mt-2 text-sm text-muted">
         Quarterly portfolio updates from the funds you've committed to.
       </p>
+
+      {companies.length > 0 && (
+        <Link href="/lp/companies" className="block group mt-8">
+          <div className="bg-gradient-to-r from-navy to-navy-700 text-white rounded-2xl p-6 flex items-center gap-5 hover:shadow-cardHover transition-shadow">
+            <div className="h-12 w-12 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
+              <Briefcase className="h-5 w-5 text-gold" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] tracking-[0.18em] uppercase text-gold font-semibold">Live portfolio</div>
+              <h2 className="mt-1 text-lg font-serif font-bold">Explore the {companies.length} companies in this fund</h2>
+              <p className="text-[12px] text-white/70 mt-1">KPIs, quarterly history, and the latest updates from each founder. Updated continuously.</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-gold transition-colors shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {letters.length === 0 ? (
         <div className="mt-10 bg-white rounded-2xl border border-line shadow-card p-10 text-center">

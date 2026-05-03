@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Mail, LogOut, Zap } from "lucide-react";
+import { Mail, LogOut, Zap, Briefcase, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatDock } from "@/components/chat-dock";
 import { createClient } from "@/lib/supabase/server";
@@ -36,6 +36,16 @@ export default async function LpLayout({ children }: { children: React.ReactNode
             </div>
           </Link>
           <div className="flex items-center gap-2">
+            <Link href="/lp">
+              <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20">
+                <FileText className="h-3.5 w-3.5" /> Letters
+              </Button>
+            </Link>
+            <Link href="/lp/companies">
+              <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20">
+                <Briefcase className="h-3.5 w-3.5" /> Portfolio
+              </Button>
+            </Link>
             {!isLp && (
               <Link href="/dashboard">
                 <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20">

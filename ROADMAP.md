@@ -342,12 +342,12 @@ UI:
 - En `/companies/[slug]` mostrar el badge del instrumento al lado del Stage, y los íconos de website/linkedin junto al founder.
 - Surface a Pulso AI (chat-context) y al LP letter para que se vea cómo está estructurada la inversión.
 
-**L.7 LPs ven dashboards de cada company del portfolio**
-Hoy `/lp` solo lista letters. Los LPs deberían poder explorar el portafolio igual que el GP, en modo lectura.
-- Nuevo `/lp/companies` (lista) y `/lp/companies/[slug]` (detalle) con los mismos cards/charts pero sin acciones de edición.
-- RLS: agregar policy especial para `role='lp'` que les permita SELECT en `companies` + `metrics` de su org.
-- El nombre y métricas de companies "critical" se muestran solo si el GP las marcó como visibles (futuro flag `companies.lp_visible bool default true`). Por ahora todas visibles para no bloquear la entrega.
-- El chatbot LP ya tiene acceso al portfolio entero (verificado en `lib/chat-context.ts`) — esto solo agrega la UI que se la haga ver.
+**L.7 LPs ven dashboards de cada company del portfolio** ✅ shipped
+- Nuevo `/lp/companies` (lista con logo + sector + stage + ARR + QoQ + status) y `/lp/companies/[slug]` (detalle con KPIs, 4 charts, newsletter, sin botones de edit/send).
+- RLS: NO requirió migration. `user_org_id()` ya escopea por org y `can_access_company` aplica el branch "no rows in user_company_access = full access" para roles no-admin (incluido `lp`). LPs ya leían `companies` + `metrics`; sólo faltaba la UI.
+- Nav: header del LP layout ahora tiene botones "Letters" y "Portfolio". Home `/lp` muestra un card destacado al portfolio antes de la lista de letters.
+- Investment instrument badges + website/linkedin links de L.6 también renderizan en la detalle LP.
+- Pendiente para L.7b si lo necesitamos: flag `companies.lp_visible bool` para esconder companies "critical" del LP.
 
 **L.8 Onboarding wizard expandido (extiende B.1 + sustituye seed)**
 Cuentas nuevas arrancan vacías y atraviesan un flujo opcional de setup.
