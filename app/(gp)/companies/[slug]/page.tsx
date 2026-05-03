@@ -9,6 +9,8 @@ import { CompanyHistoryChart } from "@/components/company-history-chart";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { getCompanyBySlug, getCompanyCustomMetrics, getCompanyUpdates, getNewsletterUpdates, type DashboardMetric, type CustomMetricSeries, type CustomMetricType } from "@/lib/dashboard-data";
 import { UpdatesFeed } from "./updates-feed";
+import { CommentsThread, ReactionsBar } from "@/components/lp-engagement";
+import { getCompanyComments, getCompanyReactions } from "@/lib/lp-engagement";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
 import { ts } from "@/lib/i18n-server";
 import { createClient } from "@/lib/supabase/server";
@@ -47,6 +49,24 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
     .maybeSingle();
   const customMetrics = companyRow ? await getCompanyCustomMetrics(companyRow.id) : [];
   const teamUpdates = companyRow ? await getCompanyUpdates(companyRow.id, 50) : [];
+  const [comments, reactions] = companyRow
+    ? await Promise.all([getCompanyComments(companyRow.id), getCompanyReactions(companyRow.id)])
+    : [[], []];
+
+  // Resolve current user's id (for delete-own-comment + canModerate logic).
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  let currentUserId: string | null = null;
+  let currentUserRole: string | null = null;
+  if (authUser) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("auth_user_id", authUser.id)
+      .maybeSingle();
+    currentUserId = profile?.id ?? null;
+    currentUserRole = profile?.role ?? null;
+  }
+  const canModerate = ["gp", "managing_partner", "partner"].includes(currentUserRole ?? "");
 
   const last = company.metrics[company.metrics.length - 1];
   const prev = company.metrics[company.metrics.length - 2];
@@ -163,6 +183,12 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
                   </a>
                 )}
               </div>
+              {/* L.22 — reactions bar under the badges */}
+              {companyRow && (
+                <div className="mt-3">
+                  <ReactionsBar companyId={companyRow.id} initial={reactions} />
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">{ts("companies.founder")}</div>
@@ -215,6 +241,16 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
 
         {companyRow && (
           <UpdatesFeed companyId={companyRow.id} initial={teamUpdates} />
+        )}
+
+        {/* L.22 — Discussion thread (LP + GP comments) */}
+        {companyRow && (
+          <CommentsThread
+            companyId={companyRow.id}
+            initial={comments}
+            canModerate={canModerate}
+            currentUserId={currentUserId}
+          />
         )}
 
         {/* Recent submissions — placeholder until form_submissions is wired */}

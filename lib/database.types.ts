@@ -193,6 +193,57 @@ export type Database = {
         }
         Relationships: []
       }
+      company_comments: {
+        Row: {
+          author_user_id: string
+          body: string
+          company_id: string
+          created_at: string
+          hidden: boolean
+          id: string
+        }
+        Insert: {
+          author_user_id: string
+          body: string
+          company_id: string
+          created_at?: string
+          hidden?: boolean
+          id?: string
+        }
+        Update: {
+          author_user_id?: string
+          body?: string
+          company_id?: string
+          created_at?: string
+          hidden?: boolean
+          id?: string
+        }
+        Relationships: []
+      }
+      company_reactions: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["reaction_kind"]
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["reaction_kind"]
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["reaction_kind"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       company_updates: {
         Row: {
           author_user_id: string | null
@@ -896,6 +947,7 @@ export type Database = {
         | "other"
       lp_type: "Family Office" | "Institutional" | "Fund of Funds" | "Individual"
       period_kind: "month" | "quarter" | "annual"
+      reaction_kind: "clap" | "rocket" | "concerned" | "thinking"
       tracking_cadence: "monthly" | "quarterly" | "annual"
     }
     CompositeTypes: { [_ in never]: never }

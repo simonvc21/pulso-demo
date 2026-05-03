@@ -24,6 +24,7 @@ const KIND_META: Record<string, { icon: any; tone: string; label: string }> = {
   metric_alert_arr_drop: { icon: TrendingDown,  tone: "text-coral bg-red-50",       label: "ARR alert" },
   metric_alert_burn_spike: { icon: Flame,       tone: "text-gold-600 bg-gold-50",   label: "Burn alert" },
   ai_insight:            { icon: Sparkles,      tone: "text-gold-600 bg-gold-50",   label: "AI insight" },
+  lp_commented:          { icon: Mail,          tone: "text-gold-600 bg-gold-50",   label: "LP commented" },
 };
 
 function relativeTime(iso: string): string {

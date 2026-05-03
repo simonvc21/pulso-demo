@@ -9,6 +9,8 @@ import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
 import { ts } from "@/lib/i18n-server";
 import { createClient } from "@/lib/supabase/server";
 import { CustomMetricChart } from "@/components/custom-metric-chart";
+import { CommentsThread, ReactionsBar } from "@/components/lp-engagement";
+import { getCompanyComments, getCompanyReactions } from "@/lib/lp-engagement";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,21 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
     .eq("slug", params.slug)
     .maybeSingle();
   const customMetrics = companyRow ? await getCompanyCustomMetrics(companyRow.id) : [];
+  const [comments, reactions] = companyRow
+    ? await Promise.all([getCompanyComments(companyRow.id), getCompanyReactions(companyRow.id)])
+    : [[], []];
+
+  // Resolve current LP's user id (so they can delete their own comments).
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  let currentUserId: string | null = null;
+  if (authUser) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("id")
+      .eq("auth_user_id", authUser.id)
+      .maybeSingle();
+    currentUserId = profile?.id ?? null;
+  }
 
   const last = company.metrics[company.metrics.length - 1];
   const prev = company.metrics[company.metrics.length - 2];
@@ -115,6 +132,12 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
                 </a>
               )}
             </div>
+            {/* L.22 — reactions bar */}
+            {companyRow && (
+              <div className="mt-3">
+                <ReactionsBar companyId={companyRow.id} initial={reactions} />
+              </div>
+            )}
           </div>
           <div className="text-right hidden sm:block">
             <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">{ts("lp_portal.founder_label")}</div>
@@ -157,6 +180,17 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
 
       {/* Custom metrics — same block as the GP detail page (read-only here) */}
       {customMetrics.length > 0 && <CustomMetricsBlock series={customMetrics} />}
+
+      {/* L.22 — Discussion */}
+      {companyRow && (
+        <CommentsThread
+          companyId={companyRow.id}
+          initial={comments}
+          canModerate={false}
+          currentUserId={currentUserId}
+          compact
+        />
+      )}
 
       {/* Newsletter — narrative updates */}
       <PortfolioNewsletter updates={updates} />
