@@ -121,6 +121,15 @@ input[type="number"] { -moz-appearance: textfield; }
   body {
     background: white !important;
   }
+  /* Newsletter print: strip page chrome around the article. */
+  .newsletter-page {
+    padding: 0 !important;
+    background: white !important;
+    min-height: 0 !important;
+  }
+  .newsletter section, .newsletter article, .newsletter header {
+    break-inside: avoid;
+  }
   /* Make sure colored backgrounds render in print. */
   * {
     -webkit-print-color-adjust: exact;
