@@ -186,18 +186,29 @@ function ColorField({
   return (
     <label className="block">
       <span className="block text-[10px] font-semibold text-ink tracking-wide uppercase mb-1">{label}</span>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-10 rounded-md border border-line cursor-pointer"
-        />
+      <div className="flex items-center gap-2 min-w-0">
+        {/*
+          Native <input type="color"> renders as a thin vertical bar in Chrome
+          when the flex container is too tight. We replace it with a styled
+          swatch button (visible color block) that triggers a hidden color picker.
+        */}
+        <span
+          className="relative h-9 w-9 rounded-md border border-line shrink-0 overflow-hidden cursor-pointer"
+          style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#ffffff" }}
+        >
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            aria-label={`${label} color picker`}
+          />
+        </span>
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 h-9 px-2 rounded-md border border-line text-xs font-mono focus:outline-none focus:ring-2 focus:ring-teal/30"
+          className="flex-1 min-w-0 h-9 px-2 rounded-md border border-line text-xs font-mono focus:outline-none focus:ring-2 focus:ring-teal/30"
         />
       </div>
       {hint && <span className="block text-[10px] text-muted mt-1">{hint}</span>}
