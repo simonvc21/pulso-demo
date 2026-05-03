@@ -381,6 +381,27 @@ Nueva sección entre "Branding" y "Team":
 - Pendiente: founders ven "Due in 3 days" inline en `/fill/[id]`.
 - Pendiente: GP puede "Send now" desde el calendar (existe en form detail page).
 
+**L.11 One active form per startup (founder UX rework)**
+Hoy `/forms` muestra una grilla de templates y el founder elige cuál llenar. En la realidad el founder debería ver UN solo form a la vez — el que le toca este período. Templates siguen existiendo (los GPs los reutilizan), cambia sólo lo que el founder ve.
+- Nueva tabla `company_active_form(company_id UNIQUE, form_id, due_at, period_label)`. El cron de L.10 (cuando ship Resend) la actualiza automáticamente al próximo form en el schedule.
+- Cuando el founder abre `/fill/<token>`, Pulso resuelve "qué form le toca AHORA" en vez de mostrar todos.
+- En `/companies/[slug]` el GP ve el form activo del founder + status (pendiente / submitted / overdue).
+- Si el GP quiere mandar un form ad-hoc adicional, hay un botón "Send extra form" que crea una entrada one-shot en `company_active_form` con override del schedule.
+- Subtle pero importante: este cambio no rompe los templates compartidos (Monthly Pulse Check sigue siendo UN template aplicado a 8 companies); cambia sólo qué ve el founder al cargar el link.
+
+**L.12 Monthly metrics rebuild (BIG)**
+Hoy todo el modelo de métricas usa `quarter` text ("Q1 2026"). Para SaaS / fintech LATAM, monthly es la cadencia natural. Cambio profundo en schema + UI.
+- Migration: `metrics.quarter text` → `metrics.period_year int + period_month int + period_kind enum('month','quarter')`. Backfill: cada quarter row se expande a 3 month rows (con valores divididos donde aplique — burn / revenue → /3, ARR / cash / headcount → snapshot mensual idéntico) o se mantiene como quarter row con `period_kind='quarter'`.
+- Nueva columna `companies.tracking_cadence enum('monthly','quarterly','annual') default 'quarterly'`. Cada startup elige su cadencia, los forms heredan.
+- Founders en `/fill/[id]` ven N inputs según la cadencia de su company (12 monthly o 4 quarterly por año).
+- `/data` spreadsheet adapta sus columnas: companies monthly → 24 cols (2 años), companies quarterly → 8 cols. Mostrar mixto tanto en "By company" como "Per company" view.
+- Custom metrics (L.4) heredan la cadencia de su company.
+- CSV import + xlsx parser (B.4) aceptan tanto "Q1 2026" como "Jan 2026" / "2026-01".
+- Charts (`ArrTrendChart`, `CompanyHistoryChart`, etc.) auto-detectan la cadencia y ajustan eje X.
+- Schedule editor (L.10) puede setear "send day-of-month" cuando company es monthly.
+- Bulk migration de Patagonia Fund I para volver a sembrar como monthly + dejar 2 companies en quarterly como ejemplo del mixto.
+- **Riesgo**: muy invasivo. Toca ~40 archivos. Hacer en branch separada con tests visuales en Vercel preview antes de merge.
+
 ---
 
 ## Fase G — Settings avanzado (2 días)

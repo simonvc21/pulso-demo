@@ -178,8 +178,10 @@ export function CustomMetricsEditor({ companyId, initialSeries, contextQuarters 
             <div className="md:col-span-5">
               <label className="block text-[9px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Label</label>
               <input
+                autoFocus
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDefinition(); } }}
                 placeholder="NPS"
                 maxLength={60}
                 className="w-full h-9 px-2.5 rounded-md border border-line text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
@@ -209,7 +211,14 @@ export function CustomMetricsEditor({ companyId, initialSeries, contextQuarters 
               <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} disabled={pending}>
                 Cancel
               </Button>
-              <Button variant="gold" size="sm" className="gap-1.5" onClick={addDefinition} disabled={pending}>
+              <Button
+                variant="gold"
+                size="sm"
+                className="gap-1.5"
+                onClick={addDefinition}
+                disabled={pending || !newLabel.trim()}
+                title={!newLabel.trim() ? "Type a label first" : undefined}
+              >
                 {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
                 Add
               </Button>
