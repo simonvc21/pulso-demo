@@ -136,6 +136,7 @@ export type Database = {
           slug: string
           stage: Database["public"]["Enums"]["company_stage"]
           status: Database["public"]["Enums"]["company_status"]
+          tracking_cadence: Database["public"]["Enums"]["tracking_cadence"]
           website: string | null
         }
         Insert: {
@@ -161,6 +162,7 @@ export type Database = {
           slug: string
           stage: Database["public"]["Enums"]["company_stage"]
           status?: Database["public"]["Enums"]["company_status"]
+          tracking_cadence?: Database["public"]["Enums"]["tracking_cadence"]
           website?: string | null
         }
         Update: {
@@ -186,6 +188,7 @@ export type Database = {
           slug?: string
           stage?: Database["public"]["Enums"]["company_stage"]
           status?: Database["public"]["Enums"]["company_status"]
+          tracking_cadence?: Database["public"]["Enums"]["tracking_cadence"]
           website?: string | null
         }
         Relationships: []
@@ -220,6 +223,9 @@ export type Database = {
           created_at: string
           id: string
           metric_definition_id: string
+          period_kind: Database["public"]["Enums"]["period_kind"]
+          period_month: number | null
+          period_year: number | null
           quarter: string
           updated_at: string
           value: number | null
@@ -229,6 +235,9 @@ export type Database = {
           created_at?: string
           id?: string
           metric_definition_id: string
+          period_kind?: Database["public"]["Enums"]["period_kind"]
+          period_month?: number | null
+          period_year?: number | null
           quarter: string
           updated_at?: string
           value?: number | null
@@ -238,6 +247,9 @@ export type Database = {
           created_at?: string
           id?: string
           metric_definition_id?: string
+          period_kind?: Database["public"]["Enums"]["period_kind"]
+          period_month?: number | null
+          period_year?: number | null
           quarter?: string
           updated_at?: string
           value?: number | null
@@ -418,6 +430,9 @@ export type Database = {
           created_at: string
           headcount: number | null
           id: string
+          period_kind: Database["public"]["Enums"]["period_kind"]
+          period_month: number | null
+          period_year: number | null
           quarter: string
           revenue_usd: number | null
         }
@@ -429,6 +444,9 @@ export type Database = {
           created_at?: string
           headcount?: number | null
           id?: string
+          period_kind?: Database["public"]["Enums"]["period_kind"]
+          period_month?: number | null
+          period_year?: number | null
           quarter: string
           revenue_usd?: number | null
         }
@@ -440,6 +458,9 @@ export type Database = {
           created_at?: string
           headcount?: number | null
           id?: string
+          period_kind?: Database["public"]["Enums"]["period_kind"]
+          period_month?: number | null
+          period_year?: number | null
           quarter?: string
           revenue_usd?: number | null
         }
@@ -453,6 +474,9 @@ export type Database = {
           id: string
           metric_key: string
           note: string
+          period_kind: Database["public"]["Enums"]["period_kind"]
+          period_month: number | null
+          period_year: number | null
           quarter: string
           updated_at: string
         }
@@ -463,6 +487,9 @@ export type Database = {
           id?: string
           metric_key: string
           note: string
+          period_kind?: Database["public"]["Enums"]["period_kind"]
+          period_month?: number | null
+          period_year?: number | null
           quarter: string
           updated_at?: string
         }
@@ -473,6 +500,9 @@ export type Database = {
           id?: string
           metric_key?: string
           note?: string
+          period_kind?: Database["public"]["Enums"]["period_kind"]
+          period_month?: number | null
+          period_year?: number | null
           quarter?: string
           updated_at?: string
         }
@@ -865,6 +895,8 @@ export type Database = {
         | "loan"
         | "other"
       lp_type: "Family Office" | "Institutional" | "Fund of Funds" | "Individual"
+      period_kind: "month" | "quarter" | "annual"
+      tracking_cadence: "monthly" | "quarterly" | "annual"
     }
     CompositeTypes: { [_ in never]: never }
   }

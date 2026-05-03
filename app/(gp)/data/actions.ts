@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DATA_METRICS, type DataMetricKey } from "@/lib/data-metrics";
 import { logUsageEvent } from "@/lib/value-analytics";
+import { periodColumnsFromQuarterString, type PeriodKind } from "@/lib/period";
 
 const KEYS = new Set<string>(DATA_METRICS.map((m) => m.key));
 
@@ -54,11 +55,15 @@ export async function updateMetricCell(input: UpdateMetricInput): Promise<Update
       .eq("id", existing.id);
     if (error) return { ok: false, error: error.message };
   } else {
+    const period = periodColumnsFromQuarterString(input.quarter);
     const { error } = await supabase
       .from("metrics")
       .insert({
         company_id: input.companyId,
         quarter: input.quarter,
+        period_year: period.period_year,
+        period_month: period.period_month,
+        period_kind: period.period_kind,
         [input.key]: input.value,
       } as any);
     if (error) return { ok: false, error: error.message };
@@ -122,6 +127,9 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
   type Insert = {
     company_id: string;
     quarter: string;
+    period_year: number | null;
+    period_month: number | null;
+    period_kind: PeriodKind;
     arr_usd: number | null;
     burn_usd: number | null;
     cash_usd: number | null;
@@ -139,9 +147,13 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
       skipped++;
       continue;
     }
+    const period = periodColumnsFromQuarterString(r.quarter);
     toUpsert.push({
       company_id: companyId,
       quarter: r.quarter,
+      period_year: period.period_year,
+      period_month: period.period_month,
+      period_kind: period.period_kind,
       arr_usd: r.arrUsd,
       burn_usd: r.burnUsd,
       cash_usd: r.cashUsd,

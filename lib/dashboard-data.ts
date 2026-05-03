@@ -107,15 +107,19 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase.from("organizations").select("id, name, size_usd, deployed_usd, vintage, currency").limit(1),
     supabase
       .from("companies")
-      .select("id, slug, name, status, flag, metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)")
+      .select("id, slug, name, status, flag, metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_kind)")
       .order("name", { ascending: true }),
   ]);
 
   const organization = orgs?.[0] ?? null;
 
   const companies: DashboardCompany[] = (companyRows ?? []).map((c: any) => {
-    const metrics: DashboardMetric[] = (c.metrics ?? [])
-      .map((m: MetricRow) => ({
+    // L.12 — keep filtering to quarter rows in the dashboard for now so KPI
+    // rollups don't double-count after the monthly backfill. Refactor to
+    // cadence-aware aggregation lands in L.12b.
+    const metrics: DashboardMetric[] = ((c.metrics ?? []) as any[])
+      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
+      .map((m) => ({
         quarter: m.quarter,
         arr: num(m.arr_usd),
         burn: num(m.burn_usd),
@@ -193,6 +197,8 @@ export interface CompanyListItem {
   metrics: DashboardMetric[];
   /** L.6 — investment vehicle (SAFE / Convertible / Equity / etc.). Null = unknown. */
   investmentInstrument: Database["public"]["Enums"]["investment_instrument"] | null;
+  /** L.12 — per-company tracking cadence (defaults to "monthly"). */
+  trackingCadence: Database["public"]["Enums"]["tracking_cadence"];
 }
 
 export async function getCompanyList(): Promise<CompanyListItem[]> {
@@ -200,8 +206,8 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, investment_instrument, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
+      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, investment_instrument, tracking_cadence, " +
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_kind)"
     )
     .order("name", { ascending: true });
 
@@ -217,7 +223,9 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
     lastUpdate: relativeTime(c.last_update_at),
     logoUrl: c.logo_url ?? null,
     investmentInstrument: c.investment_instrument ?? null,
-    metrics: ((c.metrics ?? []) as MetricRow[])
+    trackingCadence: c.tracking_cadence ?? "monthly",
+    metrics: ((c.metrics ?? []) as any[])
+      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
       .map((m) => ({
         quarter: m.quarter,
         arr: num(m.arr_usd),
@@ -248,8 +256,8 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
+      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, " +
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_kind)"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -279,7 +287,12 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
     safeDiscountPct: c.safe_discount_pct != null ? Number(c.safe_discount_pct) : null,
     website: c.website ?? null,
     linkedinUrl: c.linkedin_url ?? null,
-    metrics: ((c.metrics ?? []) as MetricRow[])
+    trackingCadence: c.tracking_cadence ?? "monthly",
+    // For now we keep filtering to quarter rows so the existing chart code
+    // (which expects 8 quarters) keeps working. Refactor to consume monthly
+    // rows is L.12b.
+    metrics: ((c.metrics ?? []) as any[])
+      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
       .map((m) => ({
         quarter: m.quarter,
         arr: num(m.arr_usd),
@@ -899,7 +912,7 @@ export async function getDataMatrix(): Promise<DataMatrix> {
       .from("companies")
       .select(
         "id, slug, name, sector, country, stage, status, logo_url, " +
-          "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)"
+          "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_kind)"
       )
       .order("name", { ascending: true }),
     supabase.from("organizations").select("data_columns_json").limit(1),
@@ -911,7 +924,9 @@ export async function getDataMatrix(): Promise<DataMatrix> {
 
   for (const c of (rows ?? []) as any[]) {
     const matrix: Record<string, Record<DataMetricKey, number | null>> = {};
-    for (const m of (c.metrics ?? []) as any[]) {
+    // L.12 — only quarterly rows in /data view for now (avoid duplicate cells
+    // from monthly+quarterly backfill). Cadence-aware /data refactor is L.12b.
+    for (const m of ((c.metrics ?? []) as any[]).filter((mm) => mm.period_kind === "quarter" || !mm.period_kind)) {
       quartersSet.add(m.quarter);
       matrix[m.quarter] = {
         arr_usd:     m.arr_usd     != null ? Number(m.arr_usd)     : null,
@@ -970,13 +985,13 @@ export async function getCompanyCustomMetrics(companyId: string): Promise<Custom
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("custom_metric_values")
-    .select("quarter, value, metric_definitions(id, label, type, unit)")
+    .select("quarter, value, period_kind, metric_definitions(id, label, type, unit)")
     .eq("company_id", companyId)
     .order("quarter", { ascending: true });
 
-  // Group by definition.
+  // Group by definition. L.12 — only quarterly rows in the view for now.
   const byDef = new Map<string, CustomMetricSeries>();
-  for (const r of (rows ?? []) as any[]) {
+  for (const r of ((rows ?? []) as any[]).filter((m) => m.period_kind === "quarter" || !m.period_kind)) {
     const def = r.metric_definitions;
     if (!def) continue;
     const key = def.id;

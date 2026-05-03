@@ -103,7 +103,7 @@ export async function buildChatContext(): Promise<ChatContext | null> {
         "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, " +
         "founder_name, founder_email, founder_role, " +
         "investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)"
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_kind)"
       ),
     scope === "lp" ? Promise.resolve({ data: [] }) : supabase
       .from("lps")
@@ -119,7 +119,7 @@ export async function buildChatContext(): Promise<ChatContext | null> {
       .limit(20),
     supabase
       .from("custom_metric_values")
-      .select("quarter, value, companies(slug), metric_definitions(label, type, unit)"),
+      .select("quarter, value, period_kind, companies(slug), metric_definitions(label, type, unit)"),
   ]);
 
   // Pull recent news submissions to attach to each company
@@ -127,7 +127,10 @@ export async function buildChatContext(): Promise<ChatContext | null> {
   const companiesArr: ChatContext["companies"] = [];
 
   for (const c of (companies ?? []) as any[]) {
+    // L.12 — only quarterly rows for the chat context dump (avoids
+    // duplicating numbers after monthly backfill).
     const sortedMetrics = ((c.metrics ?? []) as any[])
+      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
       .sort((a, b) => a.quarter.localeCompare(b.quarter))
       .map((m) => ({
         quarter: m.quarter,
@@ -158,7 +161,8 @@ export async function buildChatContext(): Promise<ChatContext | null> {
   // Group key = `${companySlug}|${label}` so we collapse all quarters per metric.
   type CustomGroup = ChatContext["companies"][number]["custom_metrics"][number];
   const customGroups = new Map<string, CustomGroup>();
-  for (const r of (customMetricRows ?? []) as any[]) {
+  // L.12 — quarter rows only here too
+  for (const r of ((customMetricRows ?? []) as any[]).filter((m) => m.period_kind === "quarter" || !m.period_kind)) {
     const slug = r.companies?.slug;
     const def = r.metric_definitions;
     if (!slug || !def?.label) continue;

@@ -55,6 +55,7 @@ export default async function EditCompanyPage({ params }: { params: { slug: stri
     safeDiscountPct: company.safeDiscountPct,
     website: company.website,
     linkedinUrl: company.linkedinUrl,
+    trackingCadence: company.trackingCadence ?? "monthly",
   };
 
   return (

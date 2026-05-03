@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 import { logUsageEvent } from "@/lib/value-analytics";
+import { periodColumnsFromQuarterString } from "@/lib/period";
 
 type Stage = Database["public"]["Enums"]["company_stage"];
 type Status = Database["public"]["Enums"]["company_status"];
 type Instrument = Database["public"]["Enums"]["investment_instrument"];
+type TrackingCadenceDb = Database["public"]["Enums"]["tracking_cadence"];
 
 export type CompanyInput = {
   name: string;
@@ -27,6 +29,8 @@ export type CompanyInput = {
   safeDiscountPct: number | null;
   website: string | null;
   linkedinUrl: string | null;
+  // L.12 — per-company tracking cadence (monthly default)
+  trackingCadence: TrackingCadenceDb;
 };
 
 function normalizeUrl(u: string | null | undefined): string | null {
@@ -97,6 +101,7 @@ export async function updateCompany(slug: string, input: CompanyInput): Promise<
       safe_discount_pct: input.safeDiscountPct,
       website: normalizeUrl(input.website),
       linkedin_url: normalizeUrl(input.linkedinUrl),
+      tracking_cadence: input.trackingCadence,
     })
     .eq("id", existing.id);
 
@@ -148,6 +153,7 @@ export async function createCompany(input: CompanyInput): Promise<CompanyResult>
     safe_discount_pct: input.safeDiscountPct,
     website: normalizeUrl(input.website),
     linkedin_url: normalizeUrl(input.linkedinUrl),
+    tracking_cadence: input.trackingCadence,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -237,7 +243,11 @@ export type CustomMetricValueResult = { ok: true } | { ok: false; error: string 
 export async function upsertCustomMetricValue(input: CustomMetricValueInput): Promise<CustomMetricValueResult> {
   if (!input.companyId) return { ok: false, error: "Company id required" };
   if (!input.metricDefinitionId) return { ok: false, error: "Metric required" };
-  if (!/^Q[1-4]\s+\d{4}$/.test(input.quarter)) return { ok: false, error: "Invalid quarter" };
+  // Accept either legacy "Q1 2026" or new "M03 2026" / "Jan 2026" / "FY 2026".
+  const periodCols = periodColumnsFromQuarterString(input.quarter);
+  if (!periodCols.period_year || !periodCols.period_month) {
+    return { ok: false, error: "Invalid period — use 'Q1 2026', 'Jan 2026', or 'M03 2026'" };
+  }
   if (input.value != null && !Number.isFinite(input.value)) {
     return { ok: false, error: "Value must be a number" };
   }
@@ -271,6 +281,9 @@ export async function upsertCustomMetricValue(input: CustomMetricValueInput): Pr
           company_id: input.companyId,
           metric_definition_id: input.metricDefinitionId,
           quarter: input.quarter,
+          period_year: periodCols.period_year,
+          period_month: periodCols.period_month,
+          period_kind: periodCols.period_kind,
           value: input.value,
         },
         { onConflict: "company_id,metric_definition_id,quarter" },

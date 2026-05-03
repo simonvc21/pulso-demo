@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
+import { periodColumnsFromQuarterString } from "@/lib/period";
 
 type Stage = Database["public"]["Enums"]["company_stage"];
 type Status = Database["public"]["Enums"]["company_status"];
@@ -284,20 +285,27 @@ export async function importMetrics(rows: MetricDraft[]): Promise<ImportMetricsR
   for (const c of companies ?? []) slugToId.set(c.slug, c.id);
 
   const inserts = rows
-    .filter((r) => slugToId.has(r.companySlug) && QUARTER_RE.test(r.quarter.trim()))
+    .filter((r) => slugToId.has(r.companySlug))
     .filter((r) =>
       r.arrUsd != null || r.burnUsd != null || r.cashUsd != null ||
       r.revenueUsd != null || r.headcount != null
     )
-    .map((r) => ({
-      company_id: slugToId.get(r.companySlug)!,
-      quarter: r.quarter.trim(),
-      arr_usd: r.arrUsd,
-      burn_usd: r.burnUsd,
-      cash_usd: r.cashUsd,
-      revenue_usd: r.revenueUsd,
-      headcount: r.headcount,
-    }));
+    .map((r) => {
+      const period = periodColumnsFromQuarterString(r.quarter.trim());
+      return {
+        company_id: slugToId.get(r.companySlug)!,
+        quarter: r.quarter.trim(),
+        period_year: period.period_year,
+        period_month: period.period_month,
+        period_kind: period.period_kind,
+        arr_usd: r.arrUsd,
+        burn_usd: r.burnUsd,
+        cash_usd: r.cashUsd,
+        revenue_usd: r.revenueUsd,
+        headcount: r.headcount,
+      };
+    })
+    .filter((r) => r.period_year != null && r.period_month != null);
 
   if (inserts.length === 0) return { ok: true, inserted: 0 };
 

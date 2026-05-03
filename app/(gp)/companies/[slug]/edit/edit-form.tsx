@@ -26,6 +26,12 @@ const instruments = [
 
 const INSTRUMENTS_WITH_CAP = new Set(["safe", "convertible_note"]);
 
+const cadences = [
+  { value: "monthly",   label: "Monthly",   hint: "Founder reports every month — fintech, SaaS, marketplaces" },
+  { value: "quarterly", label: "Quarterly", hint: "Standard VC quarterly cycle — most early-stage" },
+  { value: "annual",    label: "Annual",    hint: "Late-stage / hold positions" },
+] as const;
+
 interface Props {
   slug: string;
   initial: CompanyInput;
@@ -123,6 +129,30 @@ export function CompanyEditForm({ slug, initial }: Props) {
             </>
           )}
         </div>
+      </Section>
+
+      <Section title="Reporting cadence">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          {cadences.map((c) => {
+            const active = v.trackingCadence === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => update("trackingCadence", c.value as typeof v.trackingCadence)}
+                className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                  active ? "border-navy bg-navy/5 text-navy" : "border-line text-muted hover:border-navy/40 hover:text-ink"
+                }`}
+              >
+                <div className="text-sm font-semibold">{c.label}</div>
+                <div className="text-[10px] mt-0.5 leading-tight">{c.hint}</div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-muted mt-2">
+          Founders submit metrics at this cadence. Charts and the /data spreadsheet adapt accordingly.
+        </p>
       </Section>
 
       <Section title="Founder">

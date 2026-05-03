@@ -102,6 +102,33 @@ function normalizeQuarter(raw: string): string | null {
   // "2026-Q1"
   const m3 = /^(\d{4})-Q([1-4])$/i.exec(t);
   if (m3) return `Q${m3[2]} ${m3[1]}`;
+
+  // L.12 — Monthly forms. Normalize to "Mxx YYYY" so the existing
+  // (company, quarter) UNIQUE constraint stays satisfied and
+  // periodColumnsFromQuarterString() picks up the right (year, month, kind).
+  // "Jan 2026" / "January 2026"
+  const monthShort = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+  const monthLong = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  const lower = t.toLowerCase();
+  for (let i = 0; i < 12; i++) {
+    if (lower.startsWith(monthShort[i]) || lower.startsWith(monthLong[i])) {
+      const yMatch = /(\d{4})/.exec(lower);
+      if (yMatch) return `M${String(i + 1).padStart(2, "0")} ${yMatch[1]}`;
+    }
+  }
+  // "2026-01" or "2026/01"
+  const m4 = /^(\d{4})[-/](\d{1,2})$/.exec(t);
+  if (m4) return `M${String(parseInt(m4[2], 10)).padStart(2, "0")} ${m4[1]}`;
+  // "01/2026" or "01-2026"
+  const m5 = /^(\d{1,2})[-/](\d{4})$/.exec(t);
+  if (m5) return `M${String(parseInt(m5[1], 10)).padStart(2, "0")} ${m5[2]}`;
+  // Already in our internal monthly form
+  if (/^M(\d{2})\s+\d{4}$/i.test(t)) return t.toUpperCase();
+  // "FY 2026" / "2026"
+  if (/^(?:FY\s*)?\d{4}$/i.test(t)) {
+    const y = /\d{4}/.exec(t)![0];
+    return `FY ${y}`;
+  }
   return null;
 }
 
