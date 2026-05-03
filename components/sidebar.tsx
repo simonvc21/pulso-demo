@@ -48,7 +48,10 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, isAdmin = false, 
     { href: "/lps",       label: labels.lps,       icon: Users },
   ];
   const secondary = [
-    { href: "/share/q1-2026-lp-letter?preview=1", label: labels.lp_preview,      icon: Share2 },
+    // L.5e — LP preview now opens the actual LP portal home (/lp) so the GP
+    // sees what the LP sees: letters list, portfolio companies button, and
+    // the messages thread. The old link only previewed a single letter.
+    { href: "/lp", label: labels.lp_preview, icon: Share2 },
     { href: "/fill/q1-2026-financials?preview=1", label: labels.founder_preview, icon: Send },
     { href: "/settings",                          label: labels.settings,         icon: Settings },
     ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: ShieldAlert }] : []),
