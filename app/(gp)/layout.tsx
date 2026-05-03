@@ -29,6 +29,7 @@ export default async function GpLayout({ children }: { children: React.ReactNode
         labels={{
           overview: labels.overview,
           companies: labels.companies,
+          data: labels.data,
           forms: labels.forms,
           lps: labels.lps,
           settings: labels.settings,

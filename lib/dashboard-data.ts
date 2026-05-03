@@ -821,3 +821,72 @@ export async function getNewsletterUpdates(
   }
   return updates;
 }
+
+// ---------------------------------------------------------------------------
+// Data matrix — companies × quarters × metrics for the /data spreadsheet view
+// ---------------------------------------------------------------------------
+
+import { DATA_METRICS, type DataMetricKey } from "@/lib/data-metrics";
+export { DATA_METRICS };
+export type { DataMetricKey };
+
+export interface DataMatrixCompany {
+  id: string;
+  slug: string;
+  name: string;
+  sector: string | null;
+  country: string | null;
+  stage: string;
+  status: "healthy" | "watch" | "critical" | "no-data";
+  logoUrl: string | null;
+  metrics: Record<string, Record<DataMetricKey, number | null>>; // metrics[quarter][key]
+}
+
+export interface DataMatrix {
+  quarters: string[];                 // sorted oldest → newest
+  companies: DataMatrixCompany[];     // sorted by name
+}
+
+export function quarterKey(q: string): number {
+  const m = /^Q(\d)\s+(\d{4})$/.exec(q.trim());
+  if (!m) return 0;
+  return parseInt(m[2], 10) * 10 + parseInt(m[1], 10);
+}
+
+export async function getDataMatrix(): Promise<DataMatrix> {
+  const supabase = createClient();
+  const { data: rows } = await supabase
+    .from("companies")
+    .select(
+      "id, slug, name, sector, country, stage, status, logo_url, " +
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)"
+    )
+    .order("name", { ascending: true });
+
+  const quartersSet = new Set<string>();
+  const companies: DataMatrixCompany[] = [];
+
+  for (const c of (rows ?? []) as any[]) {
+    const matrix: Record<string, Record<DataMetricKey, number | null>> = {};
+    for (const m of (c.metrics ?? []) as any[]) {
+      quartersSet.add(m.quarter);
+      matrix[m.quarter] = {
+        arr_usd:     m.arr_usd     != null ? Number(m.arr_usd)     : null,
+        burn_usd:    m.burn_usd    != null ? Number(m.burn_usd)    : null,
+        cash_usd:    m.cash_usd    != null ? Number(m.cash_usd)    : null,
+        revenue_usd: m.revenue_usd != null ? Number(m.revenue_usd) : null,
+        headcount:   m.headcount   != null ? Number(m.headcount)   : null,
+      };
+    }
+    companies.push({
+      id: c.id, slug: c.slug, name: c.name,
+      sector: c.sector, country: c.country, stage: c.stage,
+      status: c.status === "no_data" ? "no-data" : c.status,
+      logoUrl: c.logo_url ?? null,
+      metrics: matrix,
+    });
+  }
+
+  const quarters = Array.from(quartersSet).sort((a, b) => quarterKey(a) - quarterKey(b));
+  return { quarters, companies };
+}

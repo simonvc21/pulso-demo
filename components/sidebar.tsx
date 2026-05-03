@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send } from "lucide-react";
+import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -14,6 +14,7 @@ interface SidebarProps {
   labels: {
     overview: string;
     companies: string;
+    data: string;
     forms: string;
     lps: string;
     settings: string;
@@ -27,6 +28,7 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, labels }: Sidebar
   const nav = [
     { href: "/dashboard", label: labels.overview,  icon: LayoutDashboard },
     { href: "/companies", label: labels.companies, icon: Building2 },
+    { href: "/data",      label: labels.data,      icon: Table2 },
     { href: "/forms",     label: labels.forms,     icon: FileText },
     { href: "/lps",       label: labels.lps,       icon: Users },
   ];
