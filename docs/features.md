@@ -86,8 +86,6 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Brand colors**: navy / primary / accent picker in Settings → Branding. Tailwind tokens are CSS-variable backed; the GP layout converts hex → RGB triplets and injects them. Changing colors updates every `bg-navy`, `text-gold`, `border-teal` instantly.
 - **Dark mode**: 3-state toggle (Light / Dark / System) in the sidebar via `next-themes`. Surface tokens swap via CSS vars; status pastels (red-50 / teal-50 / gold-50) get low-alpha versions in dark.
 - **Internationalization**: cookie-driven EN/ES with `LocaleSwitcher` in the sidebar. Translated: sidebar nav, topbar search, dashboard headers/KPIs/captions. Full app translation pending.
-- **Dashboard editor** (L.5): "Edit dashboard" toggle on `/dashboard`. Drag widgets to reorder, pick S/M/L/XL size, set accent (default / primary teal / accent gold / navy / muted), hide/show widgets, switch density (Cozy/Compact). Persisted per-org in `organizations.dashboard_config_json`.
-
 ### Cron jobs
 - `vercel.json` registers `/api/cron/metric-alerts` daily at 14:00 UTC.
 - Endpoint protected by Vercel's `x-vercel-cron` header or `CRON_SECRET` bearer.
@@ -108,7 +106,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Demo seed is global**: Patagonia Fund I and its 8 seeded companies are the default. New accounts get a `/onboarding` wizard but the seed is still in the DB.
 - **No emails sent yet**: Resend integration (Fase C) is in the roadmap. Magic links work because Supabase Auth handles them; product emails (form invites, reminders, "your letter is ready") don't go out.
 - **Metrics schema is fixed**: every company has the same 5 quarterly metrics (ARR / burn / cash / revenue / headcount). Custom metrics per company is L.4 in the roadmap (large change).
-- **Dashboard widget catalog is fixed**: GPs can reorder/resize/recolor/hide the 7 existing widgets (L.5 shipped) but can't yet add custom widgets like ad-hoc charts or custom KPIs.
+- **Dashboard layout is fixed**: widgets aren't draggable/resizable/recolorable. (L.5 was shipped and reverted; column `organizations.dashboard_config_json` stays in the DB, currently null for everyone.)
 - **No bulk import**: founders or GPs can't yet upload a CSV/Excel/PDF of historical metrics. Planned in B.4.
 - **No subscription billing**: free for now, no Stripe integration. Planned in L.9.
 - **No audit log**: who-did-what tracking is in Fase G (planned).
