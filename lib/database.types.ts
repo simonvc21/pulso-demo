@@ -16,6 +16,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string
+          organization_id: string
+          scope: Database["public"]["Enums"]["ai_conversation_scope"]
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          organization_id: string
+          scope: Database["public"]["Enums"]["ai_conversation_scope"]
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          organization_id?: string
+          scope?: Database["public"]["Enums"]["ai_conversation_scope"]
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["ai_message_role"]
+          token_count: number | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["ai_message_role"]
+          token_count?: number | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["ai_message_role"]
+          token_count?: number | null
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           country: string | null
@@ -662,6 +719,8 @@ export type Database = {
       user_org_id: { Args: never; Returns: string }
     }
     Enums: {
+      ai_conversation_scope: "gp" | "lp"
+      ai_message_role: "user" | "assistant"
       company_stage: "Pre-seed" | "Seed" | "Series A" | "Series B"
       company_status: "healthy" | "watch" | "critical" | "no_data"
       custom_metric_type: "currency" | "number" | "percent" | "ratio" | "count"

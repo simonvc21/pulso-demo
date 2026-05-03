@@ -402,6 +402,18 @@ Hoy todo el modelo de métricas usa `quarter` text ("Q1 2026"). Para SaaS / fint
 - Bulk migration de Patagonia Fund I para volver a sembrar como monthly + dejar 2 companies en quarterly como ejemplo del mixto.
 - **Riesgo**: muy invasivo. Toca ~40 archivos. Hacer en branch separada con tests visuales en Vercel preview antes de merge.
 
+**L.13 Persistent AI chat history**
+Hoy el chatbot dock vive sólo en memoria del componente — cerrar el panel pierde la conversación. Falta:
+- Nueva tabla `ai_conversations(id, organization_id, user_id, scope enum('gp','lp'), title text, created_at, last_message_at)`.
+- Nueva tabla `ai_messages(id, conversation_id, role enum('user','assistant'), content text, token_count int, created_at)`.
+- RLS: `ai_conversations` visible al user que la creó (gating por `auth_user_id`); `ai_messages` visible si el user puede ver la conversación parent.
+- ChatDock: al abrir, lista las últimas N conversaciones del user en una sidebar interna ("Recent conversations"). Click → carga todos los messages. Botón "New chat" crea una conversación fresh.
+- `/api/chat`: cada turn `INSERT` en `ai_messages` (user msg + assistant msg) bajo el `conversation_id` que el cliente manda. Si no manda id, crea una nueva conversación + auto-titles después del 2do turn ("Q1 portfolio review", "Vextra burn deep-dive") usando `gemini-2.5-flash` con un mini-prompt.
+- Search inline: input arriba de la lista filtra por title o por substring del primer message.
+- Auto-cleanup: conversaciones sin messages > 7 días se borran (cron diario).
+- Para LPs: misma tabla pero con `scope='lp'` para que aparezcan separadas en analytics.
+- Pre-requisito: ninguno. Buena candidata para shippear standalone.
+
 ---
 
 ## Fase G — Settings avanzado (2 días)

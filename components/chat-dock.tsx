@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Sparkles, X, Send, Loader2, Bot, User as UserIcon } from "lucide-react";
+import { Sparkles, X, Send, Loader2, Bot, User as UserIcon, History, Plus, Trash2, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { loadConversations, loadMessages, removeConversation } from "@/app/(gp)/chat/actions";
+import type { ChatConversation, ChatMessage } from "@/lib/chat-history";
 
 interface Message {
   role: "user" | "assistant";
@@ -24,22 +26,38 @@ const DEFAULT_EXAMPLES = [
   "Who hasn't responded to the last form?",
 ];
 
+function formatRelativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return "just now";
+  const m = Math.floor(ms / 60_000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function ChatDock({
   scopeHint = "Ask anything about your portfolio.",
   examples = DEFAULT_EXAMPLES,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [conversationsLoaded, setConversationsLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => setMounted(true), []);
 
-  // Lock body scroll while panel is open
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -47,7 +65,6 @@ export function ChatDock({
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  // ESC closes
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -57,16 +74,63 @@ export function ChatDock({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, pending]);
 
-  // Autoscroll on new message
   useEffect(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, pending]);
 
-  // Focus input when opening
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  // Lazy-load conversation list the first time the panel opens.
+  useEffect(() => {
+    if (!open || conversationsLoaded) return;
+    loadConversations().then((list) => {
+      setConversations(list);
+      setConversationsLoaded(true);
+    }).catch(() => setConversationsLoaded(true));
+  }, [open, conversationsLoaded]);
+
+  const refreshConversations = async () => {
+    try {
+      const list = await loadConversations();
+      setConversations(list);
+    } catch {}
+  };
+
+  const startNewChat = () => {
+    setMessages([]);
+    setConversationId(null);
+    setError(null);
+    setShowHistory(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const openConversation = async (id: string) => {
+    setLoadingHistory(true);
+    setError(null);
+    try {
+      const msgs = await loadMessages(id);
+      setMessages(msgs.map((m: ChatMessage) => ({ role: m.role, content: m.content })));
+      setConversationId(id);
+      setShowHistory(false);
+    } catch (e: any) {
+      setError(e?.message ?? "Could not load conversation");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this conversation? This can't be undone.")) return;
+    const res = await removeConversation(id);
+    if (res.ok) {
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (conversationId === id) startNewChat();
+    }
+  };
 
   const send = async (text: string) => {
     const clean = text.trim();
@@ -80,13 +144,21 @@ export function ChatDock({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, conversationId }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
         setError(data.error ?? "Something went wrong");
       } else {
         setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+        if (data.conversationId && data.conversationId !== conversationId) {
+          setConversationId(data.conversationId);
+        }
+        // Refresh the sidebar so the latest conversation jumps to the top
+        // (and gets its auto-generated title after the first turn).
+        if (data.titledNow || !conversationId) {
+          refreshConversations();
+        }
       }
     } catch (e: any) {
       setError(e?.message ?? "Network error");
@@ -133,18 +205,113 @@ export function ChatDock({
               <div className="text-[11px] text-white/70">Powered by Gemini · context-aware</div>
             </div>
           </div>
-          <button
-            onClick={() => !pending && setOpen(false)}
-            className="text-white/70 hover:text-white p-1.5"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                showHistory ? "bg-white/10 text-gold" : "text-white/70 hover:text-white"
+              )}
+              aria-label="Toggle conversation history"
+              title="Conversation history"
+            >
+              <History className="h-4 w-4" />
+            </button>
+            <button
+              onClick={startNewChat}
+              className="p-1.5 rounded-md text-white/70 hover:text-white"
+              aria-label="New chat"
+              title="New chat"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => !pending && setOpen(false)}
+              className="text-white/70 hover:text-white p-1.5"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+
+        {/* History panel — slides over the message area when toggled */}
+        {showHistory && (
+          <div className="absolute top-[57px] left-0 right-0 bottom-0 bg-paper z-10 flex flex-col animate-fade-in">
+            <div className="px-4 py-3 border-b border-line flex items-center justify-between">
+              <div className="text-[11px] font-semibold text-ink tracking-[0.14em] uppercase">
+                Recent conversations
+              </div>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="text-muted hover:text-ink p-1"
+                aria-label="Close history"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+              {!conversationsLoaded && (
+                <div className="px-3 py-6 text-center text-[12px] text-muted inline-flex items-center justify-center gap-2 w-full">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+                </div>
+              )}
+              {conversationsLoaded && conversations.length === 0 && (
+                <div className="px-3 py-8 text-center text-[12px] text-muted">
+                  No saved conversations yet. Ask Pulso AI anything to start one.
+                </div>
+              )}
+              {conversations.map((c) => {
+                const isCurrent = c.id === conversationId;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => openConversation(c.id)}
+                    className={cn(
+                      "group w-full text-left px-3 py-2.5 rounded-lg flex items-start gap-2 transition-colors",
+                      isCurrent ? "bg-teal-50 border border-teal/30" : "hover:bg-paper2 border border-transparent"
+                    )}
+                  >
+                    <MessageSquare className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", isCurrent ? "text-teal-600" : "text-muted")} />
+                    <div className="flex-1 min-w-0">
+                      <div className={cn("text-[12px] font-medium truncate", isCurrent ? "text-ink" : "text-ink")}>
+                        {c.title || "Untitled chat"}
+                      </div>
+                      <div className="text-[10px] text-muted mt-0.5">
+                        {formatRelativeTime(c.lastMessageAt)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => handleDelete(c.id, e)}
+                      className="opacity-0 group-hover:opacity-100 text-muted hover:text-coral transition-opacity p-1"
+                      aria-label="Delete conversation"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="border-t border-line p-3">
+              <button
+                onClick={startNewChat}
+                className="w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-navy text-white text-[12px] font-medium hover:bg-navy-700 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" /> New chat
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
-          {messages.length === 0 && !pending && (
+          {loadingHistory && (
+            <div className="text-[12px] text-muted inline-flex items-center gap-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading conversation…
+            </div>
+          )}
+
+          {!loadingHistory && messages.length === 0 && !pending && (
             <div>
               <div className="text-[12px] text-muted">{scopeHint}</div>
               <div className="mt-4 space-y-2">

@@ -2,6 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { gemini } from "@/lib/gemini";
 import { buildChatContext, serializeContextForPrompt } from "@/lib/chat-context";
 import { createClient } from "@/lib/supabase/server";
+import {
+  createConversation,
+  appendMessage,
+  setConversationTitle,
+  getConversationMessages,
+} from "@/lib/chat-history";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -11,6 +17,9 @@ const DAILY_CAP = 150;
 
 interface ChatRequest {
   messages: { role: "user" | "assistant"; content: string }[];
+  /** L.13 — optional conversation id. If absent, a new conversation is created
+   *  and its id is returned in the response. */
+  conversationId?: string | null;
 }
 
 const SYSTEM_BASE = `You are Pulso, an in-app analyst assistant for a LATAM venture capital fund.
@@ -106,18 +115,55 @@ export async function POST(request: NextRequest) {
   // questions. We push GP to the model max (8192) for newsletters, LP at 4000.
   const maxOutputTokens = ctx.scope === "lp" ? 4000 : 8000;
 
+  let reply: string;
   try {
-    const reply = await gemini.generate(prompt, {
+    reply = (await gemini.generate(prompt, {
       model: "flash",
       systemInstruction: SYSTEM_BASE,
       temperature: 0.3,
       maxOutputTokens,
-    });
-    return NextResponse.json({ ok: true, reply: reply.trim() });
+    })).trim();
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message ?? "Gemini failed" },
       { status: 500 }
     );
   }
+
+  // L.13 — persist this turn. Failures here don't block the user; the reply
+  // is still returned. Logged so we can spot issues without breaking chat UX.
+  let conversationId = body.conversationId ?? null;
+  let titledNow = false;
+  try {
+    if (!conversationId) {
+      conversationId = await createConversation(ctx.scope === "lp" ? "lp" : "gp");
+    }
+    if (conversationId) {
+      await appendMessage(conversationId, "user", last);
+      await appendMessage(conversationId, "assistant", reply);
+
+      // Auto-title after the first complete turn (when total messages == 2).
+      // Cheap follow-up call to flash with a tight prompt.
+      const all = await getConversationMessages(conversationId);
+      if (all.length === 2) {
+        try {
+          const title = (await gemini.generate(
+            `Suggest a concise 3-6 word title for this chat. No quotes, no period.\n\n` +
+            `User: ${last.slice(0, 400)}\n\nAssistant: ${reply.slice(0, 400)}`,
+            { model: "flash", temperature: 0.3, maxOutputTokens: 30 },
+          )).trim().replace(/^["'`]+|["'`]+$/g, "").slice(0, 60);
+          if (title) {
+            await setConversationTitle(conversationId, title);
+            titledNow = true;
+          }
+        } catch {
+          // Title is non-critical, skip silently.
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[L.13] Persist chat failed:", err);
+  }
+
+  return NextResponse.json({ ok: true, reply, conversationId, titledNow });
 }
