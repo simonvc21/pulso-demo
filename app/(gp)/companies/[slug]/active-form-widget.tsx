@@ -6,6 +6,8 @@ import { Send, AlertCircle, CheckCircle2, Clock, Loader2, Plus, X } from "lucide
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { sendExtraForm, clearActiveForm } from "./active-form-actions";
+import { FounderLinkDialog } from "./founder-link-dialog";
+import type { FillTokenRow } from "@/lib/fill-tokens";
 // L.11 — types-only import (client-safe). formatDueIn re-declared inline so
 // we don't pull lib/active-form.ts (which uses next/headers) into the client.
 import type { ActiveFormSummary, ActiveFormStatus } from "@/lib/active-form";
@@ -31,6 +33,8 @@ interface Props {
   initial: ActiveFormSummary | null;
   /** Forms in the same org so the GP can pick one for "Send extra". */
   formOptions: FormOption[];
+  /** L.4e — existing fill tokens for this company. */
+  fillTokens: FillTokenRow[];
 }
 
 const STATUS_META: Record<ActiveFormStatus, { label: string; tone: string; icon: any }> = {
@@ -39,9 +43,10 @@ const STATUS_META: Record<ActiveFormStatus, { label: string; tone: string; icon:
   overdue:   { label: "Overdue",   tone: "bg-coral/10 text-coral border-coral/30",     icon: AlertCircle },
 };
 
-export function ActiveFormWidget({ companyId, companySlug, initial, formOptions }: Props) {
+export function ActiveFormWidget({ companyId, companySlug, initial, formOptions, fillTokens }: Props) {
   const [active, setActive] = useState<ActiveFormSummary | null>(initial);
   const [showDialog, setShowDialog] = useState(false);
+  const [showFounderLink, setShowFounderLink] = useState(false);
   const [pending, startTransition] = useTransition();
 
   // Derive effective status (overdue if past due_at).
@@ -52,7 +57,10 @@ export function ActiveFormWidget({ companyId, companySlug, initial, formOptions 
     return active.status;
   })();
 
-  const founderLink = `/fill/current?company=${companySlug}`;
+  // L.4e — once any token exists, the legacy ?company=<slug> URL is locked.
+  // Show the manager so the GP can copy/revoke a token instead.
+  const hasTokens = fillTokens.length > 0;
+  const legacyFounderLink = `/fill/current?company=${companySlug}`;
 
   return (
     <div className="bg-white rounded-xl border border-line shadow-card p-4">
@@ -99,11 +107,33 @@ export function ActiveFormWidget({ companyId, companySlug, initial, formOptions 
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {active && (
-            <a href={founderLink} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Send className="h-3.5 w-3.5" /> Founder link
+            hasTokens ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setShowFounderLink(true)}
+              >
+                <Send className="h-3.5 w-3.5" /> Founder link · {fillTokens.length}
               </Button>
-            </a>
+            ) : (
+              <>
+                <a href={legacyFounderLink} target="_blank" rel="noreferrer">
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <Send className="h-3.5 w-3.5" /> Open as founder
+                  </Button>
+                </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setShowFounderLink(true)}
+                  title="Generate a private link the founder can use to submit forms"
+                >
+                  <Send className="h-3.5 w-3.5" /> Founder link
+                </Button>
+              </>
+            )
           )}
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowDialog(true)}>
             <Plus className="h-3.5 w-3.5" /> Send extra
@@ -157,6 +187,15 @@ export function ActiveFormWidget({ companyId, companySlug, initial, formOptions 
             });
           }}
           hasActive={!!active}
+        />
+      )}
+
+      {showFounderLink && (
+        <FounderLinkDialog
+          companyId={companyId}
+          companySlug={companySlug}
+          initialTokens={fillTokens}
+          onClose={() => setShowFounderLink(false)}
         />
       )}
     </div>

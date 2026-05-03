@@ -14,6 +14,7 @@ import { getCompanyComments, getCompanyReactions } from "@/lib/lp-engagement";
 import { ActiveFormWidget } from "./active-form-widget";
 import { SectionTabs } from "./section-tabs";
 import { getActiveFormForCompany } from "@/lib/active-form";
+import { listCompanyFillTokens } from "@/lib/fill-tokens";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
 import { ts } from "@/lib/i18n-server";
 import { createClient } from "@/lib/supabase/server";
@@ -52,13 +53,14 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
     .maybeSingle();
   const customMetrics = companyRow ? await getCompanyCustomMetrics(companyRow.id) : [];
   const teamUpdates = companyRow ? await getCompanyUpdates(companyRow.id, 50) : [];
-  const [comments, reactions, activeForm] = companyRow
+  const [comments, reactions, activeForm, fillTokens] = companyRow
     ? await Promise.all([
         getCompanyComments(companyRow.id),
         getCompanyReactions(companyRow.id),
         getActiveFormForCompany(companyRow.id),
+        listCompanyFillTokens(companyRow.id),
       ])
-    : [[], [], null];
+    : [[], [], null, []];
 
   // L.11 — list of forms in this org so the "Send extra" picker can show them.
   const { data: formOptions } = await supabase
@@ -247,6 +249,7 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
             companySlug={company.slug}
             initial={activeForm}
             formOptions={(formOptions ?? []) as { slug: string; name: string }[]}
+            fillTokens={fillTokens}
           />
         )}
 

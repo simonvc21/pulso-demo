@@ -34,7 +34,7 @@ function groupFields(fields: FormFieldRow[]): { title: string; fields: FormField
   return Array.from(groups.entries()).map(([title, fs]) => ({ title, fields: fs }));
 }
 
-export default function FillForm({ payload }: { payload: PublicFormPayload }) {
+export default function FillForm({ payload, fillToken }: { payload: PublicFormPayload; fillToken?: string | null }) {
   const { form, company, organization } = payload;
   const sections = useMemo(() => groupFields(form.fields), [form.fields]);
   const totalFields = form.fields.length;
@@ -77,6 +77,7 @@ export default function FillForm({ payload }: { payload: PublicFormPayload }) {
       companySlug: company.slug,
       data: values,
       aiExtracted: aiUsed,
+      fillToken: fillToken ?? null,
     });
     setSubmitting(false);
     if (!res.ok) {

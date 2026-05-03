@@ -9,13 +9,15 @@ export async function submitFillForm(input: {
   companySlug: string;
   data: Record<string, string>;
   aiExtracted: boolean;
+  fillToken?: string | null;
 }): Promise<SubmitResult> {
   const supabase = createClient();
-  const { data, error } = await supabase.rpc("submit_public_form", {
+  const { data, error } = await (supabase as any).rpc("submit_public_form", {
     p_form_slug: input.formSlug,
     p_company_slug: input.companySlug,
     p_data: input.data,
     p_ai_extracted: input.aiExtracted,
+    p_fill_token: input.fillToken ?? null,
   });
   if (error) return { ok: false, error: error.message };
 
