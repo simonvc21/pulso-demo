@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, FileText, Calendar, Eye, Briefcase, MessageSquare } from "lucide-react";
+import { ChevronRight, FileText, Calendar, Eye, Briefcase, MessageSquare, BarChart3 } from "lucide-react";
 import { getLpLetters, getCompanyList } from "@/lib/dashboard-data";
 import { ts } from "@/lib/i18n-server";
 
@@ -10,31 +10,81 @@ export default async function LpHomePage() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
-      <div className="text-[11px] font-semibold text-gold-600 tracking-[0.18em] uppercase">{ts("lp_portal.header")}</div>
-      <h1 className="mt-2 text-3xl font-serif font-bold text-ink leading-tight">
-        {ts("lp_portal.letters_title")}
-      </h1>
-      <p className="mt-2 text-sm text-muted">
-        {ts("lp_portal.letters_subtitle")}
-      </p>
+      <div className="text-[11px] font-semibold text-gold-600 tracking-[0.18em] uppercase">
+        {ts("lp_portal.header")}
+      </div>
 
-      {companies.length > 0 && (
-        <Link href="/lp/companies" className="block group mt-8">
+      {/* L.5f — Portfolio is the headline. Each company has a live dashboard
+          with charts, KPIs, custom metrics, comments. Letters live below. */}
+      {companies.length > 0 ? (
+        <Link href="/lp/companies" className="block group mt-3">
           <div className="bg-gradient-to-r from-navy to-navy-700 text-white rounded-2xl p-6 flex items-center gap-5 hover:shadow-cardHover transition-shadow">
             <div className="h-12 w-12 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
               <Briefcase className="h-5 w-5 text-gold" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] tracking-[0.18em] uppercase text-gold font-semibold">{ts("lp_portal.portfolio_callout_label")}</div>
-              <h2 className="mt-1 text-lg font-serif font-bold">{ts("lp_portal.portfolio_callout_title", { n: companies.length })}</h2>
-              <p className="text-[12px] text-white/70 mt-1">{ts("lp_portal.portfolio_callout_body")}</p>
+              <div className="text-[10px] tracking-[0.18em] uppercase text-gold font-semibold">
+                {ts("lp_portal.portfolio_callout_label")}
+              </div>
+              <h2 className="mt-1 text-xl font-serif font-bold">
+                {ts("lp_portal.portfolio_callout_title", { n: companies.length })}
+              </h2>
+              <p className="text-[12px] text-white/70 mt-1">
+                Live dashboards with ARR, cash, runway, and custom metrics for each company.
+              </p>
             </div>
             <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-gold transition-colors shrink-0" />
           </div>
         </Link>
+      ) : (
+        <div className="mt-3 bg-white rounded-2xl border border-line shadow-card p-6 text-center">
+          <BarChart3 className="h-6 w-6 text-muted mx-auto" />
+          <p className="text-[13px] text-muted mt-2">No portfolio companies yet — your GP will populate this soon.</p>
+        </div>
       )}
 
-      <Link href="/lp/messages" className="block group mt-4">
+      {/* Quick-jump grid: 3 most prominent companies as cards so the LP doesn't
+          need to click into the list to see anything. */}
+      {companies.length > 0 && (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {companies.slice(0, 3).map((c) => (
+            <Link key={c.slug} href={`/lp/companies/${c.slug}`} className="group">
+              <div className="bg-white rounded-xl border border-line shadow-card p-4 h-full hover:shadow-cardHover transition-shadow">
+                <div className="flex items-center gap-2.5">
+                  {c.logoUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={c.logoUrl}
+                      alt={c.name}
+                      data-keep-white="true"
+                      className="h-9 w-9 rounded-lg object-contain bg-white border border-line shrink-0"
+                    />
+                  ) : (
+                    <div className="h-9 w-9 rounded-lg bg-navy flex items-center justify-center text-gold font-serif font-bold text-sm shrink-0">
+                      {c.name[0]}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-ink truncate group-hover:underline underline-offset-2">{c.name}</div>
+                    {c.sector && <div className="text-[10px] text-muted truncate">{c.sector}</div>}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted group-hover:text-teal-600 shrink-0" />
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+      {companies.length > 3 && (
+        <div className="mt-2 text-right">
+          <Link href="/lp/companies" className="text-[11px] text-teal-600 hover:underline">
+            View all {companies.length} companies →
+          </Link>
+        </div>
+      )}
+
+      {/* Messages */}
+      <Link href="/lp/messages" className="block group mt-6">
         <div className="bg-white rounded-2xl border border-line shadow-card p-5 flex items-center gap-4 hover:shadow-cardHover transition-shadow">
           <div className="h-10 w-10 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
             <MessageSquare className="h-5 w-5 text-teal-600" />
@@ -47,18 +97,23 @@ export default async function LpHomePage() {
         </div>
       </Link>
 
+      {/* Letters section */}
+      <div className="mt-10">
+        <h3 className="text-[10px] font-semibold text-muted tracking-[0.18em] uppercase">
+          {ts("lp_portal.letters_title")}
+        </h3>
+        <p className="mt-1 text-[12px] text-muted">{ts("lp_portal.letters_subtitle")}</p>
+      </div>
+
       {letters.length === 0 ? (
-        <div className="mt-10 bg-white rounded-2xl border border-line shadow-card p-10 text-center">
-          <div className="h-12 w-12 rounded-full bg-paper2 flex items-center justify-center mx-auto">
-            <FileText className="h-6 w-6 text-muted" />
+        <div className="mt-3 bg-white rounded-xl border border-line shadow-card p-6 text-center">
+          <div className="h-10 w-10 rounded-full bg-paper2 flex items-center justify-center mx-auto">
+            <FileText className="h-5 w-5 text-muted" />
           </div>
-          <h2 className="mt-4 text-base font-serif font-semibold text-ink">{ts("lp_portal.letters_empty_title")}</h2>
-          <p className="mt-2 text-[13px] text-muted max-w-md mx-auto">
-            {ts("lp_portal.letters_empty_body")}
-          </p>
+          <p className="mt-2 text-[12px] text-muted">{ts("lp_portal.letters_empty_body")}</p>
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
           {letters.map((l) => (
             <Link key={l.token} href={`/share/${l.token}`} className="group">
               <div className="bg-white rounded-2xl border border-line shadow-card hover:shadow-cardHover transition-shadow p-6 h-full flex flex-col">
