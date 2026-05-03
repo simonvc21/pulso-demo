@@ -15,6 +15,7 @@ import {
 } from "./actions";
 import { inviteUser } from "../(gp)/settings/team-actions";
 import { FUND_ROLES, type FundRole } from "@/lib/roles";
+import { MetricsCsvImport } from "@/components/metrics-csv-import";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -605,15 +606,9 @@ function Step5Metrics({
         </div>
       ) : (
         <>
-          <div className="mt-4">
-            <button
-              type="button"
-              disabled
-              className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-1.5 text-[11px] text-muted cursor-not-allowed"
-              title="Bulk import is on the roadmap (Phase B.4)"
-            >
-              <Upload className="h-3 w-3" /> Upload CSV / Excel / PDF · coming soon
-            </button>
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <MetricsCsvImport buttonLabel="Upload CSV" />
+            <span className="text-[11px] text-muted">Excel / PDF parsing coming soon.</span>
           </div>
 
           <div className="mt-5 space-y-3">

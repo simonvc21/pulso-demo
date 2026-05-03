@@ -82,15 +82,20 @@ Lo que destraba que un fondo nuevo se sume sin que yo (Simon) le haga el setup m
 - RLS adicional: si role='analyst' y la company NO está en user_company_access, no la ve.
 - UI en /settings/team: por usuario analyst, checklist de companies que puede ver.
 
-**B.4 Bulk import de métricas históricas** *(pendiente)*
+**B.4 Bulk import de métricas históricas** *(parcial — CSV shipped, Excel/PDF pendiente)*
 Para que un fondo que ya viene operando no pierda años de data al onboardearse.
-- Punto de entrada: botón "Import history" en `/data` y como step opcional en el wizard de onboarding.
-- Acepta CSV / Excel (.xlsx) / PDF / screenshot. Detecta el formato.
-- CSV/XLSX: parser local (papaparse / xlsx) detecta columnas tipo `company,quarter,arr,burn,cash,headcount,revenue` con tolerancia a sinónimos.
-- PDF/imagen: pasa por `/api/extract` con Gemini Pro + tool use forzado al schema `metrics`.
-- Modal de review: tabla editable con todo lo parseado, marcar fila por fila qué importar, ignorar la primera fila si es header, mapear columnas a campos. Match contra companies existentes por slug/nombre fuzzy; si no matchea, ofrece crear la company.
-- Save: bulk upsert en `metrics` por `(company_id, quarter)` — overwrite o keep según opción del user.
-- Plantilla descargable (CSV con headers correctos) para que el GP exporte de Sheets/Excel y vuelva a subir limpio.
+- ✅ Botón "Import CSV" en `/data` (toolbar) y en el step Metrics del onboarding wizard.
+- ✅ Acepta upload de archivo (.csv, max 2MB) o paste directo de texto.
+- ✅ Parser permisivo (`lib/csv-metrics.ts`):
+  - Headers tolerantes a sinónimos: `company_slug | company | name`, `quarter | period | q`, `arr_usd | arr`, etc. Case-insensitive, snake/space-insensitive.
+  - Quarter formats aceptados: "Q1 2026", "Q1-2026", "Q1_2026", "2026 Q1", "2026-Q1".
+  - Numeric: strip $, comas, %.
+  - Acepta `null` por celda; rechaza filas donde TODAS las métricas están vacías.
+- ✅ Modal de preview: muestra rows válidos (tabla scrollable) + errores línea-a-línea + headers reconocidos vs ignorados ANTES de commitear.
+- ✅ Server action `bulkImportMetrics` resuelve company por slug O nombre (case-insensitive), upsert por `(company_id, quarter)` — re-uploadear es safe. Reporta inserted / updated / skipped + per-row errors.
+- ✅ Plantilla descargable inline (botón "Download template" con sample CSV).
+- Pendiente B.4b: parser .xlsx (puede ser local con `xlsx` o vía Gemini si el archivo es feo).
+- Pendiente B.4c: PDF/screenshot via Gemini Pro multi-modal — bigger lift, separate phase.
 
 **Entregable B:** un nuevo fondo se onboardea sin Slack de soporte. GP invita a su analista que solo ve 3 de 12 companies. Sube su histórico de un Excel y queda toda la grilla poblada.
 

@@ -36,7 +36,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Settings → Team** (`/settings/team`) — members list with inline role select, pending invitations with revoke, invite-by-email modal, **per-member "Scope" modal for company-level access** (B.5).
 - **Notifications page** (`/notifications`) — full history with kind labels and click-through links.
 - **Bell in topbar** — dropdown with last 15, unread count badge, mark-all-read; persistent across pages.
-- **Data spreadsheet** (`/data`) — companies × quarters × 5 metrics, 2 view modes (by company / by quarter), inline editable cells with autosave + sticky first column + filter + sort, CSV export.
+- **Data spreadsheet** (`/data`) — companies × quarters × 5 metrics, 2 view modes (by company / by quarter), inline editable cells with autosave + sticky first column + filter + sort, CSV export, **CSV import** (B.4 — drop file or paste, preview with errors, upsert).
 - **AI chatbot dock** — floating button bottom-right on every GP and LP page, opens slide-over panel. Powered by Gemini 2.5-flash with the org's full JSON context (companies, metrics, news, LPs, alerts, **investment thesis**). 8000 token cap (3000 for LPs). Per-org daily cap 150 calls. Multi-turn within an open conversation.
 
 ### LP-side surfaces
@@ -58,7 +58,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
   2. **LPs** — repeatable list (name, type, commitment, country, contact email). Inserted into `lps`; matched to LP users by email at sign-in.
   3. **Team** — invite-by-email with role select; sends magic links via existing `inviteUser` action.
   4. **Portfolio companies** — table-style manual entry (name, sector, country, stage, invested, ownership, founder + email). Stub "Upload CSV / Excel / PDF" button (real parser is B.4).
-  5. **Historical metrics** — manual quarterly backfill per company × quarter (ARR / cash / burn / revenue / headcount). Upserts by `(company_id, quarter)` so re-running is safe. Stub upload button for B.4.
+  5. **Historical metrics** — manual quarterly backfill per company × quarter (ARR / cash / burn / revenue / headcount), **plus CSV upload** (B.4): drop a `.csv`, paste it, or download the template. Tolerant headers (company_slug | company | name; quarter as "Q1 2026" / "2026-Q1" / "Q1-2026"; $/,/% stripped). Preview with row-by-row errors before commit. Upserts by `(company_id, quarter)` so re-running is safe.
 - New accounts start empty: the existing `handle_new_user` trigger only assigns the Patagonia seed to `simon.villena2010@gmail.com`; everyone else lands with no org and is routed to `/onboarding`.
 
 ### AI features (Gemini)
@@ -107,7 +107,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **No emails sent yet**: Resend integration (Fase C) is in the roadmap. Magic links work because Supabase Auth handles them; product emails (form invites, reminders, "your letter is ready") don't go out.
 - **Metrics schema is fixed**: every company has the same 5 quarterly metrics (ARR / burn / cash / revenue / headcount). Custom metrics per company is L.4 in the roadmap (large change).
 - **Dashboard layout is fixed**: widgets aren't draggable/resizable/recolorable. (L.5 was shipped and reverted; column `organizations.dashboard_config_json` stays in the DB, currently null for everyone.)
-- **No bulk import**: founders or GPs can't yet upload a CSV/Excel/PDF of historical metrics. Planned in B.4.
+- **Bulk import partial**: CSV upload of historical metrics is shipped (B.4 — `/data` toolbar + onboarding Step 5). Excel `.xlsx` and PDF/screenshot parsing are still pending.
 - **No subscription billing**: free for now, no Stripe integration. Planned in L.9.
 - **No audit log**: who-did-what tracking is in Fase G (planned).
 - **i18n partial**: only sidebar / topbar / dashboard core are translated. Companies / forms / settings pages still in English.
