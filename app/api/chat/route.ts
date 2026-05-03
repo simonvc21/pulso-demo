@@ -7,7 +7,9 @@ import {
   appendMessage,
   setConversationTitle,
   getConversationMessages,
+  getCurrentUserRowId,
 } from "@/lib/chat-history";
+import { logAiCall } from "@/lib/ai-usage";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -116,13 +118,16 @@ export async function POST(request: NextRequest) {
   const maxOutputTokens = ctx.scope === "lp" ? 4000 : 8000;
 
   let reply: string;
+  let usage = { modelId: "gemini-2.5-flash", inputTokens: 0, outputTokens: 0 };
   try {
-    reply = (await gemini.generate(prompt, {
+    const r = await gemini.generateWithUsage(prompt, {
       model: "flash",
       systemInstruction: SYSTEM_BASE,
       temperature: 0.3,
       maxOutputTokens,
-    })).trim();
+    });
+    reply = r.text.trim();
+    usage = { modelId: r.modelId, inputTokens: r.inputTokens, outputTokens: r.outputTokens };
   } catch (err: any) {
     return NextResponse.json(
       { ok: false, error: err?.message ?? "Gemini failed" },
@@ -140,21 +145,35 @@ export async function POST(request: NextRequest) {
     }
     if (conversationId) {
       await appendMessage(conversationId, "user", last);
-      await appendMessage(conversationId, "assistant", reply);
+      await appendMessage(conversationId, "assistant", reply, usage.outputTokens);
 
       // Auto-title after the first complete turn (when total messages == 2).
       // Cheap follow-up call to flash with a tight prompt.
       const all = await getConversationMessages(conversationId);
       if (all.length === 2) {
         try {
-          const title = (await gemini.generate(
+          const titleR = await gemini.generateWithUsage(
             `Suggest a concise 3-6 word title for this chat. No quotes, no period.\n\n` +
             `User: ${last.slice(0, 400)}\n\nAssistant: ${reply.slice(0, 400)}`,
             { model: "flash", temperature: 0.3, maxOutputTokens: 30 },
-          )).trim().replace(/^["'`]+|["'`]+$/g, "").slice(0, 60);
+          );
+          const title = titleR.text.trim().replace(/^["'`]+|["'`]+$/g, "").slice(0, 60);
           if (title) {
             await setConversationTitle(conversationId, title);
             titledNow = true;
+          }
+          // Log the title call as a separate ai_usage_event so cost is accurate.
+          if (ctx.organization?.id) {
+            const userCtx = await getCurrentUserRowId();
+            await logAiCall({
+              organizationId: ctx.organization.id,
+              userId: userCtx?.userId ?? null,
+              feature: "auto_title",
+              modelId: titleR.modelId,
+              inputTokens: titleR.inputTokens,
+              outputTokens: titleR.outputTokens,
+              conversationId,
+            });
           }
         } catch {
           // Title is non-critical, skip silently.
@@ -163,6 +182,24 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     console.error("[L.13] Persist chat failed:", err);
+  }
+
+  // L.15 — log the actual chat call's tokens + cost.
+  if (ctx.organization?.id) {
+    try {
+      const userCtx = await getCurrentUserRowId();
+      await logAiCall({
+        organizationId: ctx.organization.id,
+        userId: userCtx?.userId ?? null,
+        feature: "chat",
+        modelId: usage.modelId,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        conversationId,
+      });
+    } catch (err) {
+      console.error("[L.15] AI usage log failed:", err);
+    }
   }
 
   return NextResponse.json({ ok: true, reply, conversationId, titledNow });

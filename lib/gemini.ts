@@ -46,8 +46,23 @@ interface GenerateOptions {
 }
 
 async function generate(prompt: string, opts: GenerateOptions = {}): Promise<string> {
+  const r = await generateWithUsage(prompt, opts);
+  return r.text;
+}
+
+export interface GenerateUsage {
+  text: string;
+  modelId: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** Same as generate(), but also returns token counts so the caller can log
+ *  cost (L.15). The Gemini SDK exposes these via response.usageMetadata. */
+async function generateWithUsage(prompt: string, opts: GenerateOptions = {}): Promise<GenerateUsage> {
+  const modelId = MODELS[opts.model ?? "flash"];
   const m = client().getGenerativeModel({
-    model: MODELS[opts.model ?? "flash"],
+    model: modelId,
     systemInstruction: opts.systemInstruction,
     generationConfig: {
       temperature: opts.temperature ?? 0.5,
@@ -57,9 +72,15 @@ async function generate(prompt: string, opts: GenerateOptions = {}): Promise<str
 
   try {
     const res = await m.generateContent(prompt);
-    return res.response.text();
+    const text = res.response.text();
+    const usage = (res.response as any).usageMetadata ?? {};
+    return {
+      text,
+      modelId,
+      inputTokens: Number(usage.promptTokenCount ?? 0),
+      outputTokens: Number(usage.candidatesTokenCount ?? 0),
+    };
   } catch (err: any) {
-    // Surface the underlying message so the caller can decide what to do.
     throw new Error(`Gemini generate failed: ${err?.message ?? "unknown"}`);
   }
 }
@@ -96,6 +117,7 @@ async function generateJSON<T>(
 
 export const gemini = {
   generate,
+  generateWithUsage,
   generateJSON,
   model,
 };

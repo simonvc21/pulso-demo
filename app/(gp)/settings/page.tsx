@@ -3,7 +3,7 @@ import { Topbar } from "@/components/topbar";
 import { TopbarBell } from "@/components/topbar-bell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, User, Mail, Shield, Users, ChevronRight } from "lucide-react";
+import { LogOut, User, Mail, Shield, Users, ChevronRight, Sparkles } from "lucide-react";
 import { getCurrentUser, getFund, parseTheme } from "@/lib/dashboard-data";
 import { signOut } from "./actions";
 import { FundForm } from "./fund-form";
@@ -92,6 +92,22 @@ export default async function SettingsPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-ink">{ts("settings.team")}</h3>
                 <p className="text-[11px] text-muted mt-0.5">{ts("settings.team_subtitle")}</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors" />
+            </div>
+          </div>
+        </Link>
+
+        {/* AI usage & cost — L.15 */}
+        <Link href="/settings/usage" className="block group">
+          <div className="bg-white rounded-xl border border-line shadow-card hover:shadow-cardHover transition-shadow overflow-hidden">
+            <div className="px-5 py-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gold-50 flex items-center justify-center shrink-0">
+                <Sparkles className="h-5 w-5 text-gold-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-ink">AI usage & cost</h3>
+                <p className="text-[11px] text-muted mt-0.5">Token usage, cost by feature, per-user breakdown</p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors" />
             </div>

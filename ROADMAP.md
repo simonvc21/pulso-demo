@@ -414,6 +414,101 @@ Hoy el chatbot dock vive sólo en memoria del componente — cerrar el panel pie
 - Para LPs: misma tabla pero con `scope='lp'` para que aparezcan separadas en analytics.
 - Pre-requisito: ninguno. Buena candidata para shippear standalone.
 
+**L.14 Billing & Pricing Engine** *(💳 — convierte el producto en negocio)*
+Reemplaza/extiende lo que tenía L.9 (Stripe simple) con un modelo de planes + límites + overages real.
+- Planes: Starter / Growth / Pro. Diferencias en: max companies, max LPs, AI tokens incluidos / mes.
+- Tabla `subscription_plans(id, name, max_companies, max_lps, monthly_ai_tokens, monthly_price_usd)` y `subscriptions(organization_id, plan_id, status enum('trial','active','past_due','churned'), trial_ends_at, current_period_end, stripe_customer_id, stripe_subscription_id)`.
+- Tabla `token_purchases(organization_id, tokens, price_usd, stripe_payment_intent_id, created_at)` para overages pay-as-you-go.
+- Middleware/server-side check antes de crear company/LP/AI call: si `plan.max_X` excedido → 402 con CTA upgrade. Soft-warning a 80%.
+- Settings UI: card de plan actual + uso del mes (companies X/Y, LPs X/Y, tokens X/Y bar) + botón Upgrade que abre el modal con los 3 tiers.
+- Billing card separada: payment method (Stripe Checkout link), invoices, "Buy 1M extra tokens for $X".
+- Webhooks `/api/stripe/webhook` para `customer.subscription.updated`, `invoice.payment_failed`, `payment_intent.succeeded`.
+- Per-customer P&L view en admin: revenue mensual − costo AI estimado (de L.15) → margen.
+- Pre-req: Stripe account + L.15 (cost layer para overages).
+
+**L.15 AI Usage & Cost Layer** *(🧠 — evita pérdidas, define pricing real)*
+Hoy `ai_usage` table cuenta llamadas pero no tokens reales ni costo. Necesita:
+- Migration: agregar `input_tokens`, `output_tokens`, `model`, `cost_usd_micro` (numeric) a `ai_usage`. Trigger calcula `cost_usd_micro` desde un lookup de pricing por modelo (`gemini-2.5-flash` ≈ $0.075/M in + $0.30/M out, `gemini-2.5-pro` ≈ $1.25/M in + $5/M out).
+- Cada call a `/api/chat`, `/api/cron/metric-alerts`, `suggestFormFields` registra los tokens reportados por el SDK de Gemini (response.usageMetadata).
+- Dashboard nuevo en `/settings/usage`: line chart de tokens/día últimos 30 días, breakdown por feature (chat / form helper / alerts) + por user, costo USD acumulado del mes.
+- Hard stop: cuando `cost_usd_acumulado_mes > plan.monthly_token_budget * 1.0`, `/api/chat` devuelve 402.
+- Soft warning: a 80% manda notificación al GP "You've used 80% of your monthly AI budget".
+- Per-user breakdown: el GP ve quién está consumiendo más (útil para flagear teammates que abusan del chat).
+- Admin view (interno): margen por org = (price del plan) − (cost real). Críptico para detectar funds que cuestan más de lo que pagan.
+
+**L.16 LP Reporting Engine** *(📬 — reemplaza trabajo manual del GP)*
+Auto-genera el LP letter mensual/trimestral. Hoy hay share letters manuales (link público); falta el side automated.
+- Tabla `lp_reports(organization_id, period_label, period_kind enum('monthly','quarterly'), status enum('draft','sent'), html_content text, ai_summary text, generated_at, sent_at)`.
+- Cron `/api/cron/lp-reports` corre el día 5 de cada mes/trimestre: para cada org, junta (a) métricas del período, (b) alerts del período, (c) founder updates (form_submissions news fields, company_updates), (d) llama a Gemini Pro con un system prompt estructurado → genera AI summary + highlights + risks. Guarda como `draft`.
+- GP recibe notificación "Your Q1 LP report draft is ready". Edita en `/lp-reports/[id]` (rich text editor, ProseMirror lite o solo textarea con preview). Click "Send" → envía email a todos los LPs de la org via Resend (Fase C) + crea `share_links` para cada LP con tracking.
+- Opcional: export a PDF (igual flow que L.10 PDF button — `window.print()` con CSS dedicada `@media print` para el LP letter).
+- Pre-req: Fase C (Resend) para sending. Genera y guarda drafts antes de C.
+
+**L.17 Workflows / Automation Engine** *(🔁 — hace el producto "automático")*
+Sistema general Trigger → Condition → Action que reemplaza/extiende L.10 (form schedules) y `/api/cron/metric-alerts`.
+- Tabla `workflows(id, organization_id, name, active, trigger_kind enum('time','metric','submission','inactivity'), trigger_config jsonb, action_kind enum('email','form','alert','notify'), action_config jsonb, last_fired_at)`.
+- Triggers built-in:
+  * `time`: monthly / quarterly / annual (reusa `computeNextSendAt` de L.10)
+  * `metric`: condition like `arr_usd < 500000` o `runway_months < 6`
+  * `submission`: cuando llega un form submission con flag X
+  * `inactivity`: company sin form submission > N días
+- Actions built-in: `email` (Resend), `form` (manda el form a recipients), `alert` (crea row en `notifications`), `notify` (dms al GP en Slack — pre-req L.21 integrations).
+- UI: `/workflows` con cards de workflows existentes + builder visual ("WHEN [trigger] [condition] THEN [action]"). Inicio simple — no full DAG, solo trigger→action 1:1.
+- Cron `/api/cron/workflows` corre cada 15min: evalúa triggers due, ejecuta actions, log en nueva tabla `workflow_runs(workflow_id, fired_at, status, error)`.
+- Migration plan: existing form schedules (L.10) y metric alerts (cron actual) son casos especiales de workflows. Mantener la API actual pero internamente migrarlas a este sistema. Cleanup en L.17b.
+
+**L.18 Multi-Fund Architecture** *(🏢 — necesario para clientes reales)*
+Hoy `organization_id = fund_id` (1 org = 1 fund). Reality: una firma puede tener Patagonia Fund I + Fund II + Opportunity Fund. Necesita:
+- Nueva tabla `funds(id, organization_id, name, vintage, size_usd, deployed_usd, currency, logo_url, theme_json, ...todos los fund-level fields que hoy están en organizations)`.
+- Migrar todos los joins: `companies(fund_id)`, `lps(fund_id)`, `forms(fund_id)`, `metrics(fund_id via company)`, etc. NO romper RLS — `user_org_id()` sigue, pero también necesita `user_can_access_fund(fund_id)`.
+- `organizations` queda como "firma / GP entity" (lo que hoy llamamos "fund" muta su semántica).
+- UI: fund switcher en topbar (dropdown con los funds del user). Cada página lee `current_fund_id` de cookie/URL.
+- Vista consolidada opcional: "All funds" mode que agrega métricas across funds para analytics top-level del firm.
+- **Riesgo**: muy invasivo. Comparable a L.12 en magnitud — toca casi todos los queries. Hacer en branch separada con migration + smoke test exhaustivo.
+
+**L.19 Email Automation System** *(📧 — cierra el loop de comunicación)*
+Templates + sending + tracking. Esto es la implementación concreta de Fase C (Resend) con valor agregado.
+- Tabla `email_templates(id, organization_id, kind enum('lp_update','founder_reminder','alert','custom'), subject text, body_md text, variables_json)`.
+- Variables dinámicas: `{{fund_name}}`, `{{company_name}}`, `{{founder_name}}`, `{{form_link}}`, `{{period_label}}`, `{{ai_summary}}` — render server-side antes de enviar.
+- Scheduling: integrado con L.17 workflows (trigger → email action usa template).
+- Tabla `email_sends(template_id, recipient_email, subject, body_html, sent_at, opened_at, clicked_at, bounced)`. Resend webhook actualiza opens/clicks via `/api/email/webhook`.
+- Settings UI: `/settings/email-templates` con editor (subject + markdown body con preview live + variable picker).
+- Tracking dashboard: open rate / click rate por template, mostrado en analytics.
+- Pre-req: Fase C (cuenta Resend + dominio verificado).
+
+**L.20 Value Analytics Layer** *(📊 — justifica el precio)*
+Métricas internas para mostrar al GP "esto vale lo que pagás".
+- Tabla `usage_events(organization_id, user_id, kind enum('report_generated','alert_created','form_sent','form_received','chat_query','metric_imported'), metadata jsonb, created_at)`. Cada acción relevante en la app loguea un event.
+- Cálculo de "horas ahorradas" basado en heuristics: cada LP report auto-generated = 4h, cada alert auto-detected = 30min, cada bulk import de N rows = N × 5min, etc. Configurables en `lib/value-heuristics.ts`.
+- Widget en `/dashboard`: "This month with Pulso" → "12 reports sent · 38 alerts surfaced · ~24 hours saved · 8 founders responding on time vs ~5 typically".
+- Page `/settings/value` con detalles + comparable a tu plan price.
+- Quarterly email summary al GP "Pulso this quarter" cuando ship L.19.
+
+**L.21 Integrations Layer** *(🔌)*
+Empezar con 3, no más:
+- **Slack** (alerts → channel): OAuth flow, save webhook URL en `org_integrations(organization_id, kind enum('slack','airtable','sheets'), config_json, active)`. L.17 workflows pueden tener action `slack:notify`.
+- **Airtable** (sync companies/metrics): user provee API key + base id. Cron `/api/cron/airtable-sync` corre 1x/día y mirror cambios bidireccional (con conflict resolution: Pulso siempre gana en metrics, Airtable gana en company tags).
+- **Google Sheets** (import/export): existe `/api/export/companies` y `/api/export/metrics`. Agregar import endpoint que lee un sheet via service account + columnas mapeables.
+- Después (no en esta phase): webhooks genéricos (POST URL configurable, fires en eventos como `metric_alert.created`).
+
+**L.22 LP Engagement (light)** *(💬 — mejora engagement, no core revenue)*
+Hace que los LPs no sean solo lectores pasivos.
+- Comments en company detail: tabla `company_comments(company_id, author_user_id, body, created_at)`. Visible en `/lp/companies/[slug]` para LPs y en `/companies/[slug]` para GPs (que pueden replicar / hide). RLS: visible al fund entero.
+- Reactions: 👏 🚀 😬 🤔 — tabla `company_reactions(company_id, user_id, kind, created_at)` con UNIQUE(company, user, kind).
+- Notifications: GP ve "3 LPs commented on Vextra this week" en el bell.
+- Lectura analytics: cuántos LPs abrieron cada letter / company page (usa `share_links.view_count` patrón).
+
+**L.23 Feature Flags + Admin Tools**
+Necesario para escalar sin romper todo.
+- Tabla `feature_flags(organization_id, flag_name, enabled, rollout_pct)`. Helper `isFeatureEnabled(orgId, "workflows_v2")` se usa en cualquier código nuevo riskoso.
+- UI admin (sólo accesible a `simon.villena2010@gmail.com` o role `admin` futuro): `/admin/feature-flags` toggle por org.
+- **System Control Tools** en `/admin`:
+  * Reset AI usage de una org (clear `ai_usage` rows del mes)
+  * Re-procesar alerts (re-correr `/api/cron/metric-alerts` para una org específica)
+  * Forzar onboarding (`UPDATE users SET organization_id = NULL WHERE id = X` para mandarlos a `/onboarding`)
+  * Editor de datos críticos (form generic para CRUD en cualquier table de la org, gated por admin role)
+- Pre-req: rol `admin` en el `users.role` enum + middleware check.
+
 ---
 
 ## Fase G — Settings avanzado (2 días)

@@ -46,6 +46,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_events: {
+        Row: {
+          conversation_id: string | null
+          cost_usd_micro: number
+          created_at: string
+          feature: Database["public"]["Enums"]["ai_feature"]
+          id: string
+          input_tokens: number
+          model: string
+          organization_id: string
+          output_tokens: number
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          cost_usd_micro?: number
+          created_at?: string
+          feature: Database["public"]["Enums"]["ai_feature"]
+          id?: string
+          input_tokens?: number
+          model: string
+          organization_id: string
+          output_tokens?: number
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          cost_usd_micro?: number
+          created_at?: string
+          feature?: Database["public"]["Enums"]["ai_feature"]
+          id?: string
+          input_tokens?: number
+          model?: string
+          organization_id?: string
+          output_tokens?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       ai_messages: {
         Row: {
           content: string
@@ -717,9 +756,15 @@ export type Database = {
         Returns: string
       }
       user_org_id: { Args: never; Returns: string }
+      ai_usage_summary: { Args: { p_days?: number }; Returns: Json }
+      compute_ai_cost_micro: {
+        Args: { p_model: string; p_input_tokens: number; p_output_tokens: number }
+        Returns: number
+      }
     }
     Enums: {
       ai_conversation_scope: "gp" | "lp"
+      ai_feature: "chat" | "form_helper" | "metric_alerts" | "lp_summary" | "auto_title"
       ai_message_role: "user" | "assistant"
       company_stage: "Pre-seed" | "Seed" | "Series A" | "Series B"
       company_status: "healthy" | "watch" | "critical" | "no_data"
