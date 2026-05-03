@@ -1,23 +1,46 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
-import { Search, ChevronUp, ChevronDown, Loader2, Check } from "lucide-react";
+import { Search, ChevronUp, ChevronDown, Loader2, Check, MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DATA_METRICS, type DataMetricKey } from "@/lib/data-metrics";
-import type { DataMatrixCompany } from "@/lib/dashboard-data";
+import type { DataMatrixCompany, DataMetricNotes } from "@/lib/dashboard-data";
+import type { DataColumnsConfig } from "@/lib/data-columns-config";
 import { updateMetricCell } from "./actions";
+import { ColumnConfigPopover } from "./column-config-popover";
+import { CellNotePopover } from "./cell-note-popover";
 
 type View = "by_company" | "by_quarter";
 type SortKey = "name" | "sector" | "country" | "stage";
 type SortDir = "asc" | "desc";
 
+type DataMetricEntry = (typeof DATA_METRICS)[number];
+
+const METRIC_BY_KEY: Record<DataMetricKey, DataMetricEntry> = Object.fromEntries(
+  DATA_METRICS.map((m) => [m.key, m])
+) as Record<DataMetricKey, DataMetricEntry>;
+
 interface Props {
   quarters: string[];
   companies: DataMatrixCompany[];
+  initialNotes: DataMetricNotes;
+  initialColumns: DataColumnsConfig;
 }
 
-export function DataGrid({ quarters, companies: initial }: Props) {
+interface NoteEditTarget {
+  companyId: string;
+  companyName: string;
+  quarter: string;
+  metricKey: DataMetricKey;
+  metricLabel: string;
+  anchorRect: DOMRect;
+}
+
+const noteKey = (companyId: string, quarter: string, key: string) =>
+  `${companyId}|${quarter}|${key}`;
+
+export function DataGrid({ quarters, companies: initial, initialNotes, initialColumns }: Props) {
   const [companies, setCompanies] = useState(initial);
   const [view, setView] = useState<View>("by_company");
   const [filter, setFilter] = useState("");
@@ -26,6 +49,16 @@ export function DataGrid({ quarters, companies: initial }: Props) {
   const [savingCell, setSavingCell] = useState<string | null>(null);
   const [savedCell, setSavedCell] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // L.3 — column config + per-cell notes (both client-state, server-persisted)
+  const [columns, setColumns] = useState<DataColumnsConfig>(initialColumns);
+  const [notes, setNotes] = useState<DataMetricNotes>(initialNotes);
+  const [noteTarget, setNoteTarget] = useState<NoteEditTarget | null>(null);
+
+  const orderedMetrics = useMemo(() => {
+    const hidden = new Set(columns.hidden);
+    return columns.order.filter((k) => !hidden.has(k)).map((k) => METRIC_BY_KEY[k]);
+  }, [columns]);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -65,7 +98,6 @@ export function DataGrid({ quarters, companies: initial }: Props) {
       return;
     }
 
-    // Optimistic local update
     setCompanies((prev) => prev.map((c) => {
       if (c.id !== companyId) return c;
       const next = { ...c, metrics: { ...c.metrics } };
@@ -86,6 +118,23 @@ export function DataGrid({ quarters, companies: initial }: Props) {
     }
     setSavedCell(id);
     setTimeout(() => setSavedCell((cur) => (cur === id ? null : cur)), 1200);
+  };
+
+  const openNote = (
+    companyId: string,
+    companyName: string,
+    quarter: string,
+    metricKey: DataMetricKey,
+    anchor: HTMLElement,
+  ) => {
+    setNoteTarget({
+      companyId,
+      companyName,
+      quarter,
+      metricKey,
+      metricLabel: METRIC_BY_KEY[metricKey].label,
+      anchorRect: anchor.getBoundingClientRect(),
+    });
   };
 
   return (
@@ -124,6 +173,7 @@ export function DataGrid({ quarters, companies: initial }: Props) {
               By quarter
             </button>
           </div>
+          <ColumnConfigPopover config={columns} onChange={setColumns} />
         </div>
         {error && (
           <div className="text-[12px] text-coral bg-red-50 border border-red-100 rounded-md px-3 py-1.5">
@@ -139,6 +189,7 @@ export function DataGrid({ quarters, companies: initial }: Props) {
             <ByCompany
               quarters={quarters}
               companies={filtered}
+              metrics={orderedMetrics}
               sortKey={sortKey}
               sortDir={sortDir}
               toggleSort={toggleSort}
@@ -146,23 +197,47 @@ export function DataGrid({ quarters, companies: initial }: Props) {
               savingCell={savingCell}
               savedCell={savedCell}
               cellId={cellId}
+              notes={notes}
+              openNote={openNote}
             />
           ) : (
             <ByQuarter
               quarters={quarters}
               companies={filtered}
+              metrics={orderedMetrics}
               saveCell={saveCell}
               savingCell={savingCell}
               savedCell={savedCell}
               cellId={cellId}
+              notes={notes}
+              openNote={openNote}
             />
           )}
         </div>
       </div>
 
       <div className="text-[11px] text-muted">
-        Tip: tab to move between cells. Numbers can have commas. Empty saves as null.
+        Tip: tab to move between cells. Right-click any cell (or click the bubble) to add a note. Empty saves as null.
       </div>
+
+      {noteTarget && (
+        <CellNotePopover
+          companyId={noteTarget.companyId}
+          companyName={noteTarget.companyName}
+          quarter={noteTarget.quarter}
+          metricKey={noteTarget.metricKey}
+          metricLabel={noteTarget.metricLabel}
+          initialNote={notes[noteKey(noteTarget.companyId, noteTarget.quarter, noteTarget.metricKey)] ?? ""}
+          anchorRect={noteTarget.anchorRect}
+          onClose={() => setNoteTarget(null)}
+          onSaved={(text) => setNotes((n) => ({ ...n, [noteKey(noteTarget.companyId, noteTarget.quarter, noteTarget.metricKey)]: text }))}
+          onDeleted={() => setNotes((n) => {
+            const next = { ...n };
+            delete next[noteKey(noteTarget.companyId, noteTarget.quarter, noteTarget.metricKey)];
+            return next;
+          })}
+        />
+      )}
     </div>
   );
 }
@@ -172,10 +247,11 @@ export function DataGrid({ quarters, companies: initial }: Props) {
 // ---------------------------------------------------------------------------
 
 function ByCompany({
-  quarters, companies, sortKey, sortDir, toggleSort, saveCell, savingCell, savedCell, cellId,
+  quarters, companies, metrics, sortKey, sortDir, toggleSort, saveCell, savingCell, savedCell, cellId, notes, openNote,
 }: {
   quarters: string[];
   companies: DataMatrixCompany[];
+  metrics: DataMetricEntry[];
   sortKey: SortKey;
   sortDir: SortDir;
   toggleSort: (k: SortKey) => void;
@@ -183,7 +259,12 @@ function ByCompany({
   savingCell: string | null;
   savedCell: string | null;
   cellId: (companyId: string, quarter: string, key: string) => string;
+  notes: DataMetricNotes;
+  openNote: (companyId: string, companyName: string, quarter: string, key: DataMetricKey, anchor: HTMLElement) => void;
 }) {
+  if (metrics.length === 0) {
+    return <EmptyMetrics />;
+  }
   return (
     <table className="w-full text-[12px] tabular-nums">
       <thead className="bg-paper2 text-[10px] tracking-[0.14em] uppercase text-muted">
@@ -191,7 +272,7 @@ function ByCompany({
           <SortHeader k="name" current={sortKey} dir={sortDir} onClick={toggleSort} className="sticky left-0 bg-paper2 z-10 min-w-[180px]">
             Company
           </SortHeader>
-          {DATA_METRICS.map((m) => (
+          {metrics.map((m) => (
             <th key={m.key} colSpan={quarters.length} className="px-2 py-2 text-center font-semibold border-l border-line">
               {m.label}
             </th>
@@ -199,7 +280,7 @@ function ByCompany({
         </tr>
         <tr className="border-t border-line">
           <th className="sticky left-0 bg-paper2 z-10"></th>
-          {DATA_METRICS.map((m) =>
+          {metrics.map((m) =>
             quarters.map((q) => (
               <th key={`${m.key}-${q}`} className="px-2 py-1.5 text-center font-medium text-[10px] border-l border-line/50">
                 {q}
@@ -224,10 +305,11 @@ function ByCompany({
                 <span className="font-medium text-ink truncate">{c.name}</span>
               </Link>
             </td>
-            {DATA_METRICS.map((m) =>
+            {metrics.map((m) =>
               quarters.map((q) => {
                 const id = cellId(c.id, q, m.key);
                 const value = c.metrics[q]?.[m.key as DataMetricKey] ?? null;
+                const note = notes[noteKey(c.id, q, m.key)] ?? null;
                 return (
                   <Cell
                     key={id}
@@ -236,7 +318,9 @@ function ByCompany({
                     metricType={m.type}
                     saving={savingCell === id}
                     saved={savedCell === id}
+                    note={note}
                     onCommit={(raw) => saveCell(c.id, q, m.key as DataMetricKey, raw)}
+                    onOpenNote={(anchor) => openNote(c.id, c.name, q, m.key as DataMetricKey, anchor)}
                   />
                 );
               })
@@ -245,7 +329,7 @@ function ByCompany({
         ))}
         {companies.length === 0 && (
           <tr>
-            <td colSpan={1 + DATA_METRICS.length * quarters.length} className="px-4 py-8 text-center text-muted text-[12px]">
+            <td colSpan={1 + metrics.length * quarters.length} className="px-4 py-8 text-center text-muted text-[12px]">
               No companies match your filter.
             </td>
           </tr>
@@ -260,16 +344,20 @@ function ByCompany({
 // ---------------------------------------------------------------------------
 
 function ByQuarter({
-  quarters, companies, saveCell, savingCell, savedCell, cellId,
+  quarters, companies, metrics, saveCell, savingCell, savedCell, cellId, notes, openNote,
 }: {
   quarters: string[];
   companies: DataMatrixCompany[];
+  metrics: DataMetricEntry[];
   saveCell: (companyId: string, quarter: string, key: DataMetricKey, raw: string) => void;
   savingCell: string | null;
   savedCell: string | null;
   cellId: (companyId: string, quarter: string, key: string) => string;
+  notes: DataMetricNotes;
+  openNote: (companyId: string, companyName: string, quarter: string, key: DataMetricKey, anchor: HTMLElement) => void;
 }) {
-  // Reverse so newest quarter is on top
+  if (metrics.length === 0) return <EmptyMetrics />;
+
   const orderedQuarters = [...quarters].reverse();
 
   return (
@@ -278,7 +366,7 @@ function ByQuarter({
         <tr>
           <th className="sticky left-0 bg-paper2 z-10 px-3 py-2 text-left font-semibold min-w-[120px]">Quarter</th>
           <th className="px-3 py-2 text-left font-semibold border-l border-line min-w-[180px]">Company</th>
-          {DATA_METRICS.map((m) => (
+          {metrics.map((m) => (
             <th key={m.key} className="px-3 py-2 text-right font-semibold border-l border-line">
               {m.label}
             </th>
@@ -302,9 +390,10 @@ function ByQuarter({
                   {c.name}
                 </Link>
               </td>
-              {DATA_METRICS.map((m) => {
+              {metrics.map((m) => {
                 const id = cellId(c.id, q, m.key);
                 const value = c.metrics[q]?.[m.key as DataMetricKey] ?? null;
+                const note = notes[noteKey(c.id, q, m.key)] ?? null;
                 return (
                   <Cell
                     key={id}
@@ -313,7 +402,9 @@ function ByQuarter({
                     metricType={m.type}
                     saving={savingCell === id}
                     saved={savedCell === id}
+                    note={note}
                     onCommit={(raw) => saveCell(c.id, q, m.key as DataMetricKey, raw)}
+                    onOpenNote={(anchor) => openNote(c.id, c.name, q, m.key as DataMetricKey, anchor)}
                     align="right"
                   />
                 );
@@ -323,7 +414,7 @@ function ByQuarter({
         )}
         {companies.length === 0 && (
           <tr>
-            <td colSpan={2 + DATA_METRICS.length} className="px-4 py-8 text-center text-muted text-[12px]">
+            <td colSpan={2 + metrics.length} className="px-4 py-8 text-center text-muted text-[12px]">
               No companies match your filter.
             </td>
           </tr>
@@ -333,23 +424,34 @@ function ByQuarter({
   );
 }
 
+function EmptyMetrics() {
+  return (
+    <div className="py-12 text-center text-[12px] text-muted">
+      All columns are hidden. Use the <strong className="text-ink">Columns</strong> button above to show some.
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Editable cell — input on focus, formatted display on blur
 // ---------------------------------------------------------------------------
 
 function Cell({
-  id, value, metricType, saving, saved, onCommit, align = "right",
+  id, value, metricType, saving, saved, note, onCommit, onOpenNote, align = "right",
 }: {
   id: string;
   value: number | null;
   metricType: "currency" | "number" | "percent";
   saving: boolean;
   saved: boolean;
+  note: string | null;
   onCommit: (raw: string) => void;
+  onOpenNote: (anchor: HTMLElement) => void;
   align?: "left" | "right";
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value == null ? "" : String(value));
+  const tdRef = useRef<HTMLTableCellElement | null>(null);
 
   const display = value == null
     ? "—"
@@ -357,29 +459,58 @@ function Cell({
       ? value.toLocaleString("en-US", { maximumFractionDigits: 0 })
       : value.toLocaleString("en-US");
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (tdRef.current) onOpenNote(tdRef.current);
+  };
+
   if (!editing) {
     return (
       <td
+        ref={tdRef}
         onClick={() => { setDraft(value == null ? "" : String(value)); setEditing(true); }}
+        onContextMenu={handleContextMenu}
+        title={note ? `Note: ${note}` : "Right-click to add a note"}
         className={cn(
-          "px-2 py-1.5 border-l border-line/50 cursor-text whitespace-nowrap",
+          "group relative px-2 py-1.5 border-l border-line/50 cursor-text whitespace-nowrap",
           align === "right" ? "text-right" : "text-left",
           value == null && "text-muted/60",
           saved && "bg-teal-50 transition-colors",
-          saving && "bg-gold-50 transition-colors"
+          saving && "bg-gold-50 transition-colors",
+          note && "bg-gold-50/40"
         )}
       >
-        <span className="inline-flex items-center gap-1.5">
+        <span className={cn("inline-flex items-center gap-1.5", align === "right" && "justify-end")}>
           {display}
           {saving && <Loader2 className="h-3 w-3 animate-spin text-muted" />}
           {saved && !saving && <Check className="h-3 w-3 text-teal-600" />}
+          {note && !saving && !saved && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); if (tdRef.current) onOpenNote(tdRef.current); }}
+              className="text-gold-600 hover:text-gold-700"
+              aria-label="View note"
+            >
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold-600" />
+            </button>
+          )}
+          {!note && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); if (tdRef.current) onOpenNote(tdRef.current); }}
+              className="opacity-0 group-hover:opacity-100 text-muted hover:text-navy transition-opacity"
+              aria-label="Add a note"
+            >
+              <MessageSquarePlus className="h-3 w-3" />
+            </button>
+          )}
         </span>
       </td>
     );
   }
 
   return (
-    <td className="px-1 py-1 border-l border-line/50">
+    <td ref={tdRef} className="px-1 py-1 border-l border-line/50">
       <input
         autoFocus
         value={draft}

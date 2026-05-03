@@ -309,12 +309,12 @@ Feedback sobre lo que falta para que la app se sienta verdaderamente personal de
 
 ### UX media (2-3 sesiones)
 
-**L.3 Data tab más custom**
-- Agregar / quitar columnas de métricas (no solo las 5 default).
-- Agregar / quitar quarters (extender historia).
-- Reordenar columnas con drag.
-- Notas por celda (right-click → "Add note").
-- Color-coding por threshold (rojo si runway < X, verde si ARR crece > Y%).
+**L.3 Data tab más custom** *(parcial — reorder/hide + notas shipped)*
+- ✅ Reordenar y hide/show de las 5 columnas existentes via "Columns" popover en el toolbar de `/data`. Persistencia per-org en `organizations.data_columns_json` (jsonb).
+- ✅ Notas per-celda: nueva tabla `metric_notes(company_id, quarter, metric_key, note, author_user_id)` con RLS escopeada a la org. Cell tiene un dot dorado cuando hay nota; right-click o hover → icono → popover con textarea, ⌘↵ para guardar.
+- ✅ Forward-compat: si añadimos una métrica nueva al `DATA_METRICS` constant, aparece automáticamente al final del orden existente (sin migration).
+- ✅ Reset to default en el popover de columnas.
+- Pendiente para L.3b: agregar/quitar columnas que NO sean parte del set fijo (necesita L.4 — métricas custom per company). Color-coding por threshold también queda para L.3b.
 
 ### Modelo de datos grande (1 semana cada uno)
 

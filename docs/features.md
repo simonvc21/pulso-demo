@@ -36,7 +36,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Settings → Team** (`/settings/team`) — members list with inline role select, pending invitations with revoke, invite-by-email modal, **per-member "Scope" modal for company-level access** (B.5).
 - **Notifications page** (`/notifications`) — full history with kind labels and click-through links.
 - **Bell in topbar** — dropdown with last 15, unread count badge, mark-all-read; persistent across pages.
-- **Data spreadsheet** (`/data`) — companies × quarters × 5 metrics, 2 view modes (by company / by quarter), inline editable cells with autosave + sticky first column + filter + sort, CSV export, **CSV import** (B.4 — drop file or paste, preview with errors, upsert).
+- **Data spreadsheet** (`/data`) — companies × quarters × 5 metrics, 2 view modes (by company / by quarter), inline editable cells with autosave + sticky first column + filter + sort, CSV export, **CSV import** (B.4 — drop file or paste, preview with errors, upsert), **column reorder/hide** persisted per-org (L.3), **per-cell notes** with right-click or hover-icon trigger (L.3 — stored in `metric_notes` table, golden dot indicator).
 - **AI chatbot dock** — floating button bottom-right on every GP and LP page, opens slide-over panel. Powered by Gemini 2.5-flash with the org's full JSON context (companies, metrics, news, LPs, alerts, **investment thesis**). 8000 token cap (3000 for LPs). Per-org daily cap 150 calls. Multi-turn within an open conversation.
 
 ### LP-side surfaces

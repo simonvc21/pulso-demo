@@ -29,7 +29,12 @@ export default async function DataPage() {
         }
       />
       <div className="px-8 py-6 animate-fade-in">
-        <DataGrid quarters={matrix.quarters} companies={matrix.companies} />
+        <DataGrid
+          quarters={matrix.quarters}
+          companies={matrix.companies}
+          initialNotes={matrix.notes}
+          initialColumns={matrix.columnsConfig}
+        />
       </div>
     </>
   );

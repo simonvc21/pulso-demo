@@ -864,9 +864,14 @@ export interface DataMatrixCompany {
   metrics: Record<string, Record<DataMetricKey, number | null>>; // metrics[quarter][key]
 }
 
+/** L.3 — per-cell GP note keyed as `${companyId}|${quarter}|${metricKey}`. */
+export type DataMetricNotes = Record<string, string>;
+
 export interface DataMatrix {
   quarters: string[];                 // sorted oldest → newest
   companies: DataMatrixCompany[];     // sorted by name
+  notes: DataMetricNotes;             // L.3
+  columnsConfig: import("./data-columns-config").DataColumnsConfig; // L.3
 }
 
 export function quarterKey(q: string): number {
@@ -877,13 +882,24 @@ export function quarterKey(q: string): number {
 
 export async function getDataMatrix(): Promise<DataMatrix> {
   const supabase = createClient();
-  const { data: rows } = await supabase
-    .from("companies")
-    .select(
-      "id, slug, name, sector, country, stage, status, logo_url, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)"
-    )
-    .order("name", { ascending: true });
+  const { parseDataColumnsConfig, defaultDataColumnsConfig } = await import("./data-columns-config");
+
+  // Three queries in parallel; RLS scopes everything to the caller's org.
+  const [
+    { data: rows },
+    { data: orgs },
+    { data: noteRows },
+  ] = await Promise.all([
+    supabase
+      .from("companies")
+      .select(
+        "id, slug, name, sector, country, stage, status, logo_url, " +
+          "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)"
+      )
+      .order("name", { ascending: true }),
+    supabase.from("organizations").select("data_columns_json").limit(1),
+    supabase.from("metric_notes").select("company_id, quarter, metric_key, note"),
+  ]);
 
   const quartersSet = new Set<string>();
   const companies: DataMatrixCompany[] = [];
@@ -910,5 +926,15 @@ export async function getDataMatrix(): Promise<DataMatrix> {
   }
 
   const quarters = Array.from(quartersSet).sort((a, b) => quarterKey(a) - quarterKey(b));
-  return { quarters, companies };
+
+  const notes: DataMetricNotes = {};
+  for (const n of (noteRows ?? []) as any[]) {
+    notes[`${n.company_id}|${n.quarter}|${n.metric_key}`] = n.note;
+  }
+
+  const columnsConfig = orgs?.[0]?.data_columns_json
+    ? parseDataColumnsConfig(orgs[0].data_columns_json)
+    : defaultDataColumnsConfig();
+
+  return { quarters, companies, notes, columnsConfig };
 }

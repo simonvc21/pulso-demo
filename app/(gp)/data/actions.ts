@@ -177,3 +177,105 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
 
   return { ok: true, inserted, updated, skipped, errors };
 }
+
+// ---------------------------------------------------------------------------
+// L.3 — Per-org column config + per-cell metric notes
+// ---------------------------------------------------------------------------
+
+import { parseDataColumnsConfig, type DataColumnsConfig } from "@/lib/data-columns-config";
+
+async function requireOrg() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not authenticated" };
+  const { data: profile } = await supabase
+    .from("users")
+    .select("id, organization_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!profile?.organization_id) return { ok: false as const, error: "No fund assigned" };
+  return {
+    ok: true as const,
+    supabase,
+    organizationId: profile.organization_id,
+    userId: profile.id,
+  };
+}
+
+export type SaveColumnsResult = { ok: true } | { ok: false; error: string };
+
+export async function saveDataColumnsConfig(input: DataColumnsConfig): Promise<SaveColumnsResult> {
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  const clean = parseDataColumnsConfig(input);
+
+  const { error } = await ctx.supabase
+    .from("organizations")
+    .update({ data_columns_json: clean as any })
+    .eq("id", ctx.organizationId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/data");
+  return { ok: true };
+}
+
+export type NoteResult = { ok: true } | { ok: false; error: string };
+
+export async function upsertMetricNote(input: {
+  companyId: string;
+  quarter: string;
+  metricKey: DataMetricKey;
+  note: string;
+}): Promise<NoteResult> {
+  if (!input.companyId) return { ok: false, error: "Company id is required" };
+  if (!/^Q[1-4]\s+\d{4}$/.test(input.quarter)) return { ok: false, error: "Invalid quarter" };
+  if (!KEYS.has(input.metricKey)) return { ok: false, error: "Invalid metric key" };
+  const trimmed = input.note.trim();
+  if (!trimmed) return { ok: false, error: "Note is empty" };
+  if (trimmed.length > 2000) return { ok: false, error: "Note must be ≤ 2000 chars" };
+
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // RLS will block if the company isn't in the caller's org.
+  const { error } = await ctx.supabase
+    .from("metric_notes")
+    .upsert(
+      {
+        company_id: input.companyId,
+        quarter: input.quarter,
+        metric_key: input.metricKey,
+        note: trimmed,
+        author_user_id: ctx.userId,
+      },
+      { onConflict: "company_id,quarter,metric_key" },
+    );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/data");
+  return { ok: true };
+}
+
+export async function deleteMetricNote(input: {
+  companyId: string;
+  quarter: string;
+  metricKey: DataMetricKey;
+}): Promise<NoteResult> {
+  if (!input.companyId) return { ok: false, error: "Company id is required" };
+  if (!/^Q[1-4]\s+\d{4}$/.test(input.quarter)) return { ok: false, error: "Invalid quarter" };
+  if (!KEYS.has(input.metricKey)) return { ok: false, error: "Invalid metric key" };
+
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const { error } = await ctx.supabase
+    .from("metric_notes")
+    .delete()
+    .eq("company_id", input.companyId)
+    .eq("quarter", input.quarter)
+    .eq("metric_key", input.metricKey);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/data");
+  return { ok: true };
+}

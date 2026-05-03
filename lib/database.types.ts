@@ -247,11 +247,45 @@ export type Database = {
         }
         Relationships: []
       }
+      metric_notes: {
+        Row: {
+          author_user_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          metric_key: string
+          note: string
+          quarter: string
+          updated_at: string
+        }
+        Insert: {
+          author_user_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          metric_key: string
+          note: string
+          quarter: string
+          updated_at?: string
+        }
+        Update: {
+          author_user_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          metric_key?: string
+          note?: string
+          quarter?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           created_at: string
           currency: string
           dashboard_config_json: Json | null
+          data_columns_json: Json | null
           deployed_usd: number | null
           description: string | null
           founded_year: number | null
@@ -271,6 +305,7 @@ export type Database = {
           created_at?: string
           currency?: string
           dashboard_config_json?: Json | null
+          data_columns_json?: Json | null
           deployed_usd?: number | null
           description?: string | null
           founded_year?: number | null
@@ -290,6 +325,7 @@ export type Database = {
           created_at?: string
           currency?: string
           dashboard_config_json?: Json | null
+          data_columns_json?: Json | null
           deployed_usd?: number | null
           description?: string | null
           founded_year?: number | null
