@@ -322,12 +322,15 @@ Hoy todas las companies tienen el mismo schema de métricas (arr, burn, cash, re
 - **Es un cambio grande**: rompe `metrics` table schema, migration de data existente, todos los charts/queries que asumen las 5 métricas.
 - Pre-requisito: validar pgvector / RAG primero porque vamos a meter mucho más data.
 
-**L.5 Dashboard editor de widgets**
-- Cada widget (KPI, chart, watch list, newsletter) es un componente movable.
-- Drag + resize con `react-grid-layout`.
-- Persistir layout per-user en `users.dashboard_layout_json`.
-- "Add widget" del catálogo: KPIs custom, charts adicionales (cohorts, funnel, custom metric over time).
-- Cambio de colores y títulos por widget.
+**L.5 Dashboard editor de widgets** ✅ shipped
+- Botón "Edit dashboard" en `/dashboard` activa modo edición.
+- Drag para reordenar widgets (DndContext + SortableContext, `rectSortingStrategy`).
+- Cada widget tiene size picker (S/M/L/XL = 3/4/8/12 cols), accent picker (default / primary / accent / navy / muted), toggle hide/show.
+- Toolbar global: density toggle (Cozy / Compact).
+- Persistencia per-org en `organizations.dashboard_config_json` (jsonb). El equipo entero ve el mismo layout.
+- Reset to default + Cancel.
+- Forward-compatible: si añadimos un widget nuevo al `DEFAULT_DASHBOARD_CONFIG`, aparece automáticamente al final del layout existente.
+- Pendiente para una eventual L.5b si lo necesitamos: añadir widgets nuevos del catálogo (custom KPI, custom chart) y editor de títulos por widget.
 
 **L.6 Companies: instrumento de inversión + links**
 Nuevos campos en `companies`:
