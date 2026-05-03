@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Calendar, Save, Loader2, Check } from "lucide-react";
+import { Building2, Calendar, Save, Loader2, Check, Globe, Linkedin, Sparkles, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { updateFund } from "./actions";
 
@@ -13,6 +13,11 @@ interface Props {
     sizeUsd: number;
     deployedUsd: number;
     currency: string;
+    description: string;
+    thesis: string;
+    website: string;
+    linkedinUrl: string;
+    foundedYear: number | null;
   };
 }
 
@@ -23,6 +28,11 @@ export function FundForm({ initial }: Props) {
   const [sizeUsd, setSizeUsd] = useState(initial.sizeUsd.toString());
   const [deployedUsd, setDeployedUsd] = useState(initial.deployedUsd.toString());
   const [currency, setCurrency] = useState(initial.currency);
+  const [description, setDescription] = useState(initial.description);
+  const [thesis, setThesis] = useState(initial.thesis);
+  const [website, setWebsite] = useState(initial.website);
+  const [linkedinUrl, setLinkedinUrl] = useState(initial.linkedinUrl);
+  const [foundedYear, setFoundedYear] = useState(initial.foundedYear?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -32,7 +42,12 @@ export function FundForm({ initial }: Props) {
     (parseInt(vintage, 10) || null) !== (initial.vintage ?? null) ||
     parseFloat(sizeUsd) !== initial.sizeUsd ||
     parseFloat(deployedUsd) !== initial.deployedUsd ||
-    currency !== initial.currency;
+    currency !== initial.currency ||
+    description !== initial.description ||
+    thesis !== initial.thesis ||
+    website !== initial.website ||
+    linkedinUrl !== initial.linkedinUrl ||
+    (parseInt(foundedYear, 10) || null) !== (initial.foundedYear ?? null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +59,11 @@ export function FundForm({ initial }: Props) {
         sizeUsd: sizeUsd ? parseFloat(sizeUsd) : null,
         deployedUsd: deployedUsd ? parseFloat(deployedUsd) : null,
         currency,
+        description,
+        thesis,
+        website,
+        linkedinUrl,
+        foundedYear: foundedYear ? parseInt(foundedYear, 10) : null,
       });
       if (!res.ok) {
         setError(res.error);
@@ -55,7 +75,7 @@ export function FundForm({ initial }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Field icon={Building2} label="Fund name">
         <input
           required
@@ -65,7 +85,60 @@ export function FundForm({ initial }: Props) {
         />
       </Field>
 
+      <Field icon={FileText} label="Description (one-liner)">
+        <input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="The portfolio OS for LATAM emerging managers"
+          className="w-full h-10 px-3 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+        />
+      </Field>
+
+      <Field icon={Sparkles} label="Investment thesis">
+        <textarea
+          value={thesis}
+          onChange={(e) => setThesis(e.target.value)}
+          rows={4}
+          placeholder="We invest in pre-seed and seed LATAM founders building infrastructure for the SMB economy. Sectors: fintech, vertical SaaS, climate. Check size $500K–$2M. We prefer technical co-founders with domain experience."
+          className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+        />
+        <span className="text-[10px] text-muted mt-1 block">
+          Visible to LPs on share letters. Pulso AI uses it to ground its analysis.
+        </span>
+      </Field>
+
       <div className="grid grid-cols-2 gap-3">
+        <Field icon={Globe} label="Website">
+          <input
+            type="url"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            placeholder="https://patagonia.vc"
+            className="w-full h-10 px-3 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+        </Field>
+        <Field icon={Linkedin} label="LinkedIn">
+          <input
+            type="url"
+            value={linkedinUrl}
+            onChange={(e) => setLinkedinUrl(e.target.value)}
+            placeholder="https://linkedin.com/company/patagonia-fund"
+            className="w-full h-10 px-3 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Field icon={Calendar} label="Founded">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={foundedYear}
+            onChange={(e) => setFoundedYear(e.target.value)}
+            placeholder="2022"
+            className="w-full h-10 px-3 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 tabular-nums"
+          />
+        </Field>
         <Field icon={Calendar} label="Vintage">
           <input
             type="number"
@@ -73,7 +146,7 @@ export function FundForm({ initial }: Props) {
             value={vintage}
             onChange={(e) => setVintage(e.target.value)}
             placeholder="2024"
-            className="w-full h-10 px-3 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+            className="w-full h-10 px-3 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 tabular-nums"
           />
         </Field>
         <Field icon={Building2} label="Currency">

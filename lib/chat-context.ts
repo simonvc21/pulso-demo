@@ -9,7 +9,18 @@ import { createClient } from "@/lib/supabase/server";
 export interface ChatContext {
   scope: "gp" | "lp" | "viewer";
   user: { name: string | null; email: string; role: string };
-  organization: { id: string; name: string; vintage: number | null; size_usd: number; deployed_usd: number; currency: string } | null;
+  organization: {
+    id: string;
+    name: string;
+    vintage: number | null;
+    size_usd: number;
+    deployed_usd: number;
+    currency: string;
+    description: string | null;
+    thesis: string | null;
+    website: string | null;
+    founded_year: number | null;
+  } | null;
   companies: Array<{
     slug: string;
     name: string;
@@ -72,7 +83,7 @@ export async function buildChatContext(): Promise<ChatContext | null> {
     { data: forms },
     { data: alerts },
   ] = await Promise.all([
-    supabase.from("organizations").select("id, name, vintage, size_usd, deployed_usd, currency").eq("id", orgId).maybeSingle(),
+    supabase.from("organizations").select("id, name, vintage, size_usd, deployed_usd, currency, description, thesis, website, founded_year").eq("id", orgId).maybeSingle(),
     supabase
       .from("companies")
       .select(
@@ -152,6 +163,10 @@ export async function buildChatContext(): Promise<ChatContext | null> {
       size_usd: Number(orgRow.size_usd ?? 0),
       deployed_usd: Number(orgRow.deployed_usd ?? 0),
       currency: orgRow.currency ?? "USD",
+      description: (orgRow as any).description ?? null,
+      thesis: (orgRow as any).thesis ?? null,
+      website: (orgRow as any).website ?? null,
+      founded_year: (orgRow as any).founded_year ?? null,
     } : null,
     companies: companiesArr,
     lps: ((lps ?? []) as any[]).map((l) => ({

@@ -136,6 +136,17 @@ export default async function LpSharePage({ params, searchParams }: PageProps) {
             <div className="px-4 pb-3"><ArrTrendChart data={arrTrend} /></div>
           </div>
 
+          {/* Fund thesis (only when set) */}
+          {org.thesis && (
+            <div className="bg-white rounded-2xl shadow-card border border-line overflow-hidden">
+              <div className="px-8 py-6">
+                <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-gold-600">Our thesis</div>
+                <h2 className="mt-1 text-lg font-serif font-bold text-ink">What we invest in</h2>
+                <p className="mt-3 text-[13.5px] text-ink leading-relaxed whitespace-pre-line">{org.thesis}</p>
+              </div>
+            </div>
+          )}
+
           {/* GP commentary */}
           <div className="bg-white rounded-2xl shadow-card border border-line overflow-hidden">
             <div className="px-8 py-6">

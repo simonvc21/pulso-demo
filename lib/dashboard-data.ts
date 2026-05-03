@@ -9,13 +9,14 @@ type LpRow = Database["public"]["Tables"]["lps"]["Row"];
 export type FundSummary = Pick<
   OrganizationRow,
   "id" | "name" | "size_usd" | "deployed_usd" | "vintage" | "currency" | "logo_url" | "theme_json"
+  | "description" | "thesis" | "website" | "linkedin_url" | "founded_year"
 >;
 
 export async function getFund(): Promise<FundSummary | null> {
   const supabase = createClient();
   const { data } = await supabase
     .from("organizations")
-    .select("id, name, size_usd, deployed_usd, vintage, currency, logo_url, theme_json")
+    .select("id, name, size_usd, deployed_usd, vintage, currency, logo_url, theme_json, description, thesis, website, linkedin_url, founded_year")
     .limit(1);
   return data?.[0] ?? null;
 }
@@ -530,6 +531,10 @@ export interface ShareLetterPayload {
     size_usd: number;
     deployed_usd: number;
     currency: string;
+    description: string | null;
+    thesis: string | null;
+    website: string | null;
+    logo_url: string | null;
   };
   share: {
     token: string;
@@ -593,6 +598,10 @@ export async function getShareLetter(token: string): Promise<
         size_usd: num(payload.organization.size_usd),
         deployed_usd: num(payload.organization.deployed_usd),
         currency: payload.organization.currency ?? "USD",
+        description: payload.organization.description ?? null,
+        thesis: payload.organization.thesis ?? null,
+        website: payload.organization.website ?? null,
+        logo_url: payload.organization.logo_url ?? null,
       },
       share: {
         token: payload.share?.token ?? token,

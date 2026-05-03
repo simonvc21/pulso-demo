@@ -237,40 +237,55 @@ export type Database = {
           created_at: string
           currency: string
           deployed_usd: number | null
+          description: string | null
+          founded_year: number | null
           id: string
+          linkedin_url: string | null
           logo_url: string | null
           name: string
           size_usd: number | null
           slug: string
           theme_json: Json | null
+          thesis: string | null
           updated_at: string
           vintage: number | null
+          website: string | null
         }
         Insert: {
           created_at?: string
           currency?: string
           deployed_usd?: number | null
+          description?: string | null
+          founded_year?: number | null
           id?: string
+          linkedin_url?: string | null
           logo_url?: string | null
           name: string
           size_usd?: number | null
           slug: string
           theme_json?: Json | null
+          thesis?: string | null
           updated_at?: string
           vintage?: number | null
+          website?: string | null
         }
         Update: {
           created_at?: string
           currency?: string
           deployed_usd?: number | null
+          description?: string | null
+          founded_year?: number | null
           id?: string
+          linkedin_url?: string | null
           logo_url?: string | null
           name?: string
           size_usd?: number | null
           slug?: string
           theme_json?: Json | null
+          thesis?: string | null
           updated_at?: string
           vintage?: number | null
+          website?: string | null
         }
         Relationships: []
       }

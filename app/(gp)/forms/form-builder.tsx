@@ -38,17 +38,9 @@ const palette: { type: FormFieldType; label: string; icon: any; example: string 
 ];
 
 const defaultNewForm: FormInput = {
-  name: "Q2 2026 Financials",
+  name: "",
   cadence: "quarterly",
-  fields: [
-    { id: "f1", type: "currency", label: "Quarterly revenue (USD)",      required: true,  group: "P&L" },
-    { id: "f2", type: "currency", label: "Annual recurring revenue",     required: true,  group: "P&L" },
-    { id: "f3", type: "currency", label: "Monthly burn rate",            required: true,  group: "P&L" },
-    { id: "f4", type: "currency", label: "Cash on hand",                 required: true,  group: "Balance Sheet" },
-    { id: "f5", type: "number",   label: "Headcount (FTE)",              required: true,  group: "Team" },
-    { id: "f6", type: "longtext", label: "Biggest risk for next quarter",required: false, group: "Narrative" },
-    { id: "f7", type: "news",     label: "Recent news, milestones, press",required: false, group: "Updates" },
-  ],
+  fields: [],
 };
 
 interface BuilderProps {
@@ -67,8 +59,16 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
   const [selectedId, setSelectedId] = useState<string | null>(seed.fields[0]?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [suggestOpen, setSuggestOpen] = useState(false);
   const [rewritingFieldId, setRewritingFieldId] = useState<string | null>(null);
+
+  // Wizard intro (only on create, only until user picks a path).
+  // - "blank" → render the empty builder
+  // - "ai"    → render the builder + auto-open SuggestModal
+  // - undefined → show the intro screen
+  const [wizardChoice, setWizardChoice] = useState<"blank" | "ai" | undefined>(
+    mode === "edit" ? "blank" : undefined
+  );
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   // Recipients: empty array = "all" (special sentinel via UI checkbox).
   const [recipientsAll, setRecipientsAll] = useState(
@@ -145,6 +145,16 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
   const recipientLabel = recipientsAll
     ? `All ${companies.length} companies`
     : `${recipientIds.length} of ${companies.length} selected`;
+
+  // Intro screen for new forms — pick "AI suggests fields" or "start blank".
+  if (wizardChoice === undefined) {
+    return (
+      <NewFormWizard
+        onPickAi={() => { setWizardChoice("ai"); setSuggestOpen(true); }}
+        onPickBlank={() => setWizardChoice("blank")}
+      />
+    );
+  }
 
   return (
     <>
@@ -769,5 +779,93 @@ function FieldPreview({ field }: { field: DraftField }) {
       />
       {field.type === "percent" && <span className="text-xs text-muted">%</span>}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Intro wizard for /forms/new — pick AI suggestion or start blank
+// ---------------------------------------------------------------------------
+
+function NewFormWizard({
+  onPickAi, onPickBlank,
+}: { onPickAi: () => void; onPickBlank: () => void }) {
+  return (
+    <>
+      <Topbar
+        title="New form"
+        breadcrumb={
+          <Link href="/forms" className="inline-flex items-center gap-1 hover:text-ink">
+            <ArrowLeft className="h-3 w-3" /> Forms
+          </Link>
+        }
+      />
+      <div className="px-8 py-12 max-w-3xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="text-[10px] font-semibold tracking-[0.18em] uppercase text-gold-600">Start a new form</div>
+          <h1 className="mt-2 text-3xl font-serif font-bold text-ink">How do you want to begin?</h1>
+          <p className="mt-2 text-sm text-muted max-w-md mx-auto">
+            You can describe what you need and let Pulso AI propose the fields, or build it from scratch one field at a time.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={onPickAi}
+            className="group text-left bg-white rounded-2xl border-2 border-line hover:border-teal hover:shadow-cardHover transition-all p-6"
+          >
+            <div className="flex items-center justify-between">
+              <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-navy to-navy-700 text-gold flex items-center justify-center">
+                <Sparkles className="h-5 w-5" fill="currentColor" />
+              </div>
+              <div className="text-[10px] font-semibold tracking-[0.14em] uppercase text-teal-600">Recommended</div>
+            </div>
+            <h3 className="mt-4 text-base font-serif font-bold text-ink">Build with AI</h3>
+            <p className="mt-1.5 text-[13px] text-muted leading-relaxed">
+              Describe the form in one sentence ("monthly check-in for early-stage SaaS founders") and Pulso AI proposes 6-10 fields with types, groups, and labels.
+            </p>
+            <div className="mt-4 text-[11px] text-teal-600 font-semibold inline-flex items-center gap-1">
+              Start with AI <ChevronRightCustom className="h-3 w-3" />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={onPickBlank}
+            className="group text-left bg-white rounded-2xl border border-line hover:shadow-card transition-all p-6"
+          >
+            <div className="h-11 w-11 rounded-xl bg-paper2 text-navy flex items-center justify-center">
+              <FilePlusIcon className="h-5 w-5" />
+            </div>
+            <h3 className="mt-4 text-base font-serif font-bold text-ink">Start blank</h3>
+            <p className="mt-1.5 text-[13px] text-muted leading-relaxed">
+              Open the empty builder and add fields one at a time from the palette. Drag to reorder, configure each on the right panel.
+            </p>
+            <div className="mt-4 text-[11px] text-navy font-semibold inline-flex items-center gap-1">
+              Open the builder <ChevronRightCustom className="h-3 w-3" />
+            </div>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ChevronRightCustom({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+function FilePlusIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="12" y1="18" x2="12" y2="12" />
+      <line x1="9" y1="15" x2="15" y2="15" />
+    </svg>
   );
 }

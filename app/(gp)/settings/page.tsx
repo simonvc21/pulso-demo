@@ -47,6 +47,11 @@ export default async function SettingsPage() {
                 sizeUsd: Number(fund.size_usd ?? 0),
                 deployedUsd: Number(fund.deployed_usd ?? 0),
                 currency: fund.currency ?? "USD",
+                description: fund.description ?? "",
+                thesis: fund.thesis ?? "",
+                website: fund.website ?? "",
+                linkedinUrl: fund.linkedin_url ?? "",
+                foundedYear: fund.founded_year ?? null,
               }}
             />
           ) : (

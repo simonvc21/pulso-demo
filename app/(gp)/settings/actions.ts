@@ -16,6 +16,11 @@ export type FundProfileInput = {
   sizeUsd: number | null;
   deployedUsd: number | null;
   currency: string;
+  description?: string | null;
+  thesis?: string | null;
+  website?: string | null;
+  linkedinUrl?: string | null;
+  foundedYear?: number | null;
 };
 
 export type UpdateFundResult = { ok: true } | { ok: false; error: string };
@@ -56,6 +61,11 @@ export async function updateFund(input: FundProfileInput): Promise<UpdateFundRes
       size_usd: input.sizeUsd,
       deployed_usd: input.deployedUsd,
       currency: input.currency || "USD",
+      description: input.description?.trim() || null,
+      thesis: input.thesis?.trim() || null,
+      website: input.website?.trim() || null,
+      linkedin_url: input.linkedinUrl?.trim() || null,
+      founded_year: input.foundedYear,
     })
     .eq("id", userRow.organization_id);
 
