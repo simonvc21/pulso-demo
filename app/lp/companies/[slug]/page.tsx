@@ -90,6 +90,7 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
             <img
               src={company.logoUrl}
               alt={company.name}
+              data-keep-white="true"
               className="h-14 w-14 rounded-xl object-contain bg-white border border-line shrink-0"
             />
           ) : (

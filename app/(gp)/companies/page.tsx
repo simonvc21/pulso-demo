@@ -90,6 +90,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: { 
                           <img
                             src={c.logoUrl}
                             alt={c.name}
+                            data-keep-white="true"
                             className="h-9 w-9 rounded-lg object-contain bg-white border border-line shrink-0"
                           />
                         ) : (

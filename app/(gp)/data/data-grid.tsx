@@ -321,7 +321,7 @@ function ByCompany({
               <Link href={`/companies/${c.slug}`} className="flex items-center gap-2 hover:text-teal-600">
                 {c.logoUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={c.logoUrl} alt={c.name} className="h-6 w-6 rounded object-contain bg-white border border-line" />
+                  <img src={c.logoUrl} alt={c.name} data-keep-white="true" className="h-6 w-6 rounded object-contain bg-white border border-line" />
                 ) : (
                   <span className="h-6 w-6 rounded bg-navy text-gold text-[10px] font-bold inline-flex items-center justify-center">
                     {c.name[0]}
@@ -484,7 +484,7 @@ function PerCompany({
           <div className="px-4 py-3 bg-white border-b border-line flex items-center gap-3">
             {c.logoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={c.logoUrl} alt={c.name} className="h-8 w-8 rounded object-contain bg-white border border-line" />
+              <img src={c.logoUrl} alt={c.name} data-keep-white="true" className="h-8 w-8 rounded object-contain bg-white border border-line" />
             ) : (
               <span className="h-8 w-8 rounded bg-navy text-gold text-[11px] font-bold inline-flex items-center justify-center">
                 {c.name[0]}
@@ -502,7 +502,7 @@ function PerCompany({
             <table className="w-full text-[12px] tabular-nums">
               <thead className="bg-paper2 text-[10px] tracking-[0.14em] uppercase text-muted">
                 <tr>
-                  <th className="text-left font-semibold px-4 py-2 sticky left-0 bg-paper2 min-w-[140px]">Metric</th>
+                  <th className="text-left font-semibold px-4 py-2 sticky left-0 bg-paper2 min-w-[140px] z-10 border-r border-line">Metric</th>
                   {quarters.map((q) => (
                     <th key={q} className="text-right font-semibold px-3 py-2 border-l border-line/50">
                       {q}
@@ -513,7 +513,7 @@ function PerCompany({
               <tbody className="divide-y divide-line">
                 {metrics.map((m) => (
                   <tr key={m.key} className="hover:bg-white">
-                    <td className="px-4 py-1.5 text-[12px] font-medium text-ink sticky left-0 bg-paper">
+                    <td className="px-4 py-1.5 text-[12px] font-medium text-ink sticky left-0 bg-paper min-w-[140px] z-10 border-r border-line">
                       {m.label}
                     </td>
                     {quarters.map((q) => {

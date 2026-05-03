@@ -70,6 +70,7 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, isAdmin = false, 
           <img
             src={logoUrl}
             alt={fundName}
+            data-keep-white="true"
             className={cn(
               "rounded-md object-contain bg-white p-0.5 shrink-0",
               collapsed ? "h-9 w-9" : "h-8 w-8"

@@ -53,6 +53,7 @@ export function CompanyLogoUploader({ companySlug, initialLogoUrl }: Props) {
           <img
             src={logoUrl}
             alt="Company logo"
+            data-keep-white="true"
             className="h-16 w-16 rounded-xl object-contain bg-white border border-line"
           />
         ) : (

@@ -63,8 +63,11 @@ input[type="number"] { -moz-appearance: textfield; }
 .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 
 /* In dark mode, components that use plain bg-white become a slightly raised
-   paper2 card so the UI doesn't have giant white sheets. */
-.dark .bg-white {
+   paper2 card so the UI doesn't have giant white sheets.
+   Opt-out via data-keep-white="true" for elements that NEED a white backdrop
+   even in dark mode — typically logo containers and image previews where
+   transparent PNGs would otherwise vanish against the dark surface. */
+.dark .bg-white:not([data-keep-white="true"]) {
   background-color: rgb(var(--c-paper2));
 }
 
@@ -75,6 +78,27 @@ input[type="number"] { -moz-appearance: textfield; }
 .dark .bg-teal-50   { background-color: rgb(20 184 166 / 0.18); }
 .dark .bg-gold-50   { background-color: rgb(244 183 64 / 0.18); }
 .dark .bg-paper2    { /* already routed via --c-paper2 token */ }
+
+/* Form controls inherit OS-default dark text in dark mode, which collides
+   with our dark surface. Force them to use the ink token + a slightly
+   raised paper2 background so values stay legible. */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="number"],
+.dark input[type="search"],
+.dark input[type="tel"],
+.dark input[type="url"],
+.dark input[type="password"],
+.dark input:not([type]),
+.dark textarea,
+.dark select {
+  background-color: rgb(var(--c-paper2));
+  color: rgb(var(--c-ink));
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(var(--c-muted));
+}
 
 /* Dark-mode-aware white scrollbar thumb is too low contrast. Bump it. */
 .dark ::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); }

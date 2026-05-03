@@ -102,6 +102,7 @@ export function BrandingForm({ initial }: Props) {
             <img
               src={logoUrl}
               alt="Fund logo"
+              data-keep-white="true"
               className="h-16 w-16 rounded-xl object-contain bg-white border border-line"
             />
           ) : (
