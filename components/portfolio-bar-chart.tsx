@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useChartColor } from "@/lib/chart-color";
 
 export interface PortfolioBarItem {
   name: string;
@@ -8,14 +9,16 @@ export interface PortfolioBarItem {
   metrics: { arr: number }[];
 }
 
-const statusColor: Record<string, string> = {
-  healthy: "#14B8A6",
-  watch: "#F4B740",
-  critical: "#EF4444",
-  "no-data": "#94A3B8",
-};
-
 export function PortfolioBarChart({ companies }: { companies: PortfolioBarItem[] }) {
+  const { color: chartColor, ref } = useChartColor("#14B8A6");
+
+  const statusColor: Record<string, string> = {
+    healthy: chartColor,
+    watch: "#F4B740",
+    critical: "#EF4444",
+    "no-data": "#94A3B8",
+  };
+
   const data = [...companies]
     .map((c) => ({
       name: c.name,
@@ -25,7 +28,7 @@ export function PortfolioBarChart({ companies }: { companies: PortfolioBarItem[]
     .sort((a, b) => b.arr - a.arr);
 
   return (
-    <div className="h-[260px] w-full">
+    <div ref={ref} className="h-[260px] w-full">
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 14, right: 8, left: -14, bottom: 0 }}>
           <XAxis
@@ -58,7 +61,7 @@ export function PortfolioBarChart({ companies }: { companies: PortfolioBarItem[]
           />
           <Bar dataKey="arr" radius={[4, 4, 0, 0]}>
             {data.map((d, i) => (
-              <Cell key={i} fill={statusColor[d.status] || "#14B8A6"} />
+              <Cell key={i} fill={statusColor[d.status] || chartColor} />
             ))}
           </Bar>
         </BarChart>

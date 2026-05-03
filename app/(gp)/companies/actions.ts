@@ -281,3 +281,75 @@ export async function upsertCustomMetricValue(input: CustomMetricValueInput): Pr
   revalidatePath(`/companies/${company.slug}/edit`);
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Company updates (manual GP notes — feed on /companies/[slug])
+// ---------------------------------------------------------------------------
+
+export type AddCompanyUpdateResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function addCompanyUpdate(input: { companyId: string; body: string }): Promise<AddCompanyUpdateResult> {
+  const body = input.body.trim();
+  if (!body) return { ok: false, error: "Update text is required" };
+  if (body.length > 4000) return { ok: false, error: "Update must be ≤ 4000 chars" };
+
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // Verify the company is in the caller's org. RLS would catch this but
+  // we also need the slug for revalidation.
+  const { data: company } = await ctx.supabase
+    .from("companies")
+    .select("id, slug")
+    .eq("id", input.companyId)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!company) return { ok: false, error: "Company not found" };
+
+  // Need the public.users.id (not auth.users.id) for author_user_id.
+  const { data: { user } } = await ctx.supabase.auth.getUser();
+  let authorUserId: string | null = null;
+  if (user) {
+    const { data: profile } = await ctx.supabase
+      .from("users")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    authorUserId = profile?.id ?? null;
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("company_updates")
+    .insert({ company_id: input.companyId, body, author_user_id: authorUserId })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? "Insert failed" };
+
+  revalidatePath(`/companies/${company.slug}`);
+  return { ok: true, id: data.id };
+}
+
+export type DeleteCompanyUpdateResult = { ok: true } | { ok: false; error: string };
+
+export async function deleteCompanyUpdate(updateId: string): Promise<DeleteCompanyUpdateResult> {
+  if (!updateId) return { ok: false, error: "Missing id" };
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // Get the company slug for revalidation.
+  const { data: row } = await ctx.supabase
+    .from("company_updates")
+    .select("companies(slug)")
+    .eq("id", updateId)
+    .maybeSingle();
+  const slug = (row as any)?.companies?.slug;
+
+  const { error } = await ctx.supabase
+    .from("company_updates")
+    .delete()
+    .eq("id", updateId);
+  if (error) return { ok: false, error: error.message };
+
+  if (slug) revalidatePath(`/companies/${slug}`);
+  return { ok: true };
+}

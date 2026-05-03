@@ -1,8 +1,9 @@
-import { Lock, Download, Eye, Calendar, Sparkles, Zap } from "lucide-react";
+import { Lock, Eye, Calendar, Sparkles, Zap } from "lucide-react";
 import { fmtUSD, fmtPct } from "@/lib/utils";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
 import { getShareLetter } from "@/lib/dashboard-data";
 import { PreviewBackBar } from "@/components/preview-back-bar";
+import { PrintButton } from "@/components/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -95,9 +96,8 @@ export default async function LpSharePage({ params, searchParams }: PageProps) {
               <span className="inline-flex items-center gap-1.5 text-[11px] text-muted bg-paper2 px-2.5 py-1 rounded-md">
                 <Lock className="h-3 w-3" /> View-only{expiresLabel ? ` · expires ${expiresLabel}` : ""}
               </span>
-              <button className="h-9 px-3 rounded-lg border border-line bg-white text-xs font-medium text-ink hover:bg-paper2 inline-flex items-center gap-1.5">
-                <Download className="h-3.5 w-3.5" /> PDF
-              </button>
+              <PrintButton />
+              <span className="no-print" />
             </div>
           </div>
         </header>

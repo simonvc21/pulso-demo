@@ -1,6 +1,7 @@
 "use client";
 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useChartColor } from "@/lib/chart-color";
 
 export interface ArrTrendPoint {
   quarter: string;
@@ -9,15 +10,16 @@ export interface ArrTrendPoint {
 
 export function ArrTrendChart({ data }: { data: ArrTrendPoint[] }) {
   const series = data.map((p) => ({ quarter: p.quarter, arr: p.arr / 1_000_000 }));
+  const { color, ref } = useChartColor("#14B8A6");
 
   return (
-    <div className="h-[260px] w-full">
+    <div ref={ref} className="h-[260px] w-full">
       <ResponsiveContainer>
         <AreaChart data={series} margin={{ top: 14, right: 12, left: -10, bottom: 0 }}>
           <defs>
             <linearGradient id="arrGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#14B8A6" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="#14B8A6" stopOpacity={0.02} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="2 4" stroke="#94A3B8" vertical={false} />
@@ -30,12 +32,12 @@ export function ArrTrendChart({ data }: { data: ArrTrendPoint[] }) {
             tickFormatter={(v) => `$${v}M`}
           />
           <Tooltip
-            cursor={{ stroke: "#14B8A6", strokeWidth: 1, strokeDasharray: "2 4" }}
+            cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: "2 4" }}
             contentStyle={{ background: "#0A1F44", border: "none", borderRadius: 8, color: "white", fontSize: 12, padding: "8px 12px" }}
             labelStyle={{ color: "#F4B740", fontWeight: 600 }}
             formatter={(v: number) => [`$${v.toFixed(1)}M total ARR`, ""]}
           />
-          <Area type="monotone" dataKey="arr" stroke="#14B8A6" strokeWidth={2} fill="url(#arrGradient)" />
+          <Area type="monotone" dataKey="arr" stroke={color} strokeWidth={2} fill="url(#arrGradient)" />
         </AreaChart>
       </ResponsiveContainer>
     </div>

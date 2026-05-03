@@ -94,6 +94,30 @@ export type Database = {
         }
         Relationships: []
       }
+      company_updates: {
+        Row: {
+          author_user_id: string | null
+          body: string
+          company_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_user_id?: string | null
+          body: string
+          company_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_user_id?: string | null
+          body?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       custom_metric_values: {
         Row: {
           company_id: string

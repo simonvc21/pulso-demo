@@ -7,6 +7,7 @@ import { getLpRoster, getFund } from "@/lib/dashboard-data";
 import { fmtUSD } from "@/lib/utils";
 import { Share2, Mail } from "lucide-react";
 import { AddLpButton } from "./add-lp-button";
+import { LpsCsvImport } from "@/components/lps-csv-import";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function LpsPage() {
         actions={
           <div className="flex items-center gap-2">
             <Link href="/share/q1-2026-lp-letter?preview=1" target="_blank"><Button variant="outline" size="sm" className="gap-1.5"><Share2 className="h-3.5 w-3.5" /> Preview LP letter</Button></Link>
+            <LpsCsvImport />
             <AddLpButton />
           </div>
         }

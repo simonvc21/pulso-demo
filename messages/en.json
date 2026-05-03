@@ -121,6 +121,7 @@
     "export_csv": "Export CSV",
     "by_company": "By company",
     "by_quarter": "By quarter",
+    "per_company": "Per company",
     "filter_placeholder": "Filter companies, sectors, countries…",
     "columns": "Columns",
     "tip": "Tip: tab to move between cells. Right-click any cell (or click the bubble) to add a note. Empty saves as null.",

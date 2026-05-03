@@ -371,6 +371,16 @@ Nueva sección entre "Branding" y "Team":
 - Webhook `/api/stripe/webhook` actualiza la tabla en eventos `customer.subscription.*`.
 - Para el demo: stub seguro que lee/escribe la tabla pero las acciones reales redirigen al Stripe Portal cuando STRIPE_SECRET_KEY esté seteado.
 
+**L.10 Form scheduling — calendar view + GP-controlled cadence**
+Hoy `/forms` muestra el banner "Pulso runs your reporting calendar" pero no hay schedule real. Para que esto sea funcional:
+- Nueva tabla `form_schedules(form_id, send_day_of_month / send_day_of_week / cron_expr, reminder_offsets_days int[], next_send_at, last_sent_at, active)`.
+- Editor en `/forms/[slug]/edit` → bloque "Schedule": cadencia (monthly / quarterly / annual / ad-hoc) + día específico (e.g. "5th of every month" / "Q1 close = April 15") + reminder offsets ("send reminders 7 days and 2 days before deadline").
+- Nueva pestaña/widget en `/forms` → **calendar view**: month-grid con cada día mostrando los forms que se envían + reminders. Toggle entre month/week/list views.
+- Founders ven los reminders inline en `/fill/[id]` ("Due in 3 days") cuando llegan via email + cuando entran al link.
+- Cron `/api/cron/form-scheduler` corre diario a 12:00 UTC: identifica forms cuyo `next_send_at <= now()`, dispara los emails (necesita Fase C — Resend), y avanza `next_send_at` al siguiente período.
+- GP puede pausar / reanudar / "send now" desde el form detail.
+- Pre-requisito: Fase C (Resend) para los emails reales. El schedule + calendar view se puede shippear sin emails (sólo logging) pero pierde gran parte del valor.
+
 ---
 
 ## Fase G — Settings avanzado (2 días)

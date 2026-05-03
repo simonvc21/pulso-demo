@@ -25,6 +25,7 @@ export interface FundTheme {
   primary?: string;
   accent?: string;
   navy?: string;
+  chart?: string; // L.12 — main chart series color
 }
 
 export function parseTheme(raw: unknown): FundTheme {
@@ -38,6 +39,7 @@ export function parseTheme(raw: unknown): FundTheme {
     primary: valid(t.primary),
     accent: valid(t.accent),
     navy: valid(t.navy),
+    chart: valid(t.chart),
   };
 }
 
@@ -1009,4 +1011,35 @@ export async function listOrgMetricDefinitions(): Promise<CustomMetricDefinition
     .select("id, label, type, unit")
     .order("label", { ascending: true });
   return (data ?? []) as CustomMetricDefinition[];
+}
+
+// ---------------------------------------------------------------------------
+// Company updates (manual GP notes/activity feed)
+// ---------------------------------------------------------------------------
+
+export interface CompanyUpdate {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string | null; name: string | null; email: string | null };
+}
+
+export async function getCompanyUpdates(companyId: string, limit = 50): Promise<CompanyUpdate[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("company_updates")
+    .select("id, body, created_at, author_user_id, users(id, name, email)")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    body: r.body,
+    createdAt: r.created_at,
+    author: {
+      id: r.users?.id ?? r.author_user_id ?? null,
+      name: r.users?.name ?? null,
+      email: r.users?.email ?? null,
+    },
+  }));
 }

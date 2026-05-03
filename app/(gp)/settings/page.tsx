@@ -72,6 +72,7 @@ export default async function SettingsPage() {
                 primary: parseTheme(fund.theme_json).primary ?? "#14b8a6",
                 accent: parseTheme(fund.theme_json).accent ?? "#f4b740",
                 navy: parseTheme(fund.theme_json).navy ?? "#0a1f44",
+                chart: parseTheme(fund.theme_json).chart ?? parseTheme(fund.theme_json).primary ?? "#14b8a6",
               }}
             />
           ) : (

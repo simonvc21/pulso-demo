@@ -105,7 +105,7 @@ export function ChatDock({
   const button = (
     <button
       onClick={() => setOpen(true)}
-      className="fixed bottom-5 right-5 z-[90] h-12 w-12 rounded-full bg-navy text-gold shadow-cardHover hover:bg-navy-700 transition-colors inline-flex items-center justify-center"
+      className="no-print fixed bottom-5 right-5 z-[90] h-12 w-12 rounded-full bg-navy text-gold shadow-cardHover hover:bg-navy-700 transition-colors inline-flex items-center justify-center"
       aria-label="Open Pulso AI"
       title="Ask Pulso AI"
     >

@@ -72,6 +72,12 @@ export default async function GpLayout({ children }: { children: React.ReactNode
       styleOverrides["--c-gold-600"] = shadeRgb(theme.accent, 0.78) ?? base;
     }
   }
+  // L.12 — chart series color (used by chart components via --c-chart hex string).
+  // Falls back to primary so existing funds without a chart override keep working.
+  const chartHex = theme.chart ?? theme.primary ?? null;
+  if (chartHex) {
+    styleOverrides["--c-chart-hex"] = chartHex;
+  }
 
   return (
     <div className="flex min-h-screen" style={styleOverrides as React.CSSProperties}>

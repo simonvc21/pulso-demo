@@ -79,3 +79,27 @@ input[type="number"] { -moz-appearance: textfield; }
 /* Dark-mode-aware white scrollbar thumb is too low contrast. Bump it. */
 .dark ::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); }
 .dark ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-muted) / 0.8); }
+
+/* ---------------------------------------------------------------------------
+ * Print styles — used by the LP letter "PDF" button (window.print).
+ * Strips interactive chrome (header buttons, chat dock, preview bar) so the
+ * printed PDF is just the letter content.
+ * ------------------------------------------------------------------------- */
+@media print {
+  .no-print, [data-no-print="true"] {
+    display: none !important;
+  }
+  /* Avoid awkward page breaks inside cards. */
+  .shadow-card, .shadow-cardHover {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+  body {
+    background: white !important;
+  }
+  /* Make sure colored backgrounds render in print. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

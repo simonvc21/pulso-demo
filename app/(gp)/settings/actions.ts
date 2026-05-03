@@ -100,6 +100,7 @@ export type ThemeInput = {
   primary?: string | null; // hex like "#0A1F44"
   accent?: string | null;
   navy?: string | null;
+  chart?: string | null;   // L.12 — main chart series color
 };
 
 export type ThemeResult = { ok: true } | { ok: false; error: string };
@@ -109,7 +110,7 @@ export async function updateOrgTheme(input: ThemeInput): Promise<ThemeResult> {
   if (!ctx.ok) return { ok: false, error: ctx.error };
 
   const theme: Record<string, string> = {};
-  for (const k of ["primary", "accent", "navy"] as const) {
+  for (const k of ["primary", "accent", "navy", "chart"] as const) {
     const v = input[k];
     if (!v) continue;
     if (!HEX.test(v)) return { ok: false, error: `Invalid hex color for ${k}` };

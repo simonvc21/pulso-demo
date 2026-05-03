@@ -11,7 +11,7 @@ import { updateMetricCell } from "./actions";
 import { ColumnConfigPopover } from "./column-config-popover";
 import { CellNotePopover } from "./cell-note-popover";
 
-type View = "by_company" | "by_quarter";
+type View = "by_company" | "by_quarter" | "per_company";
 type SortKey = "name" | "sector" | "country" | "stage";
 type SortDir = "asc" | "desc";
 
@@ -175,6 +175,16 @@ export function DataGrid({ quarters, companies: initial, initialNotes, initialCo
             >
               {td("by_quarter", "By quarter")}
             </button>
+            <button
+              type="button"
+              onClick={() => setView("per_company")}
+              className={cn(
+                "h-7 px-2.5 rounded-md text-[11px] font-medium",
+                view === "per_company" ? "bg-navy text-white" : "text-muted hover:text-ink"
+              )}
+            >
+              {td("per_company", "Per company")}
+            </button>
           </div>
           <ColumnConfigPopover config={columns} onChange={setColumns} />
         </div>
@@ -203,8 +213,20 @@ export function DataGrid({ quarters, companies: initial, initialNotes, initialCo
               notes={notes}
               openNote={openNote}
             />
-          ) : (
+          ) : view === "by_quarter" ? (
             <ByQuarter
+              quarters={quarters}
+              companies={filtered}
+              metrics={orderedMetrics}
+              saveCell={saveCell}
+              savingCell={savingCell}
+              savedCell={savedCell}
+              cellId={cellId}
+              notes={notes}
+              openNote={openNote}
+            />
+          ) : (
+            <PerCompany
               quarters={quarters}
               companies={filtered}
               metrics={orderedMetrics}
@@ -424,6 +446,103 @@ function ByQuarter({
         )}
       </tbody>
     </table>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// View 3: one card per company, rows = metrics, cols = quarters
+// (closer to a per-company P&L; how funds usually look at one startup)
+// ---------------------------------------------------------------------------
+
+function PerCompany({
+  quarters, companies, metrics, saveCell, savingCell, savedCell, cellId, notes, openNote,
+}: {
+  quarters: string[];
+  companies: DataMatrixCompany[];
+  metrics: DataMetricEntry[];
+  saveCell: (companyId: string, quarter: string, key: DataMetricKey, raw: string) => void;
+  savingCell: string | null;
+  savedCell: string | null;
+  cellId: (companyId: string, quarter: string, key: string) => string;
+  notes: DataMetricNotes;
+  openNote: (companyId: string, companyName: string, quarter: string, key: DataMetricKey, anchor: HTMLElement) => void;
+}) {
+  if (metrics.length === 0) return <EmptyMetrics />;
+  if (companies.length === 0) {
+    return (
+      <div className="px-4 py-8 text-center text-muted text-[12px]">
+        No companies match your filter.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 p-4">
+      {companies.map((c) => (
+        <div key={c.id} className="bg-paper rounded-xl border border-line overflow-hidden">
+          {/* Company header */}
+          <div className="px-4 py-3 bg-white border-b border-line flex items-center gap-3">
+            {c.logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={c.logoUrl} alt={c.name} className="h-8 w-8 rounded object-contain bg-white border border-line" />
+            ) : (
+              <span className="h-8 w-8 rounded bg-navy text-gold text-[11px] font-bold inline-flex items-center justify-center">
+                {c.name[0]}
+              </span>
+            )}
+            <Link href={`/companies/${c.slug}`} className="text-sm font-semibold text-ink hover:text-teal-600">
+              {c.name}
+            </Link>
+            {c.sector && <span className="text-[11px] text-muted">· {c.sector}</span>}
+            {c.country && <span className="text-[11px] text-muted">· {c.country}</span>}
+          </div>
+
+          {/* Per-company table: rows = metrics, cols = quarters */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px] tabular-nums">
+              <thead className="bg-paper2 text-[10px] tracking-[0.14em] uppercase text-muted">
+                <tr>
+                  <th className="text-left font-semibold px-4 py-2 sticky left-0 bg-paper2 min-w-[140px]">Metric</th>
+                  {quarters.map((q) => (
+                    <th key={q} className="text-right font-semibold px-3 py-2 border-l border-line/50">
+                      {q}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {metrics.map((m) => (
+                  <tr key={m.key} className="hover:bg-white">
+                    <td className="px-4 py-1.5 text-[12px] font-medium text-ink sticky left-0 bg-paper">
+                      {m.label}
+                    </td>
+                    {quarters.map((q) => {
+                      const id = cellId(c.id, q, m.key);
+                      const value = c.metrics[q]?.[m.key as DataMetricKey] ?? null;
+                      const note = notes[noteKey(c.id, q, m.key)] ?? null;
+                      return (
+                        <Cell
+                          key={id}
+                          id={id}
+                          value={value}
+                          metricType={m.type}
+                          saving={savingCell === id}
+                          saved={savedCell === id}
+                          note={note}
+                          onCommit={(raw) => saveCell(c.id, q, m.key as DataMetricKey, raw)}
+                          onOpenNote={(anchor) => openNote(c.id, c.name, q, m.key as DataMetricKey, anchor)}
+                          align="right"
+                        />
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

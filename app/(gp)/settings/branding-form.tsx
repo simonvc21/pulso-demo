@@ -12,6 +12,7 @@ interface Props {
     primary: string;
     accent: string;
     navy: string;
+    chart: string;
   };
 }
 
@@ -19,6 +20,7 @@ const BRAND_DEFAULTS = {
   primary: "#14b8a6", // teal
   accent: "#f4b740",  // gold
   navy: "#0a1f44",
+  chart: "#14b8a6",   // chart series default — same as primary, but customizable separately
 };
 
 export function BrandingForm({ initial }: Props) {
@@ -28,6 +30,7 @@ export function BrandingForm({ initial }: Props) {
   const [primary, setPrimary] = useState(initial.primary);
   const [accent, setAccent] = useState(initial.accent);
   const [navy, setNavy] = useState(initial.navy);
+  const [chart, setChart] = useState(initial.chart);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
@@ -36,7 +39,8 @@ export function BrandingForm({ initial }: Props) {
   const dirty =
     primary.toLowerCase() !== initial.primary.toLowerCase() ||
     accent.toLowerCase() !== initial.accent.toLowerCase() ||
-    navy.toLowerCase() !== initial.navy.toLowerCase();
+    navy.toLowerCase() !== initial.navy.toLowerCase() ||
+    chart.toLowerCase() !== initial.chart.toLowerCase();
 
   const handleFile = async (file: File) => {
     setError(null);
@@ -68,7 +72,7 @@ export function BrandingForm({ initial }: Props) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await updateOrgTheme({ primary, accent, navy });
+      const res = await updateOrgTheme({ primary, accent, navy, chart });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -82,6 +86,7 @@ export function BrandingForm({ initial }: Props) {
     setPrimary(BRAND_DEFAULTS.primary);
     setAccent(BRAND_DEFAULTS.accent);
     setNavy(BRAND_DEFAULTS.navy);
+    setChart(BRAND_DEFAULTS.chart);
   };
 
   return (
@@ -137,10 +142,11 @@ export function BrandingForm({ initial }: Props) {
       {/* Colors */}
       <form onSubmit={handleSaveColors} className="pt-4 border-t border-line">
         <div className="text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-2">Brand colors</div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <ColorField label="Primary" value={primary} onChange={setPrimary} />
           <ColorField label="Accent" value={accent} onChange={setAccent} />
           <ColorField label="Navy" value={navy} onChange={setNavy} />
+          <ColorField label="Charts" value={chart} onChange={setChart} hint="Main color of bar/line charts" />
         </div>
 
         {error && (
@@ -175,8 +181,8 @@ export function BrandingForm({ initial }: Props) {
 }
 
 function ColorField({
-  label, value, onChange,
-}: { label: string; value: string; onChange: (v: string) => void }) {
+  label, value, onChange, hint,
+}: { label: string; value: string; onChange: (v: string) => void; hint?: string }) {
   return (
     <label className="block">
       <span className="block text-[10px] font-semibold text-ink tracking-wide uppercase mb-1">{label}</span>
@@ -194,6 +200,7 @@ function ColorField({
           className="flex-1 h-9 px-2 rounded-md border border-line text-xs font-mono focus:outline-none focus:ring-2 focus:ring-teal/30"
         />
       </div>
+      {hint && <span className="block text-[10px] text-muted mt-1">{hint}</span>}
     </label>
   );
 }
