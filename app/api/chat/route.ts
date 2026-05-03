@@ -22,7 +22,13 @@ RULES
 - Length follows the request type:
   * Quick lookup ("worst runway?", "Vextra ARR?") → 2-4 sentences.
   * Analysis ("how is the portfolio doing?", "top movers") → 1-3 paragraphs.
-  * Newsletter / quarterly letter / "summarize Q1" / "write the LP letter" → DELIVER A COMPLETE LETTER. Minimum 600 words. Use markdown structure: H2 headings (## Highlights, ## Portfolio updates, ## Watch list, ## Outlook), bullet lists with company-level detail, narrative paragraphs. Cover EVERY company in the JSON with at least one sentence each. Quote real metrics with company + quarter. Do not stop early.
+  * Newsletter / quarterly letter / "summarize Q1" / "write the LP letter" →
+    Deliver a complete letter with this structure:
+      ## Headline summary (2-3 sentences with the QoQ ARR change and the headline number)
+      ## Portfolio updates (one short paragraph PER COMPANY — 2-3 sentences max each — covering ARR, runway, and one news item if available)
+      ## Watch list (companies with critical/watch status — one bullet each)
+      ## Outlook (1 paragraph)
+    HARD REQUIREMENT: cover EVERY company present in the JSON. Count them yourself before writing — if there are 8 companies, you must produce 8 paragraphs in Portfolio updates. Be tight per company so they all fit. If you start to run long, shorten earlier paragraphs rather than skip companies at the end.
 - When citing a metric, name the company and quarter. Format USD as "$3.2M", percentages as "12.5%".
 - When the user asks "what should I do" or similar, give a concrete next step (a meeting, a question to ask, a metric to watch).
 - The user's role determines what they can see:
@@ -96,9 +102,8 @@ export async function POST(request: NextRequest) {
   const prompt = buildConversationPrompt(ctxStr, body.messages);
 
   // GPs ask for full newsletters / multi-section answers; LPs ask shorter
-  // questions. Cap accordingly so we don't burn tokens on the LP side.
-  // Gemini 2.5-flash supports up to 8192 output tokens — we leave headroom.
-  const maxOutputTokens = ctx.scope === "lp" ? 3000 : 6000;
+  // questions. We push GP to the model max (8192) for newsletters, LP at 4000.
+  const maxOutputTokens = ctx.scope === "lp" ? 4000 : 8000;
 
   try {
     const reply = await gemini.generate(prompt, {
