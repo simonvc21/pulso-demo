@@ -19,7 +19,10 @@ export type UpdateMetricResult = { ok: true } | { ok: false; error: string };
 
 export async function updateMetricCell(input: UpdateMetricInput): Promise<UpdateMetricResult> {
   if (!input.companyId) return { ok: false, error: "Company id is required" };
-  if (!/^Q[1-4]\s+\d{4}$/.test(input.quarter)) return { ok: false, error: "Invalid quarter format" };
+  // L.12 — accept Q1 2026, M03 2026, Mar 2026, FY 2026
+  if (!periodColumnsFromQuarterString(input.quarter).period_year) {
+    return { ok: false, error: "Invalid period format" };
+  }
   if (!KEYS.has(input.key)) return { ok: false, error: "Invalid metric key" };
   if (input.value != null && !Number.isFinite(input.value)) {
     return { ok: false, error: "Value must be a number" };
@@ -254,7 +257,9 @@ export async function upsertMetricNote(input: {
   note: string;
 }): Promise<NoteResult> {
   if (!input.companyId) return { ok: false, error: "Company id is required" };
-  if (!/^Q[1-4]\s+\d{4}$/.test(input.quarter)) return { ok: false, error: "Invalid quarter" };
+  if (!periodColumnsFromQuarterString(input.quarter).period_year) {
+    return { ok: false, error: "Invalid period format" };
+  }
   if (!KEYS.has(input.metricKey)) return { ok: false, error: "Invalid metric key" };
   const trimmed = input.note.trim();
   if (!trimmed) return { ok: false, error: "Note is empty" };
@@ -288,7 +293,9 @@ export async function deleteMetricNote(input: {
   metricKey: DataMetricKey;
 }): Promise<NoteResult> {
   if (!input.companyId) return { ok: false, error: "Company id is required" };
-  if (!/^Q[1-4]\s+\d{4}$/.test(input.quarter)) return { ok: false, error: "Invalid quarter" };
+  if (!periodColumnsFromQuarterString(input.quarter).period_year) {
+    return { ok: false, error: "Invalid period format" };
+  }
   if (!KEYS.has(input.metricKey)) return { ok: false, error: "Invalid metric key" };
 
   const ctx = await requireOrg();

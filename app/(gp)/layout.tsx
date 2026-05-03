@@ -106,7 +106,7 @@ export default async function GpLayout({ children }: { children: React.ReactNode
         examples={[
           "Which company has the worst runway right now?",
           "What's the biggest news this quarter?",
-          "Top 3 by ARR growth QoQ",
+          "Top 3 by ARR growth MoM",
           "Who hasn't responded to the last form?",
         ]}
       />

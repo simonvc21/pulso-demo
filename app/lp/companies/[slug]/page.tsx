@@ -47,17 +47,17 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
   const yoy = company.metrics[company.metrics.length - 5] || company.metrics[0];
   if (!last) notFound();
 
-  const arrQoQ = prev && prev.arr > 0 ? ((last.arr - prev.arr) / prev.arr) * 100 : 0;
+  const arrMoM = prev && prev.arr > 0 ? ((last.arr - prev.arr) / prev.arr) * 100 : 0;
   const arrYoY = yoy && yoy.arr > 0 ? ((last.arr - yoy.arr) / yoy.arr) * 100 : 0;
   const runway = last.burn > 0 ? last.cash / last.burn : 0;
-  const burnQoQ = prev && prev.burn > 0 ? ((last.burn - prev.burn) / prev.burn) * 100 : 0;
+  const burnMoM = prev && prev.burn > 0 ? ((last.burn - prev.burn) / prev.burn) * 100 : 0;
 
   const aiInsight =
     company.status === "critical"
       ? `Runway is ${runway.toFixed(1)} months. The GP is actively engaged with the founder.`
       : company.status === "watch"
-      ? `Burn moved ${burnQoQ.toFixed(0)}% QoQ; ARR growth is decelerating relative to plan.`
-      : `On track. ARR ${fmtPct(arrQoQ, 1)} QoQ, ${fmtPct(arrYoY, 0)} YoY.`;
+      ? `Burn moved ${burnMoM.toFixed(0)}% MoM; ARR growth is decelerating relative to plan.`
+      : `On track. ARR ${fmtPct(arrMoM, 1)} MoM, ${fmtPct(arrYoY, 0)} YoY.`;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 animate-fade-in space-y-6">
@@ -141,7 +141,7 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
       {/* KPI grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <Stat label="Invested" value={fmtUSD(company.invested, { compact: true })} hint={`${company.ownership.toFixed(1)}% ownership`} />
-        <Stat label="ARR" value={fmtUSD(last.arr, { compact: true })} delta={fmtPct(arrQoQ, 1)} positive={arrQoQ >= 0} hintLabel="QoQ" />
+        <Stat label="ARR" value={fmtUSD(last.arr, { compact: true })} delta={fmtPct(arrMoM, 1)} positive={arrMoM >= 0} hintLabel="MoM" />
         <Stat label="Cash" value={fmtUSD(last.cash, { compact: true })} hint={`${runway.toFixed(1)} mo runway`} negative={runway < 9} />
         <Stat label="Headcount" value={fmtNum(last.headcount)} hint="FTE" />
         <Stat label="ARR (YoY)" value={fmtPct(arrYoY, 0)} hint={yoy ? `vs ${yoy.quarter}` : ""} positive={arrYoY > 0} />
@@ -244,7 +244,7 @@ function CustomMetricsBlock({ series }: { series: CustomMetricSeries[] }) {
                   <span className={delta >= 0 ? "text-teal-600 font-medium" : "text-coral font-medium"}>
                     {delta >= 0 ? "+" : ""}{delta.toFixed(1)}%
                   </span>
-                  <span className="text-muted"> QoQ</span>
+                  <span className="text-muted"> MoM</span>
                 </div>
               )}
             </div>

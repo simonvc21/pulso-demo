@@ -130,7 +130,7 @@ export async function buildChatContext(): Promise<ChatContext | null> {
     // L.12 — only quarterly rows for the chat context dump (avoids
     // duplicating numbers after monthly backfill).
     const sortedMetrics = ((c.metrics ?? []) as any[])
-      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
+      
       .sort((a, b) => a.quarter.localeCompare(b.quarter))
       .map((m) => ({
         quarter: m.quarter,
@@ -162,7 +162,7 @@ export async function buildChatContext(): Promise<ChatContext | null> {
   type CustomGroup = ChatContext["companies"][number]["custom_metrics"][number];
   const customGroups = new Map<string, CustomGroup>();
   // L.12 — quarter rows only here too
-  for (const r of ((customMetricRows ?? []) as any[]).filter((m) => m.period_kind === "quarter" || !m.period_kind)) {
+  for (const r of ((customMetricRows ?? []) as any[])) {
     const slug = r.companies?.slug;
     const def = r.metric_definitions;
     if (!slug || !def?.label) continue;

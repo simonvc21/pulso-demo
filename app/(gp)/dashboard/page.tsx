@@ -28,13 +28,20 @@ export default async function DashboardPage() {
   const fundDeployed = Number(organization?.deployed_usd ?? 0);
   const deployedPct = fundSize > 0 ? Math.round((fundDeployed / fundSize) * 100) : 0;
   const newThisQ = 2;
+  // L.12 — Latest period label across the portfolio (e.g. "Mar 2026"). Pulled
+  // from the most recent metric row in the dashboard data.
+  const latestPeriod = (() => {
+    const allLabels: string[] = [];
+    for (const c of companies) for (const m of c.metrics) allLabels.push(m.quarter);
+    return allLabels[allLabels.length - 1] ?? "";
+  })();
 
   return (
     <>
       <Topbar
         bell={<TopbarBell />}
         title={ts("dashboard.title")}
-        breadcrumb={`${fundName} · Q1 2026`}
+        breadcrumb={`${fundName}${latestPeriod ? ` · ${latestPeriod}` : ""}`}
         actions={
           <div className="flex items-center gap-2">
             <a href="/api/export/companies">
@@ -68,13 +75,13 @@ export default async function DashboardPage() {
           <KpiCard
             label={ts("dashboard.kpi_total_invested")}
             value={fmtUSD(fundDeployed, { compact: true })}
-            delta={{ text: "+ $4.1M QoQ", trend: "up" }}
+            delta={{ text: "+ $4.1M MoM", trend: "up" }}
             hint={`${deployedPct}% ${ts("dashboard.deployed")}`}
           />
           <KpiCard
             label={ts("dashboard.kpi_portfolio_arr")}
             value={fmtUSD(kpis.arrTotal, { compact: true })}
-            delta={{ text: `${kpis.qoqArrGrowth >= 0 ? "+" : ""}${kpis.qoqArrGrowth.toFixed(1)}% QoQ`, trend: kpis.qoqArrGrowth >= 0 ? "up" : "down" }}
+            delta={{ text: `${kpis.qoqArrGrowth >= 0 ? "+" : ""}${kpis.qoqArrGrowth.toFixed(1)}% MoM`, trend: kpis.qoqArrGrowth >= 0 ? "up" : "down" }}
             hint={`${newThisQ} ${ts("dashboard.new_this_q")}`}
           />
           <KpiCard
@@ -86,7 +93,7 @@ export default async function DashboardPage() {
           <KpiCard
             label={ts("dashboard.kpi_runway")}
             value={`${kpis.runwayMonths.toFixed(1)} mo`}
-            delta={{ text: "− 1.8 mo QoQ", trend: "down" }}
+            delta={{ text: "− 1.8 mo MoM", trend: "down" }}
             hint={`${fmtUSD(kpis.cash, { compact: true })} ${ts("dashboard.cash")}`}
           />
         </div>
@@ -98,7 +105,7 @@ export default async function DashboardPage() {
             <div className="px-5 pt-4 pb-2 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-ink">{ts("dashboard.arr_by_company")}</h3>
-                <p className="text-[11px] text-muted mt-0.5">Q1 2026 · USD, normalized</p>
+                <p className="text-[11px] text-muted mt-0.5">{latestPeriod || "Latest month"} · USD, normalized</p>
               </div>
               <div className="flex gap-1 text-[10px]">
                 <span className="inline-flex items-center gap-1.5 text-muted"><span className="h-1.5 w-1.5 rounded-full bg-teal" /> Healthy</span>

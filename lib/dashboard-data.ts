@@ -1,10 +1,29 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
+import { formatPeriod, periodKey, type PeriodKind } from "@/lib/period";
 
 type CompanyRow = Database["public"]["Tables"]["companies"]["Row"];
 type MetricRow = Database["public"]["Tables"]["metrics"]["Row"];
 type OrganizationRow = Database["public"]["Tables"]["organizations"]["Row"];
 type LpRow = Database["public"]["Tables"]["lps"]["Row"];
+
+/** Convert a metrics row from the DB into the friendly period label used by
+ *  the UI (`"Mar 2026"` for monthly, `"Q1 2026"` for quarterly). When
+ *  period_year/period_month aren't set yet we fall back to the legacy
+ *  `quarter` text column. */
+function metricRowToLabel(m: { period_year?: number | null; period_month?: number | null; period_kind?: PeriodKind | null; quarter: string }): string {
+  if (m.period_year && m.period_month && m.period_kind) {
+    return formatPeriod({ year: m.period_year, month: m.period_month, kind: m.period_kind });
+  }
+  return m.quarter;
+}
+
+function metricRowSortKey(m: { period_year?: number | null; period_month?: number | null; period_kind?: PeriodKind | null }): number {
+  if (m.period_year && m.period_month) {
+    return periodKey({ year: m.period_year, month: m.period_month, kind: m.period_kind ?? "month" });
+  }
+  return 0;
+}
 
 export type FundSummary = Pick<
   OrganizationRow,
@@ -81,14 +100,27 @@ export interface DashboardData {
   watchList: DashboardCompany[];
 }
 
-// Quarter strings sort lexicographically wrong ("Q4 2025" > "Q1 2026"),
-// so convert to sortable (year, quarter-number) pair.
-function quarterSortKey(q: string): number {
-  const m = /^Q(\d)\s+(\d{4})$/.exec(q.trim());
-  if (!m) return 0;
-  const qn = parseInt(m[1], 10);
-  const yr = parseInt(m[2], 10);
-  return yr * 10 + qn;
+// Period strings sort lexicographically wrong, so we parse them.
+// Accepts: "Q1 2026", "M03 2026", "Mar 2026", "FY 2026".
+const MONTH_NAMES = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+function quarterSortKey(s: string): number {
+  const t = s.trim();
+  // Q1 2026 → year*1000 + 3 (quarter-end month) * 10 + 1 (kind=quarter)
+  let m = /^Q([1-4])\s+(\d{4})$/i.exec(t);
+  if (m) return parseInt(m[2], 10) * 1000 + parseInt(m[1], 10) * 30 + 1;
+  // M03 2026 → year*1000 + month*10 + 0 (kind=month)
+  m = /^M(\d{2})\s+(\d{4})$/i.exec(t);
+  if (m) return parseInt(m[2], 10) * 1000 + parseInt(m[1], 10) * 10;
+  // Jan 2026 / January 2026
+  m = /^([A-Za-z]+)\s+(\d{4})$/.exec(t);
+  if (m) {
+    const idx = MONTH_NAMES.indexOf(m[1].slice(0, 3).toLowerCase());
+    if (idx >= 0) return parseInt(m[2], 10) * 1000 + (idx + 1) * 10;
+  }
+  // FY 2026
+  m = /^FY\s+(\d{4})$/i.exec(t);
+  if (m) return parseInt(m[1], 10) * 1000 + 12 * 10 + 2;
+  return 0;
 }
 
 function normalizeStatus(s: CompanyRow["status"]): DashboardCompany["status"] {
@@ -118,9 +150,9 @@ export async function getDashboardData(): Promise<DashboardData> {
     // rollups don't double-count after the monthly backfill. Refactor to
     // cadence-aware aggregation lands in L.12b.
     const metrics: DashboardMetric[] = ((c.metrics ?? []) as any[])
-      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
+      
       .map((m) => ({
-        quarter: m.quarter,
+        quarter: metricRowToLabel(m),
         arr: num(m.arr_usd),
         burn: num(m.burn_usd),
         cash: num(m.cash_usd),
@@ -149,9 +181,12 @@ export async function getDashboardData(): Promise<DashboardData> {
 }
 
 function computeKpis(companies: DashboardCompany[]): DashboardKpis {
+  // L.12 — metrics are now monthly. "prev" = previous month (MoM). "yoy" = 12
+  // months back. The DashboardKpis field name `qoqArrGrowth` stays for
+  // backwards-compat with consumers (the dashboard renders it as "MoM" now).
   const latest = (c: DashboardCompany) => c.metrics[c.metrics.length - 1];
   const prev = (c: DashboardCompany) => c.metrics[c.metrics.length - 2];
-  const yoy = (c: DashboardCompany) => c.metrics[c.metrics.length - 5];
+  const yoy = (c: DashboardCompany) => c.metrics[c.metrics.length - 13];
 
   const arrTotal = companies.reduce((a, c) => a + (latest(c)?.arr ?? 0), 0);
   const arrPrev = companies.reduce((a, c) => a + (prev(c)?.arr ?? 0), 0);
@@ -207,7 +242,7 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
     .from("companies")
     .select(
       "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, investment_instrument, tracking_cadence, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_kind)"
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month, period_kind)"
     )
     .order("name", { ascending: true });
 
@@ -225,9 +260,9 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
     investmentInstrument: c.investment_instrument ?? null,
     trackingCadence: c.tracking_cadence ?? "monthly",
     metrics: ((c.metrics ?? []) as any[])
-      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
+      
       .map((m) => ({
-        quarter: m.quarter,
+        quarter: metricRowToLabel(m),
         arr: num(m.arr_usd),
         burn: num(m.burn_usd),
         cash: num(m.cash_usd),
@@ -257,7 +292,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
     .from("companies")
     .select(
       "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_kind)"
+        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month, period_kind)"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -292,9 +327,9 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
     // (which expects 8 quarters) keeps working. Refactor to consume monthly
     // rows is L.12b.
     metrics: ((c.metrics ?? []) as any[])
-      .filter((m) => m.period_kind === "quarter" || !m.period_kind)
+      
       .map((m) => ({
-        quarter: m.quarter,
+        quarter: metricRowToLabel(m),
         arr: num(m.arr_usd),
         burn: num(m.burn_usd),
         cash: num(m.cash_usd),
@@ -892,10 +927,10 @@ export interface DataMatrix {
   columnsConfig: import("./data-columns-config").DataColumnsConfig; // L.3
 }
 
+// Re-uses the broader quarterSortKey logic; kept as an exported alias for the
+// /data spreadsheet which calls it directly.
 export function quarterKey(q: string): number {
-  const m = /^Q(\d)\s+(\d{4})$/.exec(q.trim());
-  if (!m) return 0;
-  return parseInt(m[2], 10) * 10 + parseInt(m[1], 10);
+  return quarterSortKey(q);
 }
 
 export async function getDataMatrix(): Promise<DataMatrix> {
@@ -912,11 +947,11 @@ export async function getDataMatrix(): Promise<DataMatrix> {
       .from("companies")
       .select(
         "id, slug, name, sector, country, stage, status, logo_url, " +
-          "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_kind)"
+          "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_year, period_month, period_kind)"
       )
       .order("name", { ascending: true }),
     supabase.from("organizations").select("data_columns_json").limit(1),
-    supabase.from("metric_notes").select("company_id, quarter, metric_key, note"),
+    supabase.from("metric_notes").select("company_id, quarter, metric_key, note, period_year, period_month, period_kind"),
   ]);
 
   const quartersSet = new Set<string>();
@@ -924,11 +959,10 @@ export async function getDataMatrix(): Promise<DataMatrix> {
 
   for (const c of (rows ?? []) as any[]) {
     const matrix: Record<string, Record<DataMetricKey, number | null>> = {};
-    // L.12 — only quarterly rows in /data view for now (avoid duplicate cells
-    // from monthly+quarterly backfill). Cadence-aware /data refactor is L.12b.
-    for (const m of ((c.metrics ?? []) as any[]).filter((mm) => mm.period_kind === "quarter" || !mm.period_kind)) {
-      quartersSet.add(m.quarter);
-      matrix[m.quarter] = {
+    for (const m of ((c.metrics ?? []) as any[])) {
+      const label = metricRowToLabel(m);
+      quartersSet.add(label);
+      matrix[label] = {
         arr_usd:     m.arr_usd     != null ? Number(m.arr_usd)     : null,
         burn_usd:    m.burn_usd    != null ? Number(m.burn_usd)    : null,
         cash_usd:    m.cash_usd    != null ? Number(m.cash_usd)    : null,
@@ -949,7 +983,7 @@ export async function getDataMatrix(): Promise<DataMatrix> {
 
   const notes: DataMetricNotes = {};
   for (const n of (noteRows ?? []) as any[]) {
-    notes[`${n.company_id}|${n.quarter}|${n.metric_key}`] = n.note;
+    notes[`${n.company_id}|${metricRowToLabel(n)}|${n.metric_key}`] = n.note;
   }
 
   const columnsConfig = orgs?.[0]?.data_columns_json
@@ -985,13 +1019,14 @@ export async function getCompanyCustomMetrics(companyId: string): Promise<Custom
   const supabase = createClient();
   const { data: rows } = await supabase
     .from("custom_metric_values")
-    .select("quarter, value, period_kind, metric_definitions(id, label, type, unit)")
+    .select("quarter, value, period_year, period_month, period_kind, metric_definitions(id, label, type, unit)")
     .eq("company_id", companyId)
-    .order("quarter", { ascending: true });
+    .order("period_year", { ascending: true })
+    .order("period_month", { ascending: true });
 
   // Group by definition. L.12 — only quarterly rows in the view for now.
   const byDef = new Map<string, CustomMetricSeries>();
-  for (const r of ((rows ?? []) as any[]).filter((m) => m.period_kind === "quarter" || !m.period_kind)) {
+  for (const r of ((rows ?? []) as any[])) {
     const def = r.metric_definitions;
     if (!def) continue;
     const key = def.id;
@@ -1002,7 +1037,7 @@ export async function getCompanyCustomMetrics(companyId: string): Promise<Custom
       prev: null,
     };
     series.values.push({
-      quarter: r.quarter,
+      quarter: metricRowToLabel(r),
       value: r.value != null ? Number(r.value) : null,
     });
     byDef.set(key, series);

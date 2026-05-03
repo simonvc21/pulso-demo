@@ -54,7 +54,7 @@ function BannerShell({
         <div className="text-sm mt-1 leading-relaxed">
           Portfolio ARR grew{" "}
           <span className="font-semibold text-teal">
-            {qoqGrowth >= 0 ? "+" : ""}{qoqGrowth.toFixed(1)}% QoQ
+            {qoqGrowth >= 0 ? "+" : ""}{qoqGrowth.toFixed(1)}% MoM
           </span>
           , driven by Vextra and Lumen.{" "}
           <span className="text-gold">{flaggedCount} companies</span> need attention — Brio is the most pressing.

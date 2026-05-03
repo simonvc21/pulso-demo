@@ -54,17 +54,17 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
 
   if (!last) return notFound();
 
-  const arrQoQ = prev && prev.arr > 0 ? ((last.arr - prev.arr) / prev.arr) * 100 : 0;
+  const arrMoM = prev && prev.arr > 0 ? ((last.arr - prev.arr) / prev.arr) * 100 : 0;
   const arrYoY = yoy && yoy.arr > 0 ? ((last.arr - yoy.arr) / yoy.arr) * 100 : 0;
   const runway = last.burn > 0 ? last.cash / last.burn : 0;
-  const burnQoQ = prev && prev.burn > 0 ? ((last.burn - prev.burn) / prev.burn) * 100 : 0;
+  const burnMoM = prev && prev.burn > 0 ? ((last.burn - prev.burn) / prev.burn) * 100 : 0;
 
   const aiInsight =
     company.status === "critical"
       ? `Runway is now ${runway.toFixed(1)} months — below the 9-month threshold you set. Recommend opening a bridge conversation in the next 14 days.`
       : company.status === "watch"
-      ? `Burn jumped ${burnQoQ.toFixed(0)}% QoQ. ARR growth is decelerating relative to plan — worth a check-in before next quarter close.`
-      : `On track. ARR ${fmtPct(arrQoQ, 1)} QoQ, ${fmtPct(arrYoY, 0)} YoY. No anomalies detected in the latest submission.`;
+      ? `Burn jumped ${burnMoM.toFixed(0)}% MoM. ARR growth is decelerating relative to plan — worth a check-in before next quarter close.`
+      : `On track. ARR ${fmtPct(arrMoM, 1)} MoM, ${fmtPct(arrYoY, 0)} YoY. No anomalies detected in the latest submission.`;
 
   return (
     <>
@@ -194,9 +194,9 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
         {/* KPI grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Stat label="Invested" value={fmtUSD(company.invested, { compact: true })} hint={`${company.ownership.toFixed(1)}% ownership`} />
-          <Stat label="ARR" value={fmtUSD(last.arr, { compact: true })} delta={fmtPct(arrQoQ, 1)} positive={arrQoQ >= 0} hintLabel="QoQ" />
+          <Stat label="ARR" value={fmtUSD(last.arr, { compact: true })} delta={fmtPct(arrMoM, 1)} positive={arrMoM >= 0} hintLabel="MoM" />
           <Stat label="Cash" value={fmtUSD(last.cash, { compact: true })} hint={`${runway.toFixed(1)} mo runway`} negative={runway < 9} />
-          <Stat label="Monthly Burn" value={fmtUSD(last.burn, { compact: true })} delta={fmtPct(burnQoQ, 0)} positive={burnQoQ < 0} hintLabel="QoQ" />
+          <Stat label="Monthly Burn" value={fmtUSD(last.burn, { compact: true })} delta={fmtPct(burnMoM, 0)} positive={burnMoM < 0} hintLabel="MoM" />
           <Stat label="Headcount" value={fmtNum(last.headcount)} hint="FTE" />
           <Stat label="ARR (YoY)" value={fmtPct(arrYoY, 0)} hint={yoy ? `vs ${yoy.quarter}` : ""} positive={arrYoY > 0} />
         </div>
@@ -314,7 +314,7 @@ function CustomMetricsBlock({ series }: { series: CustomMetricSeries[] }) {
         <span className="text-[11px] text-muted">{series.length} tracked</span>
       </div>
 
-      {/* Stat strip: latest value + QoQ delta */}
+      {/* Stat strip: latest value + MoM delta */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {series.map((s) => {
           const delta = s.prev != null && s.prev !== 0
@@ -333,7 +333,7 @@ function CustomMetricsBlock({ series }: { series: CustomMetricSeries[] }) {
                   <span className={delta >= 0 ? "text-teal-600 font-medium" : "text-coral font-medium"}>
                     {delta >= 0 ? "+" : ""}{delta.toFixed(1)}%
                   </span>
-                  <span className="text-muted"> QoQ</span>
+                  <span className="text-muted"> MoM</span>
                 </div>
               )}
             </div>

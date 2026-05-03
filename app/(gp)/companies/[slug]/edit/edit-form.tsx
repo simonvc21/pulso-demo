@@ -131,29 +131,8 @@ export function CompanyEditForm({ slug, initial }: Props) {
         </div>
       </Section>
 
-      <Section title="Reporting cadence">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          {cadences.map((c) => {
-            const active = v.trackingCadence === c.value;
-            return (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => update("trackingCadence", c.value as typeof v.trackingCadence)}
-                className={`text-left rounded-lg border px-3 py-2.5 transition-colors ${
-                  active ? "border-navy bg-navy/5 text-navy" : "border-line text-muted hover:border-navy/40 hover:text-ink"
-                }`}
-              >
-                <div className="text-sm font-semibold">{c.label}</div>
-                <div className="text-[10px] mt-0.5 leading-tight">{c.hint}</div>
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-[10px] text-muted mt-2">
-          Founders submit metrics at this cadence. Charts and the /data spreadsheet adapt accordingly.
-        </p>
-      </Section>
+      {/* L.12 — cadence picker hidden; everything is monthly. Field still
+          persists so a future toggle can re-enable per-company quarterly. */}
 
       <Section title="Founder">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
