@@ -8,6 +8,7 @@ import { getCurrentUser, getFund, parseTheme } from "@/lib/dashboard-data";
 import { signOut } from "./actions";
 import { FundForm } from "./fund-form";
 import { BrandingForm } from "./branding-form";
+import { ProfileForm } from "./profile-form";
 import { ts } from "@/lib/i18n-server";
 import { unstable_noStore as noStore } from "next/cache";
 
@@ -27,7 +28,7 @@ export default async function SettingsPage() {
       <div className="px-8 py-6 space-y-6 animate-fade-in max-w-3xl">
         {/* Profile */}
         <Card title={ts("settings.your_profile")} subtitle={ts("settings.your_profile_subtitle")}>
-          <Field icon={User} label={ts("auth.name")} value={profile?.name ?? "—"} />
+          <ProfileForm initialName={profile?.name ?? ""} email={profile?.email ?? ""} />
           <Field icon={Mail} label={ts("auth.email")} value={profile?.email ?? "—"} />
           <Field
             icon={Shield}
@@ -124,22 +125,6 @@ export default async function SettingsPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-ink">AI usage & cost</h3>
                 <p className="text-[11px] text-muted mt-0.5">Token usage, cost by feature, per-user breakdown</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors" />
-            </div>
-          </div>
-        </Link>
-
-        {/* Value delivered — L.20 */}
-        <Link href="/settings/value" className="block group">
-          <div className="bg-white rounded-xl border border-line shadow-card hover:shadow-cardHover transition-shadow overflow-hidden">
-            <div className="px-5 py-4 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
-                <Sparkles className="h-5 w-5 text-teal-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-ink">Value delivered</h3>
-                <p className="text-[11px] text-muted mt-0.5">Hours saved, reports generated, alerts surfaced</p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors" />
             </div>

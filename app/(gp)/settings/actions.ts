@@ -222,3 +222,26 @@ function extFromMime(mime: string): string | null {
     default: return null;
   }
 }
+
+// L.5 — Editable user profile (display name only).
+export type UpdateProfileResult = { ok: true } | { ok: false; error: string };
+
+export async function updateProfile(input: { name: string }): Promise<UpdateProfileResult> {
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: "Name is required" };
+  if (name.length > 80) return { ok: false, error: "Name must be ≤ 80 chars" };
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated" };
+
+  const { error } = await supabase
+    .from("users")
+    .update({ name })
+    .eq("auth_user_id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/settings");
+  revalidatePath("/", "layout");
+  return { ok: true };
+}

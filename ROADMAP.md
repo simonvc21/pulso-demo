@@ -575,3 +575,44 @@ A 10 fondos x ~$200/mo (precio sugerido) = $2K MRR con $115 de costos. Margen sa
   - 6 de 8 founders responden el primer form sin recordatorio manual (validar fase C)
   - LP abre al menos 1 letter compartido (validar fase A.6 + H)
 - Si los 3 se cumplen → cobrar $200/mo y empezar outbound a otros fondos LATAM
+
+---
+
+## Fase L.5 — Pilot polish & deferred items (2026-05-03)
+
+After running the demo end-to-end with real intent, surfaced the following.
+Quick-win fixes ship inline; deeper items move to Fase L.6+.
+
+### Quick fixes (this session)
+
+- **Profile in Settings is read-only and shows email twice.** Add an editable Name field via a small `updateProfile` server action; remove the duplicated email row.
+- **Remove "Value delivered" / "X hours saved" card from /settings.** Keep the loader + page accessible only via direct URL for now (don't break links). The card sits awkwardly on the overview and inflates the perceived feature surface.
+- **Sidebar fund name truncated** (e.g. "Patagonia Fu" instead of "Patagonia Fund I"). Fix the truncation/min-width.
+- **Sidebar disappears on long pages** (Settings, etc). Fix the sticky positioning so it stays visible during scroll.
+- **Dark-mode contrast issues**: white-on-transparent fund logo unreadable; a few badge/text combos low-contrast. Audit + patch.
+- **Data tab horizontal scroll overlaps cell numbers.** Fix sticky-column z-index / padding so values stay legible when scrolled.
+
+### Forms scheduling overhaul (L.5b — separate session)
+
+Today the cadence + auto-reminders + recipients UX is too rigid:
+
+- **One form per company, not "send to all".** The "Send to all companies" recipients toggle should go away. Recipients are always one founder email per company, configurable per-company.
+- **Schedule should let GP pick exact day-of-month** (e.g. "Send on the 5th of every month") instead of vague cadence buckets. Remember: every form is monthly with monthly data.
+- **Send a quarterly-themed form too** as an option (still monthly data underneath).
+- **Reminders are configurable**:
+  - GP picks N reminders, each with custom day offset (e.g. Day 3, Day 7, Day 14 → editable to anything)
+  - Each reminder gets its own subject + body
+- **Per-form email config** (subject + body) shipped with the form so the GP doesn't write copy at send-time. Ships behind Resend.
+
+### LP experience expansion (L.5c — needs L.6+)
+
+- **LPs should see per-company dashboards**, not just the fund-level chart. Reuse `/companies/[slug]` view with metric blurring or an LP-safe variant.
+- **LP ↔ GP chat thread inside /lps** (1-on-1 messages per LP). Backend table `lp_messages(lp_id, author_user_id, body, created_at)`. Notifications via Resend (money-blocked).
+
+### Money-blocked (unchanged)
+
+- L.14 Stripe billing
+- L.16 / L.19 Resend (email automation, LP letters, founder reminders)
+- L.17 workflows
+- L.21 Slack/Notion integrations
+- B.4c Gemini Pro PDF imports

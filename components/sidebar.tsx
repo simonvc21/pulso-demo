@@ -59,7 +59,7 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, isAdmin = false, 
   return (
     <aside
       className={cn(
-        "no-print hidden lg:flex flex-col shrink-0 bg-navy text-white h-screen sticky top-0 transition-all duration-200 relative",
+        "no-print hidden lg:flex flex-col shrink-0 bg-navy text-white h-screen sticky top-0 self-start transition-all duration-200 relative",
         collapsed ? "w-16" : "w-60"
       )}
     >
@@ -85,8 +85,8 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, isAdmin = false, 
         )}
         {!collapsed && (
           <div className="flex-1 min-w-0">
-            <div className="text-[11px] tracking-[0.16em] font-semibold text-white truncate">
-              {logoUrl ? fundName.toUpperCase().slice(0, 12) : "PULSO"}
+            <div className="text-[11px] tracking-[0.16em] font-semibold text-white truncate" title={fundName}>
+              {logoUrl ? fundName.toUpperCase() : "PULSO"}
             </div>
             <div className="text-[10px] text-white/60 mt-0.5 truncate">
               {logoUrl ? "Powered by Pulso" : fundName}
