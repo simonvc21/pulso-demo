@@ -12,6 +12,7 @@ import { UpdatesFeed } from "./updates-feed";
 import { CommentsThread, ReactionsBar } from "@/components/lp-engagement";
 import { getCompanyComments, getCompanyReactions } from "@/lib/lp-engagement";
 import { ActiveFormWidget } from "./active-form-widget";
+import { SectionTabs } from "./section-tabs";
 import { getActiveFormForCompany } from "@/lib/active-form";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
 import { ts } from "@/lib/i18n-server";
@@ -250,67 +251,82 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
           <Stat label="ARR (YoY)" value={fmtPct(arrYoY, 0)} hint={yoy ? `vs ${yoy.quarter}` : ""} positive={arrYoY > 0} />
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartCard title="ARR" subtitle="Last 8 quarters · USD millions" metrics={company.metrics} metric="arr" color="#14B8A6" />
-          <ChartCard title="Cash on hand" subtitle="Trailing balance" metrics={company.metrics} metric="cash" color="#0A1F44" />
-          <ChartCard title="Quarterly revenue" subtitle="Recognized" metrics={company.metrics} metric="revenue" color="#F4B740" />
-          <ChartCard title="Headcount" subtitle="Full-time equivalents" metrics={company.metrics} metric="headcount" color="#1B3A6F" />
-        </div>
-
-        {customMetrics.length > 0 && (
-          <CustomMetricsBlock series={customMetrics} />
-        )}
-
-        {companyRow && (
-          <UpdatesFeed companyId={companyRow.id} initial={teamUpdates} />
-        )}
-
-        {/* L.22 — Discussion thread (LP + GP comments) */}
-        {companyRow && (
-          <CommentsThread
-            companyId={companyRow.id}
-            initial={comments}
-            canModerate={canModerate}
-            currentUserId={currentUserId}
-          />
-        )}
-
-        {/* Recent submissions — placeholder until form_submissions is wired */}
-        <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
-          <div className="px-5 pt-4 pb-3 border-b border-line flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-ink">Recent submissions</h3>
-              <p className="text-[11px] text-muted mt-0.5">Founder responses from the last 90 days</p>
-            </div>
-            <Link href="/forms">
-              <Button variant="outline" size="sm" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> View all forms</Button>
-            </Link>
-          </div>
-          <div className="divide-y divide-line">
-            {[
-              { date: "Apr 28, 2026", form: "Monthly Pulse Check", status: "Submitted", note: "Hiring 3 SDRs in May" },
-              { date: "Apr 5, 2026",  form: "Q1 2026 Financials",  status: "Submitted", note: company.status === "critical" ? "Bridge conversation flagged" : "Auto-validated by Pulso AI" },
-              { date: "Mar 28, 2026", form: "Monthly Pulse Check", status: "Submitted", note: "" },
-              { date: "Feb 28, 2026", form: "Monthly Pulse Check", status: "Submitted", note: "" },
-            ].map((r, i) => (
-              <div key={i} className="px-5 py-3 flex items-center gap-4">
-                <div className="h-8 w-8 rounded-lg bg-paper2 flex items-center justify-center shrink-0">
-                  <FileText className="h-4 w-4 text-muted" />
+        {/* L.4b — Tabbed sections so 10+ charts don't become a wall of scroll */}
+        <SectionTabs
+          tabs={[
+            {
+              id: "financials",
+              label: "Financials",
+              content: (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <ChartCard title="ARR" subtitle="Last 8 quarters · USD millions" metrics={company.metrics} metric="arr" color="#14B8A6" />
+                  <ChartCard title="Cash on hand" subtitle="Trailing balance" metrics={company.metrics} metric="cash" color="#0A1F44" />
+                  <ChartCard title="Quarterly revenue" subtitle="Recognized" metrics={company.metrics} metric="revenue" color="#F4B740" />
+                  <ChartCard title="Headcount" subtitle="Full-time equivalents" metrics={company.metrics} metric="headcount" color="#1B3A6F" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-ink">{r.form}</div>
-                  {r.note && <div className="text-[11px] text-muted mt-0.5 flex items-center gap-1.5"><MessageSquare className="h-3 w-3" />{r.note}</div>}
+              ),
+            },
+            {
+              id: "custom",
+              label: "Custom metrics",
+              count: customMetrics.length,
+              content: customMetrics.length > 0
+                ? <CustomMetricsBlock series={customMetrics} />
+                : <CustomMetricsEmpty />,
+            },
+            {
+              id: "activity",
+              label: "Activity",
+              content: (
+                <div className="space-y-4">
+                  {companyRow && (
+                    <UpdatesFeed companyId={companyRow.id} initial={teamUpdates} />
+                  )}
+                  {companyRow && (
+                    <CommentsThread
+                      companyId={companyRow.id}
+                      initial={comments}
+                      canModerate={canModerate}
+                      currentUserId={currentUserId}
+                    />
+                  )}
+                  <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
+                    <div className="px-5 pt-4 pb-3 border-b border-line flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-ink">Recent submissions</h3>
+                        <p className="text-[11px] text-muted mt-0.5">Founder responses from the last 90 days</p>
+                      </div>
+                      <Link href="/forms">
+                        <Button variant="outline" size="sm" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> View all forms</Button>
+                      </Link>
+                    </div>
+                    <div className="divide-y divide-line">
+                      {[
+                        { date: "Apr 28, 2026", form: "Monthly Pulse Check", status: "Submitted", note: "Hiring 3 SDRs in May" },
+                        { date: "Apr 5, 2026",  form: "Q1 2026 Financials",  status: "Submitted", note: company.status === "critical" ? "Bridge conversation flagged" : "Auto-validated by Pulso AI" },
+                        { date: "Mar 28, 2026", form: "Monthly Pulse Check", status: "Submitted", note: "" },
+                        { date: "Feb 28, 2026", form: "Monthly Pulse Check", status: "Submitted", note: "" },
+                      ].map((r, i) => (
+                        <div key={i} className="px-5 py-3 flex items-center gap-4">
+                          <div className="h-8 w-8 rounded-lg bg-paper2 flex items-center justify-center shrink-0">
+                            <FileText className="h-4 w-4 text-muted" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-ink">{r.form}</div>
+                            {r.note && <div className="text-[11px] text-muted mt-0.5 flex items-center gap-1.5"><MessageSquare className="h-3 w-3" />{r.note}</div>}
+                          </div>
+                          <Badge tone="teal">{r.status}</Badge>
+                          <div className="text-[11px] text-muted w-24 text-right">{r.date}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <PortfolioNewsletter updates={updates} />
                 </div>
-                <Badge tone="teal">{r.status}</Badge>
-                <div className="text-[11px] text-muted w-24 text-right">{r.date}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Newsletter — narrative updates from this company */}
-        <PortfolioNewsletter updates={updates} />
+              ),
+            },
+          ]}
+        />
       </div>
     </>
   );
@@ -364,6 +380,21 @@ function formatCustomValue(v: number | null, type: CustomMetricType, unit: strin
 }
 
 const CUSTOM_COLORS = ["#14B8A6", "#F4B740", "#1B3A6F", "#0A1F44", "#E1654B", "#7c849a"];
+
+function CustomMetricsEmpty() {
+  return (
+    <div className="bg-white rounded-xl border border-line shadow-card p-8 text-center">
+      <div className="text-sm font-semibold text-ink">No custom metrics applied yet</div>
+      <p className="text-[12px] text-muted mt-1 max-w-md mx-auto">
+        Define metrics like NPS, GMV, or MAU once in your fund's metric library, then apply
+        them to any company in one click.
+      </p>
+      <Link href="/settings/metrics" className="inline-block mt-3">
+        <Button variant="gold" size="sm">Open metric library</Button>
+      </Link>
+    </div>
+  );
+}
 
 function CustomMetricsBlock({ series }: { series: CustomMetricSeries[] }) {
   return (

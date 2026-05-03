@@ -595,6 +595,27 @@ export type Database = {
         }
         Relationships: []
       }
+      metric_definition_companies: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          metric_definition_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          metric_definition_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          metric_definition_id?: string
+        }
+        Relationships: []
+      }
       metric_definitions: {
         Row: {
           created_at: string

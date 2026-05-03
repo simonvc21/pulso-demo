@@ -1014,23 +1014,42 @@ export interface CustomMetricSeries {
   prev: number | null;
 }
 
-/** Per-company custom metric data: every series the company has values for. */
+/** Per-company custom metric data: every series the company has values for,
+ *  PLUS every metric applied via metric_definition_companies even if it has
+ *  no values yet (so the chart placeholder renders). L.4b. */
 export async function getCompanyCustomMetrics(companyId: string): Promise<CustomMetricSeries[]> {
   const supabase = createClient();
-  const { data: rows } = await supabase
-    .from("custom_metric_values")
-    .select("quarter, value, period_year, period_month, period_kind, metric_definitions(id, label, type, unit)")
-    .eq("company_id", companyId)
-    .order("period_year", { ascending: true })
-    .order("period_month", { ascending: true });
+  const [valuesRes, applyRes] = await Promise.all([
+    supabase
+      .from("custom_metric_values")
+      .select("quarter, value, period_year, period_month, period_kind, metric_definitions(id, label, type, unit)")
+      .eq("company_id", companyId)
+      .order("period_year", { ascending: true })
+      .order("period_month", { ascending: true }),
+    supabase
+      .from("metric_definition_companies")
+      .select("metric_definitions(id, label, type, unit)")
+      .eq("company_id", companyId),
+  ]);
 
-  // Group by definition. L.12 — only quarterly rows in the view for now.
   const byDef = new Map<string, CustomMetricSeries>();
-  for (const r of ((rows ?? []) as any[])) {
+
+  // Seed map with every applied metric (so empty series still renders).
+  for (const r of ((applyRes.data ?? []) as any[])) {
     const def = r.metric_definitions;
     if (!def) continue;
-    const key = def.id;
-    const series: CustomMetricSeries = byDef.get(key) ?? {
+    byDef.set(def.id, {
+      definition: { id: def.id, label: def.label, type: def.type, unit: def.unit },
+      values: [],
+      latest: null,
+      prev: null,
+    });
+  }
+
+  for (const r of ((valuesRes.data ?? []) as any[])) {
+    const def = r.metric_definitions;
+    if (!def) continue;
+    const series: CustomMetricSeries = byDef.get(def.id) ?? {
       definition: { id: def.id, label: def.label, type: def.type, unit: def.unit },
       values: [],
       latest: null,
@@ -1040,7 +1059,7 @@ export async function getCompanyCustomMetrics(companyId: string): Promise<Custom
       quarter: metricRowToLabel(r),
       value: r.value != null ? Number(r.value) : null,
     });
-    byDef.set(key, series);
+    byDef.set(def.id, series);
   }
 
   const out: CustomMetricSeries[] = [];
@@ -1050,7 +1069,6 @@ export async function getCompanyCustomMetrics(companyId: string): Promise<Custom
     s.prev = s.values[s.values.length - 2]?.value ?? null;
     out.push(s);
   }
-  // Stable ordering: by label.
   out.sort((a, b) => a.definition.label.localeCompare(b.definition.label));
   return out;
 }
