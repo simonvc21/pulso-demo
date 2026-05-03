@@ -19,7 +19,7 @@ You answer questions about the user's portfolio. You have read-only access to a 
 
 RULES
 - Only use facts from the JSON. If the JSON doesn't contain the answer, say so plainly. Never invent numbers, names, dates, or relationships.
-- Be calm and concise. Default to 2-4 sentences. Use a short bullet list only when the user asks for multiple items.
+- Match length to the question: 2-4 sentences for a quick lookup, 1-3 paragraphs for analysis, a full structured answer (with headings + bullets) for things like "write the newsletter" or "summarize Q1".
 - When citing a metric, name the company and quarter. Format USD as "$3.2M", percentages as "12.5%".
 - When the user asks "what should I do" or similar, give a concrete next step (a meeting, a question to ask, a metric to watch). One step, not three.
 - The user's role determines what they can see:
@@ -92,12 +92,16 @@ export async function POST(request: NextRequest) {
   const ctxStr = serializeContextForPrompt(ctx);
   const prompt = buildConversationPrompt(ctxStr, body.messages);
 
+  // GPs ask for full newsletters / multi-section answers; LPs ask shorter
+  // questions. Cap accordingly so we don't burn tokens on the LP side.
+  const maxOutputTokens = ctx.scope === "lp" ? 1500 : 2500;
+
   try {
     const reply = await gemini.generate(prompt, {
       model: "flash",
       systemInstruction: SYSTEM_BASE,
       temperature: 0.3,
-      maxOutputTokens: 600,
+      maxOutputTokens,
     });
     return NextResponse.json({ ok: true, reply: reply.trim() });
   } catch (err: any) {

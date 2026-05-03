@@ -269,6 +269,68 @@ noticias/updates de cada startup como contenido editorial.
 
 ---
 
+## Fase L — Customización profunda + bugs (varias sesiones)
+
+Feedback sobre lo que falta para que la app se sienta verdaderamente personal de cada fondo y de cada company.
+
+### Bugs urgentes (siguiente sesión)
+
+**L.0.a Dismiss del banner Pulso AI no funciona**
+- El botón "Dismiss" en `/dashboard` no tiene handler. Convertir el banner en client component, usar localStorage para persistir el dismiss por user.
+
+**L.0.b Cap de tokens del chat muy bajo**
+- `/api/chat` devuelve respuestas truncadas. `maxOutputTokens` actual = 600 — insuficiente para newsletter. Subir a 2500 para `gp` scope, 1500 para `lp`.
+
+**L.0.c Branding colors no se aplican visualmente**
+- En Settings → Branding cambiás los hex pero Tailwind sigue usando `bg-navy` / `text-gold` con valores fijos del config. Hace falta o:
+  - convertir esos tokens también a CSS vars (igual que paper/ink/line ya están), o
+  - inyectar un `<style>` con overrides específicos en el layout.
+- Decisión: opción 2 (más conservador, no rompe los acentos cuando el theme está vacío).
+
+**L.0.d LP chatbot UX**
+- Verificar que `/lp` tenga el ChatDock activo y los suggestion chips correctos. Ya está implementado en `app/lp/layout.tsx` — confirmar que renderiza.
+
+### UX simple (1-2 sesiones)
+
+**L.1 Form builder: wizard "AI o manual" + arrancar vacío**
+- Cambiar `defaultNewForm` para que sea `{name: "", cadence: "quarterly", fields: []}`.
+- En `/forms/new`, antes de mostrar el builder, paso intro: "How would you like to start? [Build with AI] [Start blank]".
+- "Build with AI" abre el modal de `suggestFormFields` directo. "Start blank" muestra el builder vacío con un empty state que dice "Add your first field from the left panel".
+
+**L.2 Fund profile expandido**
+- Nuevos campos en `organizations`: `description text`, `thesis text`, `website text`, `linkedin text`, `founded_year int`.
+- En Settings → Fund: agregar textarea para tesis (Markdown) + descripción + links.
+- Mostrar la tesis en el LP letter, en el chat context (para que Gemini conozca la tesis del fondo), y como tooltip en el sidebar.
+
+### UX media (2-3 sesiones)
+
+**L.3 Data tab más custom**
+- Agregar / quitar columnas de métricas (no solo las 5 default).
+- Agregar / quitar quarters (extender historia).
+- Reordenar columnas con drag.
+- Notas por celda (right-click → "Add note").
+- Color-coding por threshold (rojo si runway < X, verde si ARR crece > Y%).
+
+### Modelo de datos grande (1 semana cada uno)
+
+**L.4 Métricas custom por company**
+Hoy todas las companies tienen el mismo schema de métricas (arr, burn, cash, revenue, headcount). En la realidad un fondo va a querer trackear distinto a una fintech vs una climate vs un marketplace.
+- Migrar tabla `metrics` a `metric_values(company_id, quarter, metric_key, value_numeric, value_text, value_json)`.
+- Nueva tabla `metric_definitions(organization_id, key, label, type, unit, applies_to_companies[])`.
+- UI per-company para "agregar métrica custom" (CMV, GMV, NPS, churn, etc.).
+- Charts y data table se adaptan a las métricas que esa company tiene.
+- **Es un cambio grande**: rompe `metrics` table schema, migration de data existente, todos los charts/queries que asumen las 5 métricas.
+- Pre-requisito: validar pgvector / RAG primero porque vamos a meter mucho más data.
+
+**L.5 Dashboard editor de widgets**
+- Cada widget (KPI, chart, watch list, newsletter) es un componente movable.
+- Drag + resize con `react-grid-layout`.
+- Persistir layout per-user en `users.dashboard_layout_json`.
+- "Add widget" del catálogo: KPIs custom, charts adicionales (cohorts, funnel, custom metric over time).
+- Cambio de colores y títulos por widget.
+
+---
+
 ## Fase G — Settings avanzado (2 días)
 
 - Cancelar suscripción + downgrade.

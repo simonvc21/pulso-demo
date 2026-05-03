@@ -12,6 +12,21 @@
   --c-paper2: 238 241 246;  /* #EEF1F6 */
   --c-line:   221 227 236;  /* #DDE3EC */
   --c-muted:  100 116 139;  /* #64748B */
+
+  /* Brand accent defaults — overridden per fund by the GP layout when
+     organizations.theme_json has primary/accent/navy hex values. */
+  --c-navy:     10 31 68;     /* #0A1F44 */
+  --c-navy-50:  232 236 244;  /* #E8ECF4 */
+  --c-navy-600: 27 58 111;    /* #1B3A6F */
+  --c-navy-700: 15 42 92;     /* #0F2A5C */
+
+  --c-teal:     20 184 166;   /* #14B8A6 */
+  --c-teal-50:  232 251 247;  /* #E8FBF7 */
+  --c-teal-600: 14 138 124;   /* #0E8A7C */
+
+  --c-gold:     244 183 64;   /* #F4B740 */
+  --c-gold-50:  253 246 227;  /* #FDF6E3 */
+  --c-gold-600: 214 154 31;   /* #D69A1F */
 }
 
 .dark {

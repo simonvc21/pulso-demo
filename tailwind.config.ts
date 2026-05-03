@@ -9,14 +9,28 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand accents — fixed (don't flip in dark mode).
-        navy:    { DEFAULT: "#0A1F44", 50: "#E8ECF4", 600: "#1B3A6F", 700: "#0F2A5C" },
-        teal:    { DEFAULT: "#14B8A6", 50: "#E8FBF7", 600: "#0E8A7C" },
-        gold:    { DEFAULT: "#F4B740", 50: "#FDF6E3", 600: "#D69A1F" },
-        coral:   "#EF4444",
+        // Brand accents — RGB triplets in CSS vars so each fund can swap them
+        // via Settings → Branding (writes to organizations.theme_json, the GP
+        // layout injects --c-navy / --c-teal / --c-gold overrides). Defaults
+        // baked into globals.css.
+        navy: {
+          DEFAULT: "rgb(var(--c-navy) / <alpha-value>)",
+          50:      "rgb(var(--c-navy-50) / <alpha-value>)",
+          600:     "rgb(var(--c-navy-600) / <alpha-value>)",
+          700:     "rgb(var(--c-navy-700) / <alpha-value>)",
+        },
+        teal: {
+          DEFAULT: "rgb(var(--c-teal) / <alpha-value>)",
+          50:      "rgb(var(--c-teal-50) / <alpha-value>)",
+          600:     "rgb(var(--c-teal-600) / <alpha-value>)",
+        },
+        gold: {
+          DEFAULT: "rgb(var(--c-gold) / <alpha-value>)",
+          50:      "rgb(var(--c-gold-50) / <alpha-value>)",
+          600:     "rgb(var(--c-gold-600) / <alpha-value>)",
+        },
+        coral: "#EF4444",
         // Surface tokens — driven by CSS vars defined in globals.css.
-        // Components keep using `bg-paper`, `text-ink`, etc. and switch
-        // automatically when html.dark is set.
         ink:     "rgb(var(--c-ink) / <alpha-value>)",
         paper:   "rgb(var(--c-paper) / <alpha-value>)",
         paper2:  "rgb(var(--c-paper2) / <alpha-value>)",

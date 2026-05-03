@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Share2, Sparkles } from "lucide-react";
+import { Download, Share2 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { TopbarBell } from "@/components/topbar-bell";
 import { KpiCard } from "@/components/kpi-card";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { fmtUSD } from "@/lib/utils";
 import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
+import { DashboardAIBanner } from "@/components/dashboard-ai-banner";
 import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
@@ -50,19 +51,12 @@ export default async function DashboardPage() {
       />
 
       <div className="px-8 py-6 space-y-6 animate-fade-in">
-        {/* AI insight banner */}
-        <div className="bg-gradient-to-r from-navy to-navy-700 rounded-xl p-4 flex items-start gap-3 text-white">
-          <div className="h-8 w-8 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
-            <Sparkles className="h-4 w-4 text-gold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-gold font-semibold tracking-[0.16em] uppercase">{ts("dashboard.ai_banner_label")}</div>
-            <div className="text-sm mt-1 leading-relaxed">
-              Portfolio ARR grew <span className="font-semibold text-teal">{kpis.qoqArrGrowth >= 0 ? "+" : ""}{kpis.qoqArrGrowth.toFixed(1)}% QoQ</span>, driven by Vextra and Lumen. <span className="text-gold">{watchList.length} companies</span> need attention — Brio is the most pressing.
-            </div>
-          </div>
-          <button className="text-[11px] text-white/70 hover:text-white">Dismiss</button>
-        </div>
+        {/* AI insight banner — dismissable, persists 24h via localStorage */}
+        <DashboardAIBanner
+          qoqGrowth={kpis.qoqArrGrowth}
+          flaggedCount={watchList.length}
+          label={ts("dashboard.ai_banner_label")}
+        />
 
         {/* KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
