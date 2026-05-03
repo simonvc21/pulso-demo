@@ -77,12 +77,22 @@ Lo que destraba que un fondo nuevo se sume sin que yo (Simon) le haga el setup m
 - /settings/team: lista usuarios + invitaciones pendientes, revocar, cambiar rol.
 - Roles: gp, managing_partner, analyst, viewer (y lp / founder fuera del lado GP).
 
-**B.3 Permisos por company (analista escópeo)**
+**B.3 Permisos por company (analista escópeo)** ✅
 - Tabla `user_company_access(user_id, company_id)`.
 - RLS adicional: si role='analyst' y la company NO está en user_company_access, no la ve.
 - UI en /settings/team: por usuario analyst, checklist de companies que puede ver.
 
-**Entregable B:** un nuevo fondo se onboardea sin Slack de soporte. GP invita a su analista que solo ve 3 de 12 companies.
+**B.4 Bulk import de métricas históricas** *(pendiente)*
+Para que un fondo que ya viene operando no pierda años de data al onboardearse.
+- Punto de entrada: botón "Import history" en `/data` y como step opcional en el wizard de onboarding.
+- Acepta CSV / Excel (.xlsx) / PDF / screenshot. Detecta el formato.
+- CSV/XLSX: parser local (papaparse / xlsx) detecta columnas tipo `company,quarter,arr,burn,cash,headcount,revenue` con tolerancia a sinónimos.
+- PDF/imagen: pasa por `/api/extract` con Gemini Pro + tool use forzado al schema `metrics`.
+- Modal de review: tabla editable con todo lo parseado, marcar fila por fila qué importar, ignorar la primera fila si es header, mapear columnas a campos. Match contra companies existentes por slug/nombre fuzzy; si no matchea, ofrece crear la company.
+- Save: bulk upsert en `metrics` por `(company_id, quarter)` — overwrite o keep según opción del user.
+- Plantilla descargable (CSV con headers correctos) para que el GP exporte de Sheets/Excel y vuelva a subir limpio.
+
+**Entregable B:** un nuevo fondo se onboardea sin Slack de soporte. GP invita a su analista que solo ve 3 de 12 companies. Sube su histórico de un Excel y queda toda la grilla poblada.
 
 ---
 

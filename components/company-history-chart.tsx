@@ -35,9 +35,9 @@ export function CompanyHistoryChart({ metrics, metric, color }: Props) {
               <stop offset="100%" stopColor={color} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="2 4" stroke="#DDE3EC" vertical={false} />
-          <XAxis dataKey="quarter" stroke="#64748B" fontSize={10} tickLine={false} axisLine={{ stroke: "#DDE3EC" }} />
-          <YAxis stroke="#64748B" fontSize={10} tickLine={false} axisLine={false} />
+          <CartesianGrid strokeDasharray="2 4" stroke="#94A3B8" vertical={false} />
+          <XAxis dataKey="quarter" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={{ stroke: "#DDE3EC" }} />
+          <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
           <Tooltip
             cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: "2 4" }}
             contentStyle={{ background: "#0A1F44", border: "none", borderRadius: 8, color: "white", fontSize: 12, padding: "6px 10px" }}

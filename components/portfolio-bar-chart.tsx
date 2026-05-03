@@ -30,13 +30,13 @@ export function PortfolioBarChart({ companies }: { companies: PortfolioBarItem[]
         <BarChart data={data} margin={{ top: 14, right: 8, left: -14, bottom: 0 }}>
           <XAxis
             dataKey="name"
-            stroke="#64748B"
+            stroke="#94A3B8"
             fontSize={11}
             tickLine={false}
             axisLine={{ stroke: "#DDE3EC" }}
           />
           <YAxis
-            stroke="#64748B"
+            stroke="#94A3B8"
             fontSize={11}
             tickLine={false}
             axisLine={false}

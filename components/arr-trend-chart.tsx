@@ -20,10 +20,10 @@ export function ArrTrendChart({ data }: { data: ArrTrendPoint[] }) {
               <stop offset="100%" stopColor="#14B8A6" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="2 4" stroke="#DDE3EC" vertical={false} />
-          <XAxis dataKey="quarter" stroke="#64748B" fontSize={10} tickLine={false} axisLine={{ stroke: "#DDE3EC" }} />
+          <CartesianGrid strokeDasharray="2 4" stroke="#94A3B8" vertical={false} />
+          <XAxis dataKey="quarter" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={{ stroke: "#DDE3EC" }} />
           <YAxis
-            stroke="#64748B"
+            stroke="#94A3B8"
             fontSize={10}
             tickLine={false}
             axisLine={false}

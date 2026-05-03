@@ -52,3 +52,15 @@ input[type="number"] { -moz-appearance: textfield; }
 .dark .bg-white {
   background-color: rgb(var(--c-paper2));
 }
+
+/* Soften the pastel status backgrounds (red-50, gold-50, teal-50, etc.) in
+   dark mode — keep the same color signal but at low alpha against the dark
+   surface, so they read as tinted accents instead of glaring light blocks. */
+.dark .bg-red-50    { background-color: rgb(239 68 68 / 0.18); }
+.dark .bg-teal-50   { background-color: rgb(20 184 166 / 0.18); }
+.dark .bg-gold-50   { background-color: rgb(244 183 64 / 0.18); }
+.dark .bg-paper2    { /* already routed via --c-paper2 token */ }
+
+/* Dark-mode-aware white scrollbar thumb is too low contrast. Bump it. */
+.dark ::-webkit-scrollbar-thumb { background: rgb(var(--c-line)); }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-muted) / 0.8); }

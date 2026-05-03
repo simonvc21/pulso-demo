@@ -14,7 +14,7 @@ export function Topbar({
   searchPlaceholder?: string;
 }) {
   return (
-    <div className="border-b border-line bg-white/70 backdrop-blur sticky top-0 z-10">
+    <div className="border-b border-line bg-paper/80 dark:bg-paper2/80 backdrop-blur sticky top-0 z-10">
       <div className="px-8 py-3.5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <div>
