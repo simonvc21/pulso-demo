@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { FormBuilder } from "../../form-builder";
 import type { FormInput } from "../../actions";
 import { ScheduleEditor } from "./schedule-editor";
+import { ScrollToSchedule } from "./scroll-to-schedule";
 
 export const dynamic = "force-dynamic";
 
@@ -65,18 +66,27 @@ export default async function EditFormPage({
     <div className="space-y-6">
       {fromCreate && (
         <div className="px-8 pt-6 max-w-5xl">
-          <div className="rounded-xl border border-teal/40 bg-teal/5 px-4 py-3 flex items-start gap-3">
-            <div className="text-2xl leading-none">✓</div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-ink">Form created</div>
-              <p className="text-[12px] text-muted mt-0.5">
-                Now scroll down to the <strong>Schedule</strong> section to pick when this form sends, who receives it, and what the reminders say.
-              </p>
+          <div className="bg-gradient-to-r from-teal-50 to-paper2/40 border border-teal/30 rounded-xl p-4">
+            <div className="flex items-center gap-3 text-[11px] font-semibold tracking-[0.14em] uppercase">
+              <span className="inline-flex items-center gap-1.5 text-teal-600">
+                <span className="h-5 w-5 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center">✓</span>
+                Step 1 · Fields
+              </span>
+              <span className="text-muted">→</span>
+              <a href="#schedule" className="inline-flex items-center gap-1.5 text-ink hover:text-teal-600">
+                <span className="h-5 w-5 rounded-full border-2 border-ink text-[10px] flex items-center justify-center font-bold">2</span>
+                Step 2 · Schedule, recipients & reminders
+              </a>
+              <a href="#schedule" className="ml-auto text-[12px] font-semibold text-teal-600 hover:underline normal-case tracking-normal">
+                Configure now ↓
+              </a>
             </div>
-            <a href="#schedule" className="text-[12px] text-teal-600 font-semibold hover:underline shrink-0">
-              Jump to schedule ↓
-            </a>
+            <p className="text-[12px] text-muted mt-2 leading-relaxed">
+              Your form is saved. Now scroll down to set the day-of-month it auto-sends, who receives it
+              (one or more emails per company), and customize each reminder's copy.
+            </p>
           </div>
+          <ScrollToSchedule />
         </div>
       )}
       <FormBuilder

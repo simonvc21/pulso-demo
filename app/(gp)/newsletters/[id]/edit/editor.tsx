@@ -7,8 +7,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Type, BarChart3, Building2, AlertTriangle, Trophy, Minus, PieChart, TrendingUp, Layers,
-  Plus, Trash2, ArrowUp, ArrowDown, Loader2, Check, Eye, Send, X, FileX,
+  Type, BarChart3, Building2, AlertTriangle, Trophy, Minus, TrendingUp, Layers,
+  Plus, Trash2, ArrowUp, ArrowDown, Loader2, Check, Eye, Send, X, FileX, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,11 +24,12 @@ interface Props {
   newsletter: Newsletter;
   companies: CompanyOption[];
   metricDefinitions: MetricDef[];
+  fundName: string;
 }
 
 const CADENCES: NewsletterCadence[] = ["monthly", "quarterly", "annual", "ad_hoc"];
 
-export function NewsletterEditor({ newsletter, companies, metricDefinitions }: Props) {
+export function NewsletterEditor({ newsletter, companies, metricDefinitions, fundName }: Props) {
   const router = useRouter();
   const [coverTitle, setCoverTitle] = useState(newsletter.coverTitle);
   const [coverSubtitle, setCoverSubtitle] = useState(newsletter.coverSubtitle ?? "");
@@ -179,6 +180,9 @@ export function NewsletterEditor({ newsletter, companies, metricDefinitions }: P
             total={blocks.length}
             companies={companies}
             metricDefinitions={metricDefinitions}
+            fundName={fundName}
+            periodLabel={periodLabel}
+            coverTitle={coverTitle}
             onMove={(dir) => moveBlock(i, dir)}
             onRemove={() => removeBlock(i)}
             onPatch={(patch) => patchBlock(i, patch)}
@@ -265,13 +269,16 @@ export function NewsletterEditor({ newsletter, companies, metricDefinitions }: P
 // ---------------------------------------------------------------------------
 
 function BlockCard({
-  block, index, total, companies, metricDefinitions, onMove, onRemove, onPatch,
+  block, index, total, companies, metricDefinitions, fundName, periodLabel, coverTitle, onMove, onRemove, onPatch,
 }: {
   block: Block;
   index: number;
   total: number;
   companies: CompanyOption[];
   metricDefinitions: MetricDef[];
+  fundName: string;
+  periodLabel: string;
+  coverTitle: string;
   onMove: (dir: -1 | 1) => void;
   onRemove: () => void;
   onPatch: (patch: any) => void;
@@ -313,20 +320,13 @@ function BlockCard({
       </div>
 
       {block.type === "text" && (
-        <div className="space-y-2">
-          <input
-            value={block.heading ?? ""}
-            onChange={(e) => onPatch({ heading: e.target.value || null })}
-            placeholder="Optional heading"
-            className="w-full h-9 px-2.5 rounded-md border border-line text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal/30"
-          />
-          <textarea
-            value={block.body}
-            onChange={(e) => onPatch({ body: e.target.value })}
-            rows={Math.max(4, Math.min(20, block.body.split("\n").length + 1))}
-            className="w-full px-2.5 py-2 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 resize-none leading-relaxed"
-          />
-        </div>
+        <TextBlockEditor
+          block={block}
+          onPatch={onPatch}
+          fundName={fundName}
+          periodLabel={periodLabel}
+          coverTitle={coverTitle}
+        />
       )}
 
       {block.type === "kpi_grid" && (
@@ -454,6 +454,88 @@ function BlockCard({
 
       {block.type === "divider" && (
         <p className="text-[11px] text-muted">Visual separator. No content.</p>
+      )}
+    </div>
+  );
+}
+
+// L.6c — Text block with a "Polish with AI" button that calls /api/newsletter-polish.
+function TextBlockEditor({
+  block, onPatch, fundName, periodLabel, coverTitle,
+}: {
+  block: Extract<Block, { type: "text" }>;
+  onPatch: (patch: any) => void;
+  fundName: string;
+  periodLabel: string;
+  coverTitle: string;
+}) {
+  const [polishing, setPolishing] = useState(false);
+  const [polishError, setPolishError] = useState<string | null>(null);
+
+  async function polish() {
+    if (!block.body.trim()) return;
+    setPolishing(true);
+    setPolishError(null);
+    try {
+      const res = await fetch("/api/newsletter-polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          blockHeading: block.heading,
+          blockBody: block.body,
+          fundName,
+          periodLabel,
+          coverTitle,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPolishError(data?.error ?? "Polish failed");
+        return;
+      }
+      if (data?.polished && typeof data.polished === "string") {
+        onPatch({ body: data.polished });
+      } else {
+        setPolishError("Empty response");
+      }
+    } catch (err: any) {
+      setPolishError(err?.message ?? "Network error");
+    } finally {
+      setPolishing(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <input
+        value={block.heading ?? ""}
+        onChange={(e) => onPatch({ heading: e.target.value || null })}
+        placeholder="Optional heading"
+        className="w-full h-9 px-2.5 rounded-md border border-line text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal/30"
+      />
+      <textarea
+        value={block.body}
+        onChange={(e) => onPatch({ body: e.target.value })}
+        rows={Math.max(4, Math.min(20, block.body.split("\n").length + 1))}
+        className="w-full px-2.5 py-2 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 resize-none leading-relaxed"
+      />
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] text-muted">
+          Numbers + names are preserved verbatim by the polisher. Edit afterwards if needed.
+        </p>
+        <button
+          type="button"
+          onClick={polish}
+          disabled={polishing || !block.body.trim()}
+          className="text-[11px] font-semibold text-gold-600 hover:bg-gold-50 px-2 py-1 rounded inline-flex items-center gap-1 disabled:opacity-50 disabled:pointer-events-none"
+          title="Rewrite this paragraph in polished LP-letter prose"
+        >
+          {polishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          {polishing ? "Polishing…" : "Polish with AI"}
+        </button>
+      </div>
+      {polishError && (
+        <div className="text-[11px] text-coral">{polishError}</div>
       )}
     </div>
   );

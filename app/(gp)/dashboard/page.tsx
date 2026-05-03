@@ -5,6 +5,9 @@ import { TopbarBell } from "@/components/topbar-bell";
 import { KpiCard } from "@/components/kpi-card";
 import { PortfolioBarChart } from "@/components/portfolio-bar-chart";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
+import { PortfolioMetricBarChart } from "@/components/portfolio-metric-bar-chart";
+import { PortfolioTrendChart } from "@/components/portfolio-trend-chart";
+import { RunwayDistribution } from "@/components/runway-distribution";
 import { WatchList } from "@/components/watch-list";
 import { ActivityFeed } from "@/components/activity-feed";
 import { Button } from "@/components/ui/button";
@@ -17,7 +20,7 @@ import { ts } from "@/lib/i18n-server";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [{ organization, companies, kpis, arrTrend, watchList }, updates] = await Promise.all([
+  const [{ organization, companies, kpis, arrTrend, cashTrend, burnTrend, headcountTrend, watchList }, updates] = await Promise.all([
     getDashboardData(),
     getNewsletterUpdates(8),
   ]);
@@ -138,9 +141,45 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        {/* L.6c — More fund-level visualizations: cash, burn, runway, headcount */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ChartCard title="Cash on hand by company" subtitle="Latest period · USD millions">
+            <PortfolioMetricBarChart companies={companies as any} metric="cash" units="millions" />
+          </ChartCard>
+          <ChartCard title="Monthly burn by company" subtitle="Latest period · USD thousands per month">
+            <PortfolioMetricBarChart companies={companies as any} metric="burn" units="k_per_month" />
+          </ChartCard>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <ChartCard title="Runway distribution" subtitle="Number of companies per runway bucket" colSpan={1}>
+            <RunwayDistribution companies={companies as any} />
+          </ChartCard>
+          <ChartCard title="Aggregate headcount over time" subtitle="Sum across the active portfolio" colSpan={1}>
+            <PortfolioTrendChart data={headcountTrend.map((p) => ({ label: p.quarter, value: p.value }))} units="raw" />
+          </ChartCard>
+          <ChartCard title="Aggregate cash over time" subtitle="Sum across the active portfolio" colSpan={1}>
+            <PortfolioTrendChart data={cashTrend.map((p) => ({ label: p.quarter, value: p.value }))} units="millions" />
+          </ChartCard>
+        </div>
+
         {/* Newsletter — latest narrative updates from the portfolio */}
         <PortfolioNewsletter updates={updates} />
       </div>
     </>
+  );
+}
+
+function ChartCard({
+  title, subtitle, children, colSpan,
+}: { title: string; subtitle?: string; children: React.ReactNode; colSpan?: 1 | 2 | 3 }) {
+  return (
+    <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
+      <div className="px-5 pt-4 pb-2">
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        {subtitle && <p className="text-[11px] text-muted mt-0.5">{subtitle}</p>}
+      </div>
+      <div className="px-2 pb-3">{children}</div>
+    </div>
   );
 }

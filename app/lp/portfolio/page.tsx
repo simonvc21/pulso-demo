@@ -6,6 +6,9 @@ import { ArrowLeft } from "lucide-react";
 import { KpiCard } from "@/components/kpi-card";
 import { PortfolioBarChart } from "@/components/portfolio-bar-chart";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
+import { PortfolioMetricBarChart } from "@/components/portfolio-metric-bar-chart";
+import { PortfolioTrendChart } from "@/components/portfolio-trend-chart";
+import { RunwayDistribution } from "@/components/runway-distribution";
 import { WatchList } from "@/components/watch-list";
 import { fmtUSD } from "@/lib/utils";
 import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
@@ -15,7 +18,7 @@ import { ts } from "@/lib/i18n-server";
 export const dynamic = "force-dynamic";
 
 export default async function LpPortfolioPage() {
-  const [{ organization, companies, kpis, arrTrend, watchList }, updates] = await Promise.all([
+  const [{ organization, companies, kpis, arrTrend, cashTrend, burnTrend, headcountTrend, watchList }, updates] = await Promise.all([
     getDashboardData(),
     getNewsletterUpdates(8),
   ]);
@@ -111,8 +114,43 @@ export default async function LpPortfolioPage() {
         </div>
       </div>
 
+      {/* L.6c — Cash + burn breakdowns */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Section title="Cash on hand by company" subtitle="Latest period · USD millions">
+          <PortfolioMetricBarChart companies={companies as any} metric="cash" units="millions" />
+        </Section>
+        <Section title="Monthly burn by company" subtitle="Latest period · USD thousands per month">
+          <PortfolioMetricBarChart companies={companies as any} metric="burn" units="k_per_month" />
+        </Section>
+      </div>
+
+      {/* L.6c — Runway distribution + aggregate headcount/cash trends */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Section title="Runway distribution" subtitle="# of companies per bucket">
+          <RunwayDistribution companies={companies as any} />
+        </Section>
+        <Section title="Aggregate headcount" subtitle="Sum across the portfolio">
+          <PortfolioTrendChart data={headcountTrend.map((p) => ({ label: p.quarter, value: p.value }))} units="raw" />
+        </Section>
+        <Section title="Aggregate cash" subtitle="Sum across the portfolio">
+          <PortfolioTrendChart data={cashTrend.map((p) => ({ label: p.quarter, value: p.value }))} units="millions" />
+        </Section>
+      </div>
+
       {/* Narrative updates pulled from form submissions */}
       <PortfolioNewsletter updates={updates} />
+    </div>
+  );
+}
+
+function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
+      <div className="px-5 pt-4 pb-2">
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        {subtitle && <p className="text-[11px] text-muted mt-0.5">{subtitle}</p>}
+      </div>
+      <div className="px-2 pb-3">{children}</div>
     </div>
   );
 }

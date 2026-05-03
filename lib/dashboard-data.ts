@@ -97,6 +97,10 @@ export interface DashboardData {
   companies: DashboardCompany[];
   kpis: DashboardKpis;
   arrTrend: { quarter: string; arr: number }[];
+  /** L.6c — additional aggregated trends + per-company breakouts. */
+  cashTrend: { quarter: string; value: number }[];
+  burnTrend: { quarter: string; value: number }[];
+  headcountTrend: { quarter: string; value: number }[];
   watchList: DashboardCompany[];
 }
 
@@ -174,11 +178,30 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const kpis = computeKpis(companies);
   const arrTrend = computeArrTrend(companies);
+  const cashTrend = computeMetricTrend(companies, "cash");
+  const burnTrend = computeMetricTrend(companies, "burn");
+  const headcountTrend = computeMetricTrend(companies, "headcount");
   const watchList = companies
     .filter((c) => c.status === "critical" || c.status === "watch")
     .sort((a, b) => (a.status === "critical" ? -1 : 1));
 
-  return { organization, companies, kpis, arrTrend, watchList };
+  return { organization, companies, kpis, arrTrend, cashTrend, burnTrend, headcountTrend, watchList };
+}
+
+/** Sum a numeric metric across companies for each period. */
+function computeMetricTrend(
+  companies: DashboardCompany[],
+  metric: "cash" | "burn" | "headcount" | "revenue",
+): { quarter: string; value: number }[] {
+  const buckets = new Map<string, number>();
+  for (const c of companies) {
+    for (const m of c.metrics) {
+      buckets.set(m.quarter, (buckets.get(m.quarter) ?? 0) + (m as any)[metric]);
+    }
+  }
+  return Array.from(buckets.entries())
+    .sort((a, b) => quarterSortKey(a[0]) - quarterSortKey(b[0]))
+    .map(([quarter, value]) => ({ quarter, value }));
 }
 
 function computeKpis(companies: DashboardCompany[]): DashboardKpis {
