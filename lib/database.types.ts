@@ -154,6 +154,48 @@ export type Database = {
         Update: { company_id?: string; created_at?: string; form_id?: string }
         Relationships: []
       }
+      form_schedules: {
+        Row: {
+          active: boolean
+          anchor_month: number | null
+          cadence: Database["public"]["Enums"]["form_schedule_cadence"]
+          created_at: string
+          form_id: string
+          id: string
+          last_sent_at: string | null
+          next_send_at: string | null
+          reminder_offsets_days: number[]
+          send_day_of_month: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          anchor_month?: number | null
+          cadence?: Database["public"]["Enums"]["form_schedule_cadence"]
+          created_at?: string
+          form_id: string
+          id?: string
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          reminder_offsets_days?: number[]
+          send_day_of_month?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          anchor_month?: number | null
+          cadence?: Database["public"]["Enums"]["form_schedule_cadence"]
+          created_at?: string
+          form_id?: string
+          id?: string
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          reminder_offsets_days?: number[]
+          send_day_of_month?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       form_submissions: {
         Row: {
           ai_extracted: boolean
@@ -618,6 +660,7 @@ export type Database = {
       company_status: "healthy" | "watch" | "critical" | "no_data"
       custom_metric_type: "currency" | "number" | "percent" | "ratio" | "count"
       form_cadence: "monthly" | "quarterly" | "annual" | "ad_hoc"
+      form_schedule_cadence: "monthly" | "quarterly" | "annual" | "ad_hoc"
       form_field_type:
         | "currency"
         | "number"

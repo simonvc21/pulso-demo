@@ -1043,3 +1043,57 @@ export async function getCompanyUpdates(companyId: string, limit = 50): Promise<
     },
   }));
 }
+
+// ---------------------------------------------------------------------------
+// L.10 — Form schedules (per-form cadence + reminder offsets)
+// ---------------------------------------------------------------------------
+
+import type { FormSchedule } from "./form-schedule";
+
+export interface FormScheduleWithMeta extends FormSchedule {
+  formName: string;
+  formSlug: string;
+}
+
+export async function getFormSchedule(formId: string): Promise<FormSchedule | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("form_schedules")
+    .select("*")
+    .eq("form_id", formId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id,
+    formId: data.form_id,
+    cadence: data.cadence,
+    sendDayOfMonth: data.send_day_of_month,
+    anchorMonth: data.anchor_month,
+    reminderOffsetsDays: data.reminder_offsets_days ?? [],
+    nextSendAt: data.next_send_at,
+    lastSentAt: data.last_sent_at,
+    active: data.active,
+  };
+}
+
+/** All schedules across the org, joined to form name + slug (for the calendar). */
+export async function getOrgFormSchedules(): Promise<FormScheduleWithMeta[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("form_schedules")
+    .select("*, forms(name, slug)")
+    .eq("active", true);
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    formId: r.form_id,
+    cadence: r.cadence,
+    sendDayOfMonth: r.send_day_of_month,
+    anchorMonth: r.anchor_month,
+    reminderOffsetsDays: r.reminder_offsets_days ?? [],
+    nextSendAt: r.next_send_at,
+    lastSentAt: r.last_sent_at,
+    active: r.active,
+    formName: r.forms?.name ?? "Untitled form",
+    formSlug: r.forms?.slug ?? "",
+  }));
+}

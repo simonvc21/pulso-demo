@@ -22,8 +22,9 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Companies list** (`/companies`) — table with logo, sector, country, stage, invested, latest ARR, QoQ delta, status badge.
 - **Company detail** (`/companies/[slug]`) — hero with logo + founder, **investment-instrument badge (SAFE / Convertible Note / Equity / SAFT / Warrant / Loan / Other) with cap + discount summary**, **website + LinkedIn link icons**, stat grid (invested / ARR / cash / burn / headcount / YoY), quarterly history charts (ARR / cash / revenue / headcount), **custom metrics block (L.4)** — stat strip with QoQ delta + mini line chart per metric, recent submissions list, AI insight callout, newsletter feed scoped to the company.
 - **Company edit** (`/companies/[slug]/edit`) — full editor incl. logo uploader, investment-terms section (instrument + conditional cap/discount for SAFE/Convertible), Links section (website + LinkedIn), **Custom metrics editor (L.4)** with per-org metric definitions + inline-editable quarterly value grid + autosave + delete.
-- **Forms list** (`/forms`) — template cards with cadence, field count, response rate.
+- **Forms list** (`/forms`) — template cards with cadence, field count, response rate. **Cards / Calendar toggle (L.10)**: calendar shows the next ~6 send dates + reminder dates per active form across a month grid with prev/next navigation.
 - **Form detail** (`/forms/[slug]`) — fields grouped, recent submissions list with AI-assisted badge, send-now / pause buttons.
+- **Form schedule editor** (`/forms/[slug]/edit`) — Schedule block with cadence picker (Monthly / Quarterly / Annual / Ad-hoc), day-of-month, anchor month for quarterly/annual, reminder offset pills (1/2/3/7/14 days before). Live preview of next send + reminder dates. Pause/Resume controls. Persisted in `form_schedules`. **Email firing waits on Resend (Phase C)** — the schedule + calendar are intent-only today.
 - **Form builder** (`/forms/new` and `/forms/[slug]/edit`):
   - New-form intro picks "Build with AI" or "Start blank".
   - Drag-and-drop reordering with `@dnd-kit/sortable`.

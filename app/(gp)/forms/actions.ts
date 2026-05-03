@@ -206,3 +206,134 @@ export async function deactivateForm(slug: string): Promise<FormResult> {
   revalidatePath(`/forms/${slug}`);
   return { ok: true, slug };
 }
+
+// ---------------------------------------------------------------------------
+// L.10 — Form schedules
+// ---------------------------------------------------------------------------
+
+import { computeNextSendAt, type ScheduleCadence, isValidDayOfMonth, isValidMonth } from "@/lib/form-schedule";
+
+export type ScheduleInput = {
+  formSlug: string;
+  cadence: ScheduleCadence;
+  sendDayOfMonth: number | null;
+  anchorMonth: number | null;
+  reminderOffsetsDays: number[];
+  active: boolean;
+};
+
+export type ScheduleResult = { ok: true } | { ok: false; error: string };
+
+export async function upsertFormSchedule(input: ScheduleInput): Promise<ScheduleResult> {
+  if (input.sendDayOfMonth != null && !isValidDayOfMonth(input.sendDayOfMonth)) {
+    return { ok: false, error: "Send day must be 1–28" };
+  }
+  if (input.anchorMonth != null && !isValidMonth(input.anchorMonth)) {
+    return { ok: false, error: "Anchor month must be 1–12" };
+  }
+
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // Resolve form id from slug, scoped to org.
+  const { data: form } = await ctx.supabase
+    .from("forms")
+    .select("id")
+    .eq("slug", input.formSlug)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!form) return { ok: false, error: "Form not found" };
+
+  // Compute next_send_at server-side so the calendar query is O(read).
+  const nextSendAt = input.active
+    ? computeNextSendAt(input.cadence, input.sendDayOfMonth, input.anchorMonth)
+    : null;
+
+  // Sanitize reminder offsets — positive ints, deduped, max 5.
+  const cleanOffsets = Array.from(new Set(
+    input.reminderOffsetsDays
+      .map((n) => Number(n))
+      .filter((n) => Number.isInteger(n) && n > 0 && n <= 90)
+  )).slice(0, 5).sort((a, b) => b - a);
+
+  const { error } = await ctx.supabase
+    .from("form_schedules")
+    .upsert(
+      {
+        form_id: form.id,
+        cadence: input.cadence,
+        send_day_of_month: input.sendDayOfMonth,
+        anchor_month: input.anchorMonth,
+        reminder_offsets_days: cleanOffsets,
+        next_send_at: nextSendAt,
+        active: input.active,
+      },
+      { onConflict: "form_id" },
+    );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${input.formSlug}`);
+  revalidatePath(`/forms/${input.formSlug}/edit`);
+  return { ok: true };
+}
+
+export async function pauseFormSchedule(formSlug: string): Promise<ScheduleResult> {
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const { data: form } = await ctx.supabase
+    .from("forms")
+    .select("id")
+    .eq("slug", formSlug)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!form) return { ok: false, error: "Form not found" };
+
+  const { error } = await ctx.supabase
+    .from("form_schedules")
+    .update({ active: false, next_send_at: null })
+    .eq("form_id", form.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${formSlug}`);
+  return { ok: true };
+}
+
+export async function resumeFormSchedule(formSlug: string): Promise<ScheduleResult> {
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const { data: form } = await ctx.supabase
+    .from("forms")
+    .select("id")
+    .eq("slug", formSlug)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!form) return { ok: false, error: "Form not found" };
+
+  // Need to re-read the schedule to compute the next send.
+  const { data: schedule } = await ctx.supabase
+    .from("form_schedules")
+    .select("cadence, send_day_of_month, anchor_month")
+    .eq("form_id", form.id)
+    .maybeSingle();
+  if (!schedule) return { ok: false, error: "No schedule to resume" };
+
+  const nextSendAt = computeNextSendAt(
+    schedule.cadence as ScheduleCadence,
+    schedule.send_day_of_month,
+    schedule.anchor_month,
+  );
+
+  const { error } = await ctx.supabase
+    .from("form_schedules")
+    .update({ active: true, next_send_at: nextSendAt })
+    .eq("form_id", form.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${formSlug}`);
+  return { ok: true };
+}

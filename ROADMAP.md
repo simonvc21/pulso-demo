@@ -371,15 +371,15 @@ Nueva sección entre "Branding" y "Team":
 - Webhook `/api/stripe/webhook` actualiza la tabla en eventos `customer.subscription.*`.
 - Para el demo: stub seguro que lee/escribe la tabla pero las acciones reales redirigen al Stripe Portal cuando STRIPE_SECRET_KEY esté seteado.
 
-**L.10 Form scheduling — calendar view + GP-controlled cadence**
-Hoy `/forms` muestra el banner "Pulso runs your reporting calendar" pero no hay schedule real. Para que esto sea funcional:
-- Nueva tabla `form_schedules(form_id, send_day_of_month / send_day_of_week / cron_expr, reminder_offsets_days int[], next_send_at, last_sent_at, active)`.
-- Editor en `/forms/[slug]/edit` → bloque "Schedule": cadencia (monthly / quarterly / annual / ad-hoc) + día específico (e.g. "5th of every month" / "Q1 close = April 15") + reminder offsets ("send reminders 7 days and 2 days before deadline").
-- Nueva pestaña/widget en `/forms` → **calendar view**: month-grid con cada día mostrando los forms que se envían + reminders. Toggle entre month/week/list views.
-- Founders ven los reminders inline en `/fill/[id]` ("Due in 3 days") cuando llegan via email + cuando entran al link.
-- Cron `/api/cron/form-scheduler` corre diario a 12:00 UTC: identifica forms cuyo `next_send_at <= now()`, dispara los emails (necesita Fase C — Resend), y avanza `next_send_at` al siguiente período.
-- GP puede pausar / reanudar / "send now" desde el form detail.
-- Pre-requisito: Fase C (Resend) para los emails reales. El schedule + calendar view se puede shippear sin emails (sólo logging) pero pierde gran parte del valor.
+**L.10 Form scheduling — calendar view + GP-controlled cadence** *(parcial — schedule + calendar shipped, email firing pendiente Fase C)*
+- ✅ Migration: `form_schedules(form_id UNIQUE, cadence enum monthly|quarterly|annual|ad_hoc, send_day_of_month, anchor_month, reminder_offsets_days int[], next_send_at, last_sent_at, active)`. RLS via existing org membership.
+- ✅ Helper `lib/form-schedule.ts` (client-safe): `computeNextSendAt(cadence, dom, anchorMonth, fromIso)` — UTC-deterministic, used by both server actions y client preview. `expandSchedule()` materializa los próximos N sends + reminder dates para el calendar.
+- ✅ Editor en `/forms/[slug]/edit` → bloque "Schedule": cadence picker (4 cards), day-of-month input (clamped 1–28), anchor month (quarterly/annual only), reminder offsets como toggle pills (1/2/3/7/14 días antes), live preview del próximo send + reminder dates. Pause/Resume buttons.
+- ✅ `/forms` ahora tiene toggle Cards / Calendar. La calendar view es un month-grid con cada día mostrando sends (teal pill, Send icon) y reminders (gris, Bell icon). Navegación entre meses con prev/next/today. Click en cualquier evento abre el form.
+- ✅ Server actions: `upsertFormSchedule` (recomputa `next_send_at` server-side), `pauseFormSchedule`, `resumeFormSchedule`. Reminder offsets sanitizados (positive ints, max 5, deduped).
+- Pendiente: cron job `/api/cron/form-scheduler` que dispare los emails reales — bloqueado por Fase C (Resend).
+- Pendiente: founders ven "Due in 3 days" inline en `/fill/[id]`.
+- Pendiente: GP puede "Send now" desde el calendar (existe en form detail page).
 
 ---
 

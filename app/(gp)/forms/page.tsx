@@ -3,9 +3,10 @@ import { Topbar } from "@/components/topbar";
 import { TopbarBell } from "@/components/topbar-bell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getFormTemplates, type FormCadence } from "@/lib/dashboard-data";
+import { getFormTemplates, getOrgFormSchedules, type FormCadence } from "@/lib/dashboard-data";
 import { Plus, Calendar, Send, Repeat, ChevronRight, Eye } from "lucide-react";
 import { ts } from "@/lib/i18n-server";
+import { FormsTabs } from "./forms-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ export default async function FormsPage({
 }: {
   searchParams: { company?: string };
 }) {
-  const templates = await getFormTemplates();
+  const [templates, schedules] = await Promise.all([
+    getFormTemplates(),
+    getOrgFormSchedules(),
+  ]);
   const companySlug = searchParams.company;
 
   return (
@@ -70,49 +74,54 @@ export default async function FormsPage({
           </div>
         </div>
 
-        {/* Form templates */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {templates.map((t) => {
-            const href = companySlug
-              ? `/fill/${t.slug}?company=${companySlug}&preview=1`
-              : `/forms/${t.slug}`;
-            return (
-              <Link key={t.id} href={href} className="group">
-                <div className="bg-white rounded-xl border border-line shadow-card hover:shadow-cardHover transition-shadow p-5 h-full flex flex-col">
-                  <div className="flex items-center justify-between">
-                    <Badge tone={cadenceLabel[t.cadence].tone}>{cadenceLabel[t.cadence].label}</Badge>
-                    {companySlug ? (
-                      <Eye className="h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                    )}
-                  </div>
-                  <h3 className="text-base font-serif font-semibold text-ink mt-3">{t.name}</h3>
-                  <p className="text-[12px] text-muted mt-1">{t.fieldCount} fields</p>
-                  <div className="mt-4 pt-4 border-t border-line flex items-center justify-between text-[11px]">
-                    <div className="text-muted">
-                      Last sent <span className="text-ink font-medium">{t.lastSent ?? "—"}</span>
+        {/* Form templates — wrapped in FormsTabs for cards / calendar toggle */}
+        <FormsTabs
+          schedules={schedules}
+          cards={
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {templates.map((t) => {
+                const href = companySlug
+                  ? `/fill/${t.slug}?company=${companySlug}&preview=1`
+                  : `/forms/${t.slug}`;
+                return (
+                  <Link key={t.id} href={href} className="group">
+                    <div className="bg-white rounded-xl border border-line shadow-card hover:shadow-cardHover transition-shadow p-5 h-full flex flex-col">
+                      <div className="flex items-center justify-between">
+                        <Badge tone={cadenceLabel[t.cadence].tone}>{cadenceLabel[t.cadence].label}</Badge>
+                        {companySlug ? (
+                          <Eye className="h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                        )}
+                      </div>
+                      <h3 className="text-base font-serif font-semibold text-ink mt-3">{t.name}</h3>
+                      <p className="text-[12px] text-muted mt-1">{t.fieldCount} fields</p>
+                      <div className="mt-4 pt-4 border-t border-line flex items-center justify-between text-[11px]">
+                        <div className="text-muted">
+                          Last sent <span className="text-ink font-medium">{t.lastSent ?? "—"}</span>
+                        </div>
+                        <div className="font-semibold text-teal-600">
+                          {t.responseRate}% response
+                        </div>
+                      </div>
                     </div>
-                    <div className="font-semibold text-teal-600">
-                      {t.responseRate}% response
-                    </div>
+                  </Link>
+                );
+              })}
+
+              {/* New form card */}
+              <Link href="/forms/new" className="group">
+                <div className="bg-paper2 border-2 border-dashed border-line hover:border-navy rounded-xl p-5 h-full flex flex-col items-center justify-center text-center transition-colors">
+                  <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-muted group-hover:text-navy group-hover:bg-paper transition-colors">
+                    <Plus className="h-5 w-5" />
                   </div>
+                  <div className="mt-2 text-sm font-semibold text-ink">Create new form</div>
+                  <div className="text-[11px] text-muted mt-1">Drag fields, schedule the cadence, ship.</div>
                 </div>
               </Link>
-            );
-          })}
-
-          {/* New form card */}
-          <Link href="/forms/new" className="group">
-            <div className="bg-paper2 border-2 border-dashed border-line hover:border-navy rounded-xl p-5 h-full flex flex-col items-center justify-center text-center transition-colors">
-              <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-muted group-hover:text-navy group-hover:bg-paper transition-colors">
-                <Plus className="h-5 w-5" />
-              </div>
-              <div className="mt-2 text-sm font-semibold text-ink">Create new form</div>
-              <div className="text-[11px] text-muted mt-1">Drag fields, schedule the cadence, ship.</div>
             </div>
-          </Link>
-        </div>
+          }
+        />
       </div>
     </>
   );
