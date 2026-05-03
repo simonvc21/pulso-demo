@@ -220,6 +220,42 @@ export type Database = {
         }
         Relationships: []
       }
+      company_active_form: {
+        Row: {
+          assigned_at: string
+          company_id: string
+          due_at: string | null
+          form_id: string
+          id: string
+          is_extra: boolean
+          period_label: string | null
+          status: Database["public"]["Enums"]["active_form_status"]
+          submitted_at: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          company_id: string
+          due_at?: string | null
+          form_id: string
+          id?: string
+          is_extra?: boolean
+          period_label?: string | null
+          status?: Database["public"]["Enums"]["active_form_status"]
+          submitted_at?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          company_id?: string
+          due_at?: string | null
+          form_id?: string
+          id?: string
+          is_extra?: boolean
+          period_label?: string | null
+          status?: Database["public"]["Enums"]["active_form_status"]
+          submitted_at?: string | null
+        }
+        Relationships: []
+      }
       company_reactions: {
         Row: {
           company_id: string
@@ -947,6 +983,7 @@ export type Database = {
         | "other"
       lp_type: "Family Office" | "Institutional" | "Fund of Funds" | "Individual"
       period_kind: "month" | "quarter" | "annual"
+      active_form_status: "pending" | "submitted" | "overdue"
       reaction_kind: "clap" | "rocket" | "concerned" | "thinking"
       tracking_cadence: "monthly" | "quarterly" | "annual"
     }

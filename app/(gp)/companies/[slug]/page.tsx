@@ -11,6 +11,8 @@ import { getCompanyBySlug, getCompanyCustomMetrics, getCompanyUpdates, getNewsle
 import { UpdatesFeed } from "./updates-feed";
 import { CommentsThread, ReactionsBar } from "@/components/lp-engagement";
 import { getCompanyComments, getCompanyReactions } from "@/lib/lp-engagement";
+import { ActiveFormWidget } from "./active-form-widget";
+import { getActiveFormForCompany } from "@/lib/active-form";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
 import { ts } from "@/lib/i18n-server";
 import { createClient } from "@/lib/supabase/server";
@@ -49,9 +51,20 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
     .maybeSingle();
   const customMetrics = companyRow ? await getCompanyCustomMetrics(companyRow.id) : [];
   const teamUpdates = companyRow ? await getCompanyUpdates(companyRow.id, 50) : [];
-  const [comments, reactions] = companyRow
-    ? await Promise.all([getCompanyComments(companyRow.id), getCompanyReactions(companyRow.id)])
-    : [[], []];
+  const [comments, reactions, activeForm] = companyRow
+    ? await Promise.all([
+        getCompanyComments(companyRow.id),
+        getCompanyReactions(companyRow.id),
+        getActiveFormForCompany(companyRow.id),
+      ])
+    : [[], [], null];
+
+  // L.11 — list of forms in this org so the "Send extra" picker can show them.
+  const { data: formOptions } = await supabase
+    .from("forms")
+    .select("slug, name")
+    .eq("active", true)
+    .order("name");
 
   // Resolve current user's id (for delete-own-comment + canModerate logic).
   const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -216,6 +229,16 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
             </div>
           )}
         </div>
+
+        {/* L.11 — Active form widget (status badge + Send extra button) */}
+        {companyRow && (
+          <ActiveFormWidget
+            companyId={companyRow.id}
+            companySlug={company.slug}
+            initial={activeForm}
+            formOptions={(formOptions ?? []) as { slug: string; name: string }[]}
+          />
+        )}
 
         {/* KPI grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
