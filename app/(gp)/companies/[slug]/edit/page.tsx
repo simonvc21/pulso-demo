@@ -36,6 +36,11 @@ export default async function EditCompanyPage({ params }: { params: { slug: stri
       email: company.founder.email || null,
       role: company.founder.role || null,
     },
+    investmentInstrument: company.investmentInstrument,
+    safeCapUsd: company.safeCapUsd,
+    safeDiscountPct: company.safeDiscountPct,
+    website: company.website,
+    linkedinUrl: company.linkedinUrl,
   };
 
   return (

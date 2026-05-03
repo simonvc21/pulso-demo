@@ -27,15 +27,20 @@ export type Database = {
           founder_role: string | null
           id: string
           invested_usd: number
+          investment_instrument: Database["public"]["Enums"]["investment_instrument"] | null
           last_update_at: string | null
+          linkedin_url: string | null
           logo_url: string | null
           name: string
           organization_id: string
           ownership_pct: number
+          safe_cap_usd: number | null
+          safe_discount_pct: number | null
           sector: string | null
           slug: string
           stage: Database["public"]["Enums"]["company_stage"]
           status: Database["public"]["Enums"]["company_status"]
+          website: string | null
         }
         Insert: {
           country?: string | null
@@ -47,15 +52,20 @@ export type Database = {
           founder_role?: string | null
           id?: string
           invested_usd?: number
+          investment_instrument?: Database["public"]["Enums"]["investment_instrument"] | null
           last_update_at?: string | null
+          linkedin_url?: string | null
           logo_url?: string | null
           name: string
           organization_id: string
           ownership_pct?: number
+          safe_cap_usd?: number | null
+          safe_discount_pct?: number | null
           sector?: string | null
           slug: string
           stage: Database["public"]["Enums"]["company_stage"]
           status?: Database["public"]["Enums"]["company_status"]
+          website?: string | null
         }
         Update: {
           country?: string | null
@@ -67,15 +77,20 @@ export type Database = {
           founder_role?: string | null
           id?: string
           invested_usd?: number
+          investment_instrument?: Database["public"]["Enums"]["investment_instrument"] | null
           last_update_at?: string | null
+          linkedin_url?: string | null
           logo_url?: string | null
           name?: string
           organization_id?: string
           ownership_pct?: number
+          safe_cap_usd?: number | null
+          safe_discount_pct?: number | null
           sector?: string | null
           slug?: string
           stage?: Database["public"]["Enums"]["company_stage"]
           status?: Database["public"]["Enums"]["company_status"]
+          website?: string | null
         }
         Relationships: []
       }
@@ -493,6 +508,14 @@ export type Database = {
         | "longtext"
         | "select"
         | "date"
+      investment_instrument:
+        | "safe"
+        | "convertible_note"
+        | "equity"
+        | "saft"
+        | "warrant"
+        | "loan"
+        | "other"
       lp_type: "Family Office" | "Institutional" | "Fund of Funds" | "Individual"
     }
     CompositeTypes: { [_ in never]: never }

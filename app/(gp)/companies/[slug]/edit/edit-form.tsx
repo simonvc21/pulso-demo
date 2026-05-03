@@ -13,6 +13,18 @@ const statuses = [
   { value: "critical", label: "Critical" },
   { value: "no_data", label: "No data" },
 ] as const;
+const instruments = [
+  { value: "", label: "—" },
+  { value: "safe", label: "SAFE" },
+  { value: "convertible_note", label: "Convertible Note" },
+  { value: "equity", label: "Equity" },
+  { value: "saft", label: "SAFT" },
+  { value: "warrant", label: "Warrant" },
+  { value: "loan", label: "Loan" },
+  { value: "other", label: "Other" },
+] as const;
+
+const INSTRUMENTS_WITH_CAP = new Set(["safe", "convertible_note"]);
 
 interface Props {
   slug: string;
@@ -78,6 +90,38 @@ export function CompanyEditForm({ slug, initial }: Props) {
             value={String(v.ownershipPct)}
             onChange={(s) => update("ownershipPct", parseFloat(s) || 0)}
           />
+          <Select
+            label="Instrument"
+            value={v.investmentInstrument ?? ""}
+            onChange={(s) => {
+              const next = (s || null) as CompanyInput["investmentInstrument"];
+              update("investmentInstrument", next);
+              if (!next || !INSTRUMENTS_WITH_CAP.has(next)) {
+                update("safeCapUsd", null);
+                update("safeDiscountPct", null);
+              }
+            }}
+            options={instruments.map((i) => ({ value: i.value, label: i.label }))}
+          />
+          {v.investmentInstrument && INSTRUMENTS_WITH_CAP.has(v.investmentInstrument) && (
+            <>
+              <Input
+                label="Cap (USD)"
+                type="number"
+                value={v.safeCapUsd != null ? String(v.safeCapUsd) : ""}
+                onChange={(s) => update("safeCapUsd", s.trim() === "" ? null : parseFloat(s) || 0)}
+                placeholder="10000000"
+              />
+              <Input
+                label="Discount (%)"
+                type="number"
+                step="0.5"
+                value={v.safeDiscountPct != null ? String(v.safeDiscountPct) : ""}
+                onChange={(s) => update("safeDiscountPct", s.trim() === "" ? null : parseFloat(s) || 0)}
+                placeholder="20"
+              />
+            </>
+          )}
         </div>
       </Section>
 
@@ -86,6 +130,25 @@ export function CompanyEditForm({ slug, initial }: Props) {
           <Input label="Name" value={v.founder.name ?? ""} onChange={(s) => updateFounder("name", s || null)} />
           <Input label="Email" type="email" value={v.founder.email ?? ""} onChange={(s) => updateFounder("email", s || null)} />
           <Input label="Role" value={v.founder.role ?? ""} onChange={(s) => updateFounder("role", s || null)} placeholder="CEO" />
+        </div>
+      </Section>
+
+      <Section title="Links">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Input
+            label="Website"
+            type="url"
+            value={v.website ?? ""}
+            onChange={(s) => update("website", s || null)}
+            placeholder="https://acme.io"
+          />
+          <Input
+            label="LinkedIn"
+            type="url"
+            value={v.linkedinUrl ?? ""}
+            onChange={(s) => update("linkedinUrl", s || null)}
+            placeholder="https://www.linkedin.com/company/acme"
+          />
         </div>
       </Section>
 

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Mail, ExternalLink, Sparkles, FileText, MessageSquare, Pencil } from "lucide-react";
+import { ArrowLeft, Mail, ExternalLink, Sparkles, FileText, MessageSquare, Pencil, Globe, Linkedin } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { TopbarBell } from "@/components/topbar-bell";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -14,6 +14,16 @@ export const dynamic = "force-dynamic";
 
 const countryFlag: Record<string, string> = {
   MX: "🇲🇽", BR: "🇧🇷", CO: "🇨🇴", CL: "🇨🇱", AR: "🇦🇷", PE: "🇵🇪",
+};
+
+const instrumentLabel: Record<string, string> = {
+  safe: "SAFE",
+  convertible_note: "Convertible Note",
+  equity: "Equity",
+  saft: "SAFT",
+  warrant: "Warrant",
+  loan: "Loan",
+  other: "Other",
 };
 
 export default async function CompanyDetailPage({ params }: { params: { slug: string } }) {
@@ -105,6 +115,38 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
                 {company.sector && <Badge>{company.sector}</Badge>}
                 <Badge>{company.stage}</Badge>
                 {company.country && <Badge>{company.country}</Badge>}
+                {company.investmentInstrument && (
+                  <Badge tone="gold">{instrumentLabel[company.investmentInstrument] ?? company.investmentInstrument}</Badge>
+                )}
+                {company.investmentInstrument && (company.safeCapUsd != null || company.safeDiscountPct != null) && (
+                  <span className="text-[11px] text-muted">
+                    {company.safeCapUsd != null && <span>cap {fmtUSD(company.safeCapUsd, { compact: true })}</span>}
+                    {company.safeCapUsd != null && company.safeDiscountPct != null && <span> · </span>}
+                    {company.safeDiscountPct != null && <span>{company.safeDiscountPct}% disc.</span>}
+                  </span>
+                )}
+                {company.website && (
+                  <a
+                    href={company.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-teal"
+                    aria-label="Website"
+                  >
+                    <Globe className="h-3 w-3" /> Website
+                  </a>
+                )}
+                {company.linkedinUrl && (
+                  <a
+                    href={company.linkedinUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-teal"
+                    aria-label="LinkedIn"
+                  >
+                    <Linkedin className="h-3 w-3" /> LinkedIn
+                  </a>
+                )}
               </div>
             </div>
             <div className="text-right">

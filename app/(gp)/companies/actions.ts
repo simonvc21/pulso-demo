@@ -7,6 +7,7 @@ import type { Database } from "@/lib/database.types";
 
 type Stage = Database["public"]["Enums"]["company_stage"];
 type Status = Database["public"]["Enums"]["company_status"];
+type Instrument = Database["public"]["Enums"]["investment_instrument"];
 
 export type CompanyInput = {
   name: string;
@@ -19,7 +20,21 @@ export type CompanyInput = {
   investedUsd: number;
   ownershipPct: number;
   founder: { name: string | null; email: string | null; role: string | null };
+  // L.6 — investment terms + links
+  investmentInstrument: Instrument | null;
+  safeCapUsd: number | null;
+  safeDiscountPct: number | null;
+  website: string | null;
+  linkedinUrl: string | null;
 };
+
+function normalizeUrl(u: string | null | undefined): string | null {
+  if (!u) return null;
+  const t = u.trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
 
 export type CompanyResult = { ok: true; slug: string } | { ok: false; error: string };
 
@@ -76,6 +91,11 @@ export async function updateCompany(slug: string, input: CompanyInput): Promise<
       founder_name: input.founder.name,
       founder_email: input.founder.email,
       founder_role: input.founder.role,
+      investment_instrument: input.investmentInstrument,
+      safe_cap_usd: input.safeCapUsd,
+      safe_discount_pct: input.safeDiscountPct,
+      website: normalizeUrl(input.website),
+      linkedin_url: normalizeUrl(input.linkedinUrl),
     })
     .eq("id", existing.id);
 
@@ -122,6 +142,11 @@ export async function createCompany(input: CompanyInput): Promise<CompanyResult>
     founder_name: input.founder.name,
     founder_email: input.founder.email,
     founder_role: input.founder.role,
+    investment_instrument: input.investmentInstrument,
+    safe_cap_usd: input.safeCapUsd,
+    safe_discount_pct: input.safeDiscountPct,
+    website: normalizeUrl(input.website),
+    linkedin_url: normalizeUrl(input.linkedinUrl),
   });
 
   if (error) return { ok: false, error: error.message };

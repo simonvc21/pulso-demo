@@ -33,6 +33,11 @@ export interface ChatContext {
     flag: string | null;
     description: string | null;
     founder: { name: string | null; email: string | null; role: string | null };
+    investment_instrument: string | null;
+    safe_cap_usd: number | null;
+    safe_discount_pct: number | null;
+    website: string | null;
+    linkedin_url: string | null;
     metrics: Array<{
       quarter: string;
       arr_usd: number | null;
@@ -89,6 +94,7 @@ export async function buildChatContext(): Promise<ChatContext | null> {
       .select(
         "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, " +
         "founder_name, founder_email, founder_role, " +
+        "investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)"
       ),
     scope === "lp" ? Promise.resolve({ data: [] }) : supabase
@@ -124,6 +130,11 @@ export async function buildChatContext(): Promise<ChatContext | null> {
       ownership_pct: Number(c.ownership_pct ?? 0),
       flag: c.flag, description: c.description,
       founder: { name: c.founder_name, email: c.founder_email, role: c.founder_role },
+      investment_instrument: c.investment_instrument ?? null,
+      safe_cap_usd: c.safe_cap_usd != null ? Number(c.safe_cap_usd) : null,
+      safe_discount_pct: c.safe_discount_pct != null ? Number(c.safe_discount_pct) : null,
+      website: c.website ?? null,
+      linkedin_url: c.linkedin_url ?? null,
       metrics: sortedMetrics,
       latest_news: [],
     };

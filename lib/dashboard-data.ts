@@ -249,10 +249,17 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
   }));
 }
 
+export type InvestmentInstrument = Database["public"]["Enums"]["investment_instrument"];
+
 export interface CompanyDetail extends CompanyListItem {
   ownership: number;
   flag: string | null;
   founder: { name: string; email: string; role: string };
+  investmentInstrument: InvestmentInstrument | null;
+  safeCapUsd: number | null;
+  safeDiscountPct: number | null;
+  website: string | null;
+  linkedinUrl: string | null;
 }
 
 export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | null> {
@@ -260,7 +267,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, " +
+      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
     )
     .eq("slug", slug)
@@ -286,6 +293,11 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
       email: c.founder_email ?? "",
       role: c.founder_role ?? "",
     },
+    investmentInstrument: c.investment_instrument ?? null,
+    safeCapUsd: c.safe_cap_usd != null ? Number(c.safe_cap_usd) : null,
+    safeDiscountPct: c.safe_discount_pct != null ? Number(c.safe_discount_pct) : null,
+    website: c.website ?? null,
+    linkedinUrl: c.linkedin_url ?? null,
     metrics: ((c.metrics ?? []) as MetricRow[])
       .map((m) => ({
         quarter: m.quarter,
