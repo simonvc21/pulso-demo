@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/sidebar";
+import { isCurrentUserAdmin } from "@/lib/feature-flags";
 import { ChatDock } from "@/components/chat-dock";
 import { getFund, parseTheme } from "@/lib/dashboard-data";
 import { getServerDictionary } from "@/lib/i18n-server";
@@ -38,7 +39,7 @@ function shadeRgb(hex: string, alpha: number): string | null {
 }
 
 export default async function GpLayout({ children }: { children: React.ReactNode }) {
-  const fund = await getFund();
+  const [fund, isAdmin] = await Promise.all([getFund(), isCurrentUserAdmin()]);
   const theme = parseTheme(fund?.theme_json);
   const dict = getServerDictionary();
   const labels = dict.sidebar as Record<string, string>;
@@ -86,6 +87,7 @@ export default async function GpLayout({ children }: { children: React.ReactNode
         vintage={fund?.vintage ?? null}
         sizeUsd={Number(fund?.size_usd ?? 0)}
         logoUrl={fund?.logo_url ?? null}
+        isAdmin={isAdmin}
         labels={{
           overview: labels.overview,
           companies: labels.companies,

@@ -700,6 +700,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_admin: boolean
           name: string | null
           organization_id: string | null
           role: string
@@ -709,6 +710,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          is_admin?: boolean
           name?: string | null
           organization_id?: string | null
           role?: string
@@ -718,9 +720,46 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          is_admin?: boolean
           name?: string | null
           organization_id?: string | null
           role?: string
+        }
+        Relationships: []
+      }
+      feature_flags: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          flag_name: string
+          id: string
+          notes: string | null
+          organization_id: string
+          rollout_pct: number
+          updated_at: string
+          updated_by_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          flag_name: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          rollout_pct?: number
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          flag_name?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          rollout_pct?: number
+          updated_at?: string
+          updated_by_user_id?: string | null
         }
         Relationships: []
       }
@@ -756,6 +795,7 @@ export type Database = {
         Returns: string
       }
       user_org_id: { Args: never; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
       ai_usage_summary: { Args: { p_days?: number }; Returns: Json }
       compute_ai_cost_micro: {
         Args: { p_model: string; p_input_tokens: number; p_output_tokens: number }

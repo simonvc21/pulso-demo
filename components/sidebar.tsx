@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send, Table2, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send, Table2, ChevronsLeft, ChevronsRight, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -12,6 +12,9 @@ interface SidebarProps {
   vintage: number | null;
   sizeUsd: number;
   logoUrl?: string | null;
+  /** L.23 — show the Admin link in the secondary nav. Layout passes this in
+   *  from the server-side isCurrentUserAdmin() check. */
+  isAdmin?: boolean;
   labels: {
     overview: string;
     companies: string;
@@ -27,7 +30,7 @@ interface SidebarProps {
 
 const COLLAPSE_KEY = "pulso_sidebar_collapsed";
 
-export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, labels }: SidebarProps) {
+export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, isAdmin = false, labels }: SidebarProps) {
   // Lazily read localStorage so SSR matches the default (expanded).
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
@@ -48,6 +51,7 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, labels }: Sidebar
     { href: "/share/q1-2026-lp-letter?preview=1", label: labels.lp_preview,      icon: Share2 },
     { href: "/fill/q1-2026-financials?preview=1", label: labels.founder_preview, icon: Send },
     { href: "/settings",                          label: labels.settings,         icon: Settings },
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: ShieldAlert }] : []),
   ];
   const path = usePathname() || "";
   const sizeM = sizeUsd > 0 ? `$${(sizeUsd / 1_000_000).toFixed(0)}M` : "—";
