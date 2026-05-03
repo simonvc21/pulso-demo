@@ -9,7 +9,7 @@
 //   const text = await gemini.generate("Write a haiku");
 //   const obj  = await gemini.generateJSON<{ summary: string }>(prompt);
 
-import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerativeModel, type ResponseSchema } from "@google/generative-ai";
 
 export const MODELS = {
   flash: "gemini-2.5-flash",
@@ -41,6 +41,8 @@ interface GenerateOptions {
   systemInstruction?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  /** Only meaningful for generateJSON. Constrains the model to emit this exact shape. */
+  responseSchema?: ResponseSchema;
 }
 
 async function generate(prompt: string, opts: GenerateOptions = {}): Promise<string> {
@@ -73,6 +75,7 @@ async function generateJSON<T>(
       temperature: opts.temperature ?? 0.3,
       maxOutputTokens: opts.maxOutputTokens ?? 1500,
       responseMimeType: "application/json",
+      ...(opts.responseSchema ? { responseSchema: opts.responseSchema } : {}),
     },
   });
 
@@ -81,7 +84,13 @@ async function generateJSON<T>(
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 200)}`);
+    // Most common cause: maxOutputTokens cut the JSON mid-string. Surface a
+    // hint so the caller knows to either bump the cap or add a responseSchema.
+    const tail = text.slice(-80);
+    throw new Error(
+      `Gemini returned invalid JSON (likely truncated; response ended "${tail}"). ` +
+      `Bump maxOutputTokens or pass a responseSchema.`
+    );
   }
 }
 

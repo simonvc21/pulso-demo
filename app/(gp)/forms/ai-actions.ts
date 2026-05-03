@@ -1,5 +1,6 @@
 "use server";
 
+import { SchemaType, type ResponseSchema } from "@google/generative-ai";
 import { gemini } from "@/lib/gemini";
 import { createClient } from "@/lib/supabase/server";
 import type { DraftField } from "./actions";
@@ -44,6 +45,38 @@ interface SuggestPayload {
     options?: string[];
   }>;
 }
+
+// Response schema forces Gemini to emit exactly this shape. Without it the
+// model wastes tokens on prose-y JSON and gets cut off mid-string.
+const SUGGEST_SCHEMA: ResponseSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    fields: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          id: { type: SchemaType.STRING, description: "short snake_case identifier" },
+          type: {
+            type: SchemaType.STRING,
+            format: "enum",
+            enum: ["currency", "number", "percent", "text", "longtext", "select", "date", "news"],
+          },
+          label: { type: SchemaType.STRING, description: "question text, ≤80 chars" },
+          group: { type: SchemaType.STRING },
+          required: { type: SchemaType.BOOLEAN },
+          options: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
+            description: "only when type is 'select'",
+          },
+        },
+        required: ["id", "type", "label"],
+      },
+    },
+  },
+  required: ["fields"],
+};
 
 async function ensureGpAndBump(): Promise<{ ok: false; error: string } | { ok: true }> {
   const supabase = createClient();
@@ -113,7 +146,8 @@ export async function suggestFormFields(prompt: string): Promise<SuggestFieldsRe
         model: "flash",
         systemInstruction: SYSTEM_SUGGEST,
         temperature: 0.4,
-        maxOutputTokens: 1500,
+        maxOutputTokens: 4000,
+        responseSchema: SUGGEST_SCHEMA,
       }
     );
     const fields = sanitize(payload);
