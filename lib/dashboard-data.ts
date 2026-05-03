@@ -1148,6 +1148,48 @@ export interface FormScheduleWithMeta extends FormSchedule {
   formSlug: string;
 }
 
+// L.5b — load per-reminder rows for the schedule editor.
+export async function getFormReminders(formId: string): Promise<import("./form-schedule").FormReminder[]> {
+  const supabase = createClient();
+  const { data } = await (supabase as any)
+    .from("form_reminders")
+    .select("id, form_id, offset_days, subject, body")
+    .eq("form_id", formId)
+    .order("offset_days", { ascending: false });
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    formId: r.form_id,
+    offsetDays: r.offset_days,
+    subject: r.subject,
+    body: r.body,
+  }));
+}
+
+// L.5b — recipients joined to company + founder defaults so the editor can
+// render the table with effective email per row.
+export async function getFormRecipientsWithEmails(formId: string): Promise<import("./form-schedule").FormRecipient[]> {
+  const supabase = createClient();
+  const { data } = await (supabase as any)
+    .from("form_recipients")
+    .select("company_id, founder_email_override, companies(slug, name, founder_email)")
+    .eq("form_id", formId);
+  return ((data ?? []) as any[])
+    .map((r) => {
+      const c = r.companies ?? {};
+      const def = c.founder_email ?? null;
+      const ov = r.founder_email_override ?? null;
+      return {
+        companyId: r.company_id,
+        companySlug: c.slug ?? "",
+        companyName: c.name ?? "",
+        founderEmailDefault: def,
+        founderEmailOverride: ov,
+        effectiveEmail: ov || def || null,
+      };
+    })
+    .sort((a, b) => a.companyName.localeCompare(b.companyName));
+}
+
 export async function getFormSchedule(formId: string): Promise<FormSchedule | null> {
   const supabase = createClient();
   const { data } = await supabase

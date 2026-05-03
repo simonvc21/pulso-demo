@@ -8,3 +8,4 @@ next-env.d.ts
 *.log
 tsconfig.tsbuildinfo
 fundraising/
+brand/investor-deck-en.pptx

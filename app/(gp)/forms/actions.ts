@@ -232,12 +232,21 @@ export async function deactivateForm(slug: string): Promise<FormResult> {
 
 import { computeNextSendAt, type ScheduleCadence, isValidDayOfMonth, isValidMonth } from "@/lib/form-schedule";
 
+export type ReminderInput = {
+  offsetDays: number;
+  subject?: string | null;
+  body?: string | null;
+};
+
 export type ScheduleInput = {
   formSlug: string;
   cadence: ScheduleCadence;
   sendDayOfMonth: number | null;
   anchorMonth: number | null;
-  reminderOffsetsDays: number[];
+  /** Legacy convenience field: derived from `reminders` if not provided. */
+  reminderOffsetsDays?: number[];
+  /** L.5b — per-reminder copy. Replaces the simple offset list. */
+  reminders?: ReminderInput[];
   active: boolean;
   /** L.10b — Gmail-style email template for the founder invite. */
   emailSubject?: string | null;
@@ -271,12 +280,27 @@ export async function upsertFormSchedule(input: ScheduleInput): Promise<Schedule
     ? computeNextSendAt(input.cadence, input.sendDayOfMonth, input.anchorMonth)
     : null;
 
-  // Sanitize reminder offsets — positive ints, deduped, max 5.
-  const cleanOffsets = Array.from(new Set(
-    input.reminderOffsetsDays
-      .map((n) => Number(n))
-      .filter((n) => Number.isInteger(n) && n > 0 && n <= 90)
-  )).slice(0, 5).sort((a, b) => b - a);
+  // L.5b — derive offsets from per-reminder rows if provided, else legacy field.
+  const remindersInput: ReminderInput[] = (input.reminders && input.reminders.length > 0)
+    ? input.reminders
+    : (input.reminderOffsetsDays ?? []).map((d) => ({ offsetDays: d, subject: null, body: null }));
+
+  const cleanReminders: ReminderInput[] = Array.from(
+    new Map(
+      remindersInput
+        .map((r) => ({
+          offsetDays: Number(r.offsetDays),
+          subject: r.subject?.trim().slice(0, 200) || null,
+          body: r.body?.trim().slice(0, 4000) || null,
+        }))
+        .filter((r) => Number.isInteger(r.offsetDays) && r.offsetDays > 0 && r.offsetDays <= 60)
+        .map((r) => [r.offsetDays, r] as const)
+    ).values()
+  )
+    .sort((a, b) => b.offsetDays - a.offsetDays)
+    .slice(0, 8);
+
+  const cleanOffsets = cleanReminders.map((r) => r.offsetDays);
 
   const subject = input.emailSubject?.trim().slice(0, 200) || null;
   const body = input.emailBody?.trim().slice(0, 4000) || null;
@@ -299,10 +323,79 @@ export async function upsertFormSchedule(input: ScheduleInput): Promise<Schedule
     );
   if (error) return { ok: false, error: error.message };
 
+  // L.5b — replace per-reminder rows atomically.
+  await (ctx.supabase as any).from("form_reminders").delete().eq("form_id", form.id);
+  if (cleanReminders.length > 0) {
+    await (ctx.supabase as any).from("form_reminders").insert(
+      cleanReminders.map((r) => ({
+        form_id: form.id,
+        offset_days: r.offsetDays,
+        subject: r.subject,
+        body: r.body,
+      }))
+    );
+  }
+
   revalidatePath("/forms");
   revalidatePath(`/forms/${input.formSlug}`);
   revalidatePath(`/forms/${input.formSlug}/edit`);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// L.5b — Recipients with per-row founder email override
+// ---------------------------------------------------------------------------
+
+export type RecipientInput = {
+  companyId: string;
+  founderEmailOverride?: string | null;
+};
+
+export type SetRecipientsResult = { ok: true; count: number } | { ok: false; error: string };
+
+export async function setFormRecipients(input: {
+  formSlug: string;
+  recipients: RecipientInput[];
+}): Promise<SetRecipientsResult> {
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  const { data: form } = await ctx.supabase
+    .from("forms")
+    .select("id")
+    .eq("slug", input.formSlug)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!form) return { ok: false, error: "Form not found" };
+
+  // Filter to companies in this org. Trust-but-verify the IDs.
+  const ids = input.recipients.map((r) => r.companyId).filter(Boolean);
+  const { data: validCompanies } = await ctx.supabase
+    .from("companies")
+    .select("id")
+    .in("id", ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"])
+    .eq("organization_id", ctx.organizationId);
+  const validIds = new Set((validCompanies ?? []).map((c) => c.id));
+
+  const rows = input.recipients
+    .filter((r) => validIds.has(r.companyId))
+    .map((r) => {
+      const trimmed = r.founderEmailOverride?.trim() || null;
+      const ok = !trimmed || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed);
+      return ok ? { form_id: form.id, company_id: r.companyId, founder_email_override: trimmed } : null;
+    })
+    .filter(Boolean) as { form_id: string; company_id: string; founder_email_override: string | null }[];
+
+  await (ctx.supabase as any).from("form_recipients").delete().eq("form_id", form.id);
+  if (rows.length > 0) {
+    const { error } = await (ctx.supabase as any).from("form_recipients").insert(rows);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/forms");
+  revalidatePath(`/forms/${input.formSlug}`);
+  revalidatePath(`/forms/${input.formSlug}/edit`);
+  return { ok: true, count: rows.length };
 }
 
 export async function pauseFormSchedule(formSlug: string): Promise<ScheduleResult> {

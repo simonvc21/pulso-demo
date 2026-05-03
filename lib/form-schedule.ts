@@ -20,6 +20,26 @@ export interface FormSchedule {
   emailBody: string | null;
 }
 
+/** L.5b — One reminder occurrence with its own copy. */
+export interface FormReminder {
+  id: string;
+  formId: string;
+  offsetDays: number;
+  subject: string | null;
+  body: string | null;
+}
+
+/** L.5b — Recipient with optional per-row founder email override. */
+export interface FormRecipient {
+  companyId: string;
+  companySlug: string;
+  companyName: string;
+  founderEmailDefault: string | null;
+  founderEmailOverride: string | null;
+  /** Effective email used at send time. Override wins when present. */
+  effectiveEmail: string | null;
+}
+
 /** Substitute {var} placeholders. Unknown placeholders are left as-is so the
  *  GP can spot typos in the preview. */
 export function renderEmailTemplate(

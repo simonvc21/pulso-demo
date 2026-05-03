@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getLpRoster, getFund } from "@/lib/dashboard-data";
 import { fmtUSD } from "@/lib/utils";
-import { Share2, Mail } from "lucide-react";
+import { Share2, Mail, MessageSquare } from "lucide-react";
+import { listLpThreads } from "@/lib/lp-chat";
 import { AddLpButton } from "./add-lp-button";
 import { LpsCsvImport } from "@/components/lps-csv-import";
 
@@ -16,7 +17,8 @@ const countryFlag: Record<string, string> = {
 };
 
 export default async function LpsPage() {
-  const [lps, fund] = await Promise.all([getLpRoster(), getFund()]);
+  const [lps, fund, threads] = await Promise.all([getLpRoster(), getFund(), listLpThreads()]);
+  const threadByLpId = new Map(threads.map((t) => [t.lpId, t]));
   const totalCommit = lps.reduce((a, l) => a + l.commitment, 0);
   const fundSize = Number(fund?.size_usd ?? 0);
 
@@ -69,11 +71,25 @@ export default async function LpsPage() {
                   <td className="px-3 py-3 text-xs text-muted text-right tabular-nums">{fundSize > 0 ? `${((l.commitment / fundSize) * 100).toFixed(1)}%` : "—"}</td>
                   <td className="px-3 py-3 text-[11px] text-muted">{l.lastAccess}</td>
                   <td className="px-5 py-3 text-right">
-                    {l.email ? (
-                      <a href={`mailto:${l.email}`} className="text-muted hover:text-ink p-1.5 inline-flex"><Mail className="h-4 w-4" /></a>
-                    ) : (
-                      <button className="text-muted hover:text-ink p-1.5"><Mail className="h-4 w-4" /></button>
-                    )}
+                    <div className="inline-flex items-center gap-1">
+                      <Link
+                        href={`/lps/${l.id}/chat`}
+                        className="relative text-muted hover:text-ink p-1.5 inline-flex"
+                        title="Open chat thread"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        {(threadByLpId.get(l.id)?.unreadFromLp ?? 0) > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 bg-coral text-white text-[9px] font-bold rounded-full px-1 min-w-[14px] h-[14px] flex items-center justify-center">
+                            {threadByLpId.get(l.id)!.unreadFromLp}
+                          </span>
+                        )}
+                      </Link>
+                      {l.email ? (
+                        <a href={`mailto:${l.email}`} className="text-muted hover:text-ink p-1.5 inline-flex" title="Email"><Mail className="h-4 w-4" /></a>
+                      ) : (
+                        <button className="text-muted hover:text-ink p-1.5" title="No email on file"><Mail className="h-4 w-4" /></button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

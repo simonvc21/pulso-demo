@@ -72,11 +72,10 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
   );
   const [suggestOpen, setSuggestOpen] = useState(false);
 
-  // Recipients: empty array = "all" (special sentinel via UI checkbox).
-  const [recipientsAll, setRecipientsAll] = useState(
-    !initialRecipientIds || initialRecipientIds.length === 0
-  );
-  const [recipientIds, setRecipientIds] = useState<string[]>(initialRecipientIds ?? []);
+  // L.5b — recipients live in the schedule editor. We keep the seed list so a
+  // brand-new form can carry over any IDs already injected by the parent on
+  // first save, but expose no UI for it here.
+  const recipientIds = initialRecipientIds ?? [];
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -97,11 +96,14 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
+    // L.5b — recipients are managed in the schedule editor now. We only send
+    // recipientCompanyIds on first create so brand-new forms don't accidentally
+    // start with zero recipients.
     const payload: FormInput = {
       name,
       cadence,
       fields,
-      recipientCompanyIds: recipientsAll ? [] : recipientIds,
+      ...(mode === "create" ? { recipientCompanyIds: recipientIds } : {}),
     };
     const res = mode === "edit" && slug
       ? await updateForm(slug, payload)
@@ -136,17 +138,9 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
     if (selectedId === id) setSelectedId(null);
   };
 
-  const toggleRecipient = (id: string) => {
-    setRecipientIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  };
-
   const selected = fields.find((f) => f.id === selectedId) || null;
   const isEdit = mode === "edit";
   const backHref = isEdit && slug ? `/forms/${slug}` : "/forms";
-
-  const recipientLabel = recipientsAll
-    ? `All ${companies.length} companies`
-    : `${recipientIds.length} of ${companies.length} selected`;
 
   // Intro screen for new forms — pick "AI suggests fields" or "start blank".
   if (wizardChoice === undefined) {
@@ -281,105 +275,26 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
         <div className="col-span-12 lg:col-span-3 border-l border-line bg-white p-5 min-h-[calc(100vh-130px)]">
           <div className="text-[10px] font-semibold text-muted tracking-[0.16em] uppercase">Settings</div>
 
-          {/* Cadence */}
-          <div className="mt-4">
-            <label className="text-[11px] font-medium text-ink mb-1.5 block flex items-center gap-1.5">
-              <Repeat className="h-3 w-3 text-muted" /> Cadence
-            </label>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(["monthly", "quarterly", "annual", "ad-hoc"] as const).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCadence(c)}
-                  className={cn(
-                    "h-9 px-2 rounded-lg text-xs font-medium border capitalize transition-colors",
-                    cadence === c
-                      ? "bg-navy text-gold border-navy"
-                      : "bg-white text-ink border-line hover:bg-paper2"
-                  )}
-                >
-                  {c}
-                </button>
-              ))}
+          {/* L.5b — Scheduling, recipients, and reminders moved to the
+              dedicated editor on the form detail page. The builder stays
+              focused on field design. */}
+          <div className="mt-4 rounded-lg border border-line bg-paper2/40 p-3">
+            <div className="text-[11px] font-semibold text-ink inline-flex items-center gap-1.5">
+              <Calendar className="h-3 w-3 text-muted" /> Schedule, recipients & reminders
             </div>
-          </div>
-
-          {/* Recipients */}
-          <div className="mt-5">
-            <label className="text-[11px] font-medium text-ink mb-1.5 block flex items-center gap-1.5">
-              <Mail className="h-3 w-3 text-muted" /> Recipients
-            </label>
-            <div className="rounded-lg bg-paper2 border border-line p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-ink">{recipientLabel}</div>
-                  <div className="text-[10px] text-muted">
-                    {recipientsAll ? "Sends to every active company in your fund" : "Custom subset"}
-                  </div>
-                </div>
-              </div>
-
-              <label className="mt-3 flex items-center gap-2 text-[12px] text-ink">
-                <input
-                  type="checkbox"
-                  checked={recipientsAll}
-                  onChange={(e) => setRecipientsAll(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded text-teal"
-                />
-                Send to all companies
-              </label>
-
-              {!recipientsAll && (
-                <div className="mt-3 max-h-56 overflow-auto rounded-md border border-line bg-white divide-y divide-line">
-                  {companies.length === 0 && (
-                    <div className="p-3 text-[11px] text-muted">No companies yet.</div>
-                  )}
-                  {companies.map((c) => {
-                    const checked = recipientIds.includes(c.id);
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => toggleRecipient(c.id)}
-                        className={cn(
-                          "w-full text-left px-3 py-2 flex items-center gap-2 text-[12px] hover:bg-paper2",
-                          checked && "bg-teal-50"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "h-4 w-4 rounded border flex items-center justify-center shrink-0",
-                            checked ? "bg-teal border-teal" : "border-line bg-white"
-                          )}
-                        >
-                          {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-                        </span>
-                        <span className="text-ink truncate">{c.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Reminders */}
-          <div className="mt-5">
-            <label className="text-[11px] font-medium text-ink mb-1.5 block flex items-center gap-1.5">
-              <Send className="h-3 w-3 text-muted" /> Auto-reminders
-            </label>
-            <div className="space-y-1.5 text-[12px]">
-              {[
-                "Day 3 — gentle nudge to founder",
-                "Day 7 — second reminder + cc'd to CEO",
-                "Day 14 — escalate to GP for follow-up",
-              ].map((line) => (
-                <div key={line} className="flex items-center gap-2">
-                  <input type="checkbox" defaultChecked className="h-3.5 w-3.5 rounded text-teal" />
-                  <span className="text-ink">{line}</span>
-                </div>
-              ))}
-            </div>
+            <p className="text-[11px] text-muted mt-1 leading-snug">
+              Pick the exact day-of-month, configure recipients (one founder email
+              per company), and customize each reminder's copy on the
+              <strong className="text-ink"> form detail page</strong> after you save.
+            </p>
+            {mode === "edit" && slug && (
+              <Link
+                href={`/forms/${slug}/edit`}
+                className="mt-2 inline-flex items-center gap-1 text-[11px] text-teal-600 hover:underline"
+              >
+                Open schedule editor →
+              </Link>
+            )}
           </div>
 
           {/* Selected field */}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, FileText, Calendar, Eye, Briefcase } from "lucide-react";
+import { ChevronRight, FileText, Calendar, Eye, Briefcase, MessageSquare } from "lucide-react";
 import { getLpLetters, getCompanyList } from "@/lib/dashboard-data";
 import { ts } from "@/lib/i18n-server";
 
@@ -33,6 +33,19 @@ export default async function LpHomePage() {
           </div>
         </Link>
       )}
+
+      <Link href="/lp/messages" className="block group mt-4">
+        <div className="bg-white rounded-2xl border border-line shadow-card p-5 flex items-center gap-4 hover:shadow-cardHover transition-shadow">
+          <div className="h-10 w-10 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+            <MessageSquare className="h-5 w-5 text-teal-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-serif font-semibold text-ink">Message your GP</h2>
+            <p className="text-[12px] text-muted mt-0.5">Private 1-on-1 thread for questions, intros, deal flow.</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors shrink-0" />
+        </div>
+      </Link>
 
       {letters.length === 0 ? (
         <div className="mt-10 bg-white rounded-2xl border border-line shadow-card p-10 text-center">
