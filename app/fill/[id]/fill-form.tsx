@@ -233,7 +233,7 @@ function UploadStage({
               <span className="absolute inset-0 rounded-full ring-2 ring-teal/30 animate-ping" />
             </div>
             <div className="text-sm font-semibold text-ink">Pulso AI is extracting your financials…</div>
-            <div className="text-[12px] text-muted">Reading P&L · cross-checking with last quarter · validating outliers</div>
+            <div className="text-[12px] text-muted">Reading P&L · cross-checking with last month · validating outliers</div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
@@ -412,7 +412,7 @@ function ReviewStage({
             <Sparkles className="h-3.5 w-3.5 text-teal-600" />
           </div>
           <div className="flex-1">
-            <div className="text-[13px] font-semibold text-ink">Numbers look consistent with your last quarter.</div>
+            <div className="text-[13px] font-semibold text-ink">Numbers look consistent with your last month.</div>
             <div className="text-[11px] text-muted mt-0.5">No anomalies detected.</div>
           </div>
           <Check className="h-5 w-5 text-teal-600 shrink-0" />

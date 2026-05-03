@@ -48,11 +48,13 @@ function formatDate(iso: string): string {
 }
 
 export function ScheduleEditor({ formSlug, formName, initial }: Props) {
-  const [cadence, setCadence] = useState<ScheduleCadence>(initial?.cadence ?? "quarterly");
-  const [sendDayOfMonth, setSendDayOfMonth] = useState<number>(initial?.sendDayOfMonth ?? 15);
+  // L.12c — defaults for monthly cadence: 5th of every month + reminders 3
+  // and 1 days before the send (tighter window than quarterly's 7+2).
+  const [cadence, setCadence] = useState<ScheduleCadence>(initial?.cadence ?? "monthly");
+  const [sendDayOfMonth, setSendDayOfMonth] = useState<number>(initial?.sendDayOfMonth ?? 5);
   const [anchorMonth, setAnchorMonth] = useState<number>(initial?.anchorMonth ?? 1);
   const [reminderOffsets, setReminderOffsets] = useState<number[]>(
-    initial?.reminderOffsetsDays ?? [7, 2]
+    initial?.reminderOffsetsDays ?? [3, 1]
   );
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
   const [emailSubject, setEmailSubject] = useState<string>(initial?.emailSubject ?? DEFAULT_EMAIL_SUBJECT);

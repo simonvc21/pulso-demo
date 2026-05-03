@@ -39,7 +39,7 @@ const palette: { type: FormFieldType; label: string; icon: any; example: string 
 
 const defaultNewForm: FormInput = {
   name: "",
-  cadence: "quarterly",
+  cadence: "monthly",
   fields: [],
 };
 

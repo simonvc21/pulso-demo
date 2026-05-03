@@ -509,6 +509,15 @@ Necesario para escalar sin romper todo.
   * Editor de datos críticos (form generic para CRUD en cualquier table de la org, gated por admin role)
 - Pre-req: rol `admin` en el `users.role` enum + middleware check.
 
+**L.12c Form schedule + recipients monthly defaults** *(complemento de L.12)*
+Después del rebuild a monthly, varios sub-flows de forms siguen apuntando a "quarterly" como default. Necesita tightening:
+- **Schedule editor (`/forms/[slug]/edit`)**: la ScheduleEditor por defecto carga `cadence='quarterly'`. Con monthly como default global, debería ser `monthly`. Y el day-of-month picker se mantiene; anchor month sólo aplica a annual.
+- **Recipients**: hoy el form-builder permite pickear "all companies" o un subset, pero no hay un default sensato. Cuando se crea un form nuevo, debería pre-seleccionar TODAS las companies activas (luego el GP des-marca las que no aplican). Hoy arranca en blanco.
+- **Founder fill flow (`/fill/[id]`)**: la copy hardcoded ("submit your Q1 numbers") debe cambiar a "submit your numbers for {current month}". El form input rendering ya usa `period` agnóstico, sólo es texto.
+- **Send-now button**: cuando GP clica "Send now" desde el form detail, hoy actualiza `last_sent_at` pero no genera unique-per-recipient links. Cada recipient debería recibir un link `/fill/<token>?company=<slug>` con su company pre-seleccionada (ya soporta el query param).
+- **Default form template** cuando un GP crea su primera form: cadencia monthly, todas las companies como recipients, los 5 universal metric fields pre-llenados.
+- **Reminder offsets default**: hoy es `[7, 2]` que asume quarterly. Para monthly debería ser `[3, 1]` (más corto entre reminders).
+
 ---
 
 ## Fase G — Settings avanzado (2 días)
