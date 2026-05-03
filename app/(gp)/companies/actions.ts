@@ -23,6 +23,8 @@ export type CompanyInput = {
   investedUsd: number;
   ownershipPct: number;
   founder: { name: string | null; email: string | null; role: string | null };
+  /** L.5d — additional founder emails. Replaces founder_email when present. */
+  founderEmails?: string[];
   // L.6 — investment terms + links
   investmentInstrument: Instrument | null;
   safeCapUsd: number | null;
@@ -81,7 +83,15 @@ export async function updateCompany(slug: string, input: CompanyInput): Promise<
     .maybeSingle();
   if (!existing) return { ok: false, error: "Company not found" };
 
-  const { error } = await supabase
+  // L.5d — sanitize the multi-email array.
+  const cleanFounderEmails = (input.founderEmails ?? [])
+    .map((e) => e.trim())
+    .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  // Keep founder_email in sync as the primary contact (first in the list,
+  // else the legacy single field).
+  const primaryEmail = cleanFounderEmails[0] ?? input.founder.email ?? null;
+
+  const { error } = await (supabase as any)
     .from("companies")
     .update({
       name: input.name.trim(),
@@ -94,7 +104,8 @@ export async function updateCompany(slug: string, input: CompanyInput): Promise<
       invested_usd: Math.round(input.investedUsd),
       ownership_pct: input.ownershipPct,
       founder_name: input.founder.name,
-      founder_email: input.founder.email,
+      founder_email: primaryEmail,
+      founder_emails: cleanFounderEmails,
       founder_role: input.founder.role,
       investment_instrument: input.investmentInstrument,
       safe_cap_usd: input.safeCapUsd,
@@ -133,7 +144,12 @@ export async function createCompany(input: CompanyInput): Promise<CompanyResult>
     finalSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
   }
 
-  const { error } = await supabase.from("companies").insert({
+  const cleanFounderEmails = (input.founderEmails ?? [])
+    .map((e) => e.trim())
+    .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  const primaryEmail = cleanFounderEmails[0] ?? input.founder.email ?? null;
+
+  const { error } = await (supabase as any).from("companies").insert({
     organization_id: organizationId,
     slug: finalSlug,
     name: input.name.trim(),
@@ -146,7 +162,8 @@ export async function createCompany(input: CompanyInput): Promise<CompanyResult>
     invested_usd: Math.round(input.investedUsd),
     ownership_pct: input.ownershipPct,
     founder_name: input.founder.name,
-    founder_email: input.founder.email,
+    founder_email: primaryEmail,
+    founder_emails: cleanFounderEmails,
     founder_role: input.founder.role,
     investment_instrument: input.investmentInstrument,
     safe_cap_usd: input.safeCapUsd,

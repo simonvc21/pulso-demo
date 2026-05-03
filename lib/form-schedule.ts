@@ -29,15 +29,24 @@ export interface FormReminder {
   body: string | null;
 }
 
-/** L.5b — Recipient with optional per-row founder email override. */
+/** L.5b — Recipient with optional per-row founder email override.
+ *  L.5d — Now supports multiple emails per recipient AND multiple defaults per company. */
 export interface FormRecipient {
   companyId: string;
   companySlug: string;
   companyName: string;
+  /** Legacy single primary email on the company. Kept for back-compat. */
   founderEmailDefault: string | null;
+  /** L.5d — full list of default emails on the company. */
+  founderEmailDefaults: string[];
+  /** Legacy single override on the recipient. */
   founderEmailOverride: string | null;
-  /** Effective email used at send time. Override wins when present. */
+  /** L.5d — per-recipient email list. When non-empty, fully replaces the company defaults. */
+  founderEmails: string[];
+  /** First effective email (back-compat). */
   effectiveEmail: string | null;
+  /** Full effective email list at send time. */
+  effectiveEmails: string[];
 }
 
 /** Substitute {var} placeholders. Unknown placeholders are left as-is so the

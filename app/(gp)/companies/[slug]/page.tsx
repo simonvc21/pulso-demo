@@ -9,7 +9,7 @@ import { CompanyHistoryChart } from "@/components/company-history-chart";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { getCompanyBySlug, getCompanyCustomMetrics, getCompanyUpdates, getNewsletterUpdates, type DashboardMetric, type CustomMetricSeries, type CustomMetricType } from "@/lib/dashboard-data";
 import { UpdatesFeed } from "./updates-feed";
-import { CommentsThread, ReactionsBar } from "@/components/lp-engagement";
+import { CommentsThread } from "@/components/lp-engagement";
 import { getCompanyComments, getCompanyReactions } from "@/lib/lp-engagement";
 import { ActiveFormWidget } from "./active-form-widget";
 import { SectionTabs } from "./section-tabs";
@@ -53,7 +53,7 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
     .maybeSingle();
   const customMetrics = companyRow ? await getCompanyCustomMetrics(companyRow.id) : [];
   const teamUpdates = companyRow ? await getCompanyUpdates(companyRow.id, 50) : [];
-  const [comments, reactions, activeForm, fillTokens] = companyRow
+  const [comments, , activeForm, fillTokens] = companyRow
     ? await Promise.all([
         getCompanyComments(companyRow.id),
         getCompanyReactions(companyRow.id),
@@ -84,11 +84,10 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
   }
   const canModerate = ["gp", "managing_partner", "partner"].includes(currentUserRole ?? "");
 
-  const last = company.metrics[company.metrics.length - 1];
+  // L.5d — graceful empty state instead of 404 when no metrics yet.
+  const last = company.metrics[company.metrics.length - 1] ?? { arr: 0, burn: 0, cash: 0, headcount: 0, revenue: 0, quarter: "" };
   const prev = company.metrics[company.metrics.length - 2];
   const yoy = company.metrics[company.metrics.length - 5] || company.metrics[0];
-
-  if (!last) return notFound();
 
   const arrMoM = prev && prev.arr > 0 ? ((last.arr - prev.arr) / prev.arr) * 100 : 0;
   const arrYoY = yoy && yoy.arr > 0 ? ((last.arr - yoy.arr) / yoy.arr) * 100 : 0;
@@ -209,12 +208,8 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
                   </a>
                 )}
               </div>
-              {/* L.22 — reactions bar under the badges */}
-              {companyRow && (
-                <div className="mt-3">
-                  <ReactionsBar companyId={companyRow.id} initial={reactions} />
-                </div>
-              )}
+              {/* L.5d — Reactions bar removed from GP-side detail per pilot
+                  feedback. LP-side keeps it as a low-friction signaling channel. */}
             </div>
             <div className="text-right">
               <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">{ts("companies.founder")}</div>

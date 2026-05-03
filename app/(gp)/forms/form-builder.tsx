@@ -283,17 +283,19 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
               <Calendar className="h-3 w-3 text-muted" /> Schedule, recipients & reminders
             </div>
             <p className="text-[11px] text-muted mt-1 leading-snug">
-              Pick the exact day-of-month, configure recipients (one founder email
-              per company), and customize each reminder's copy on the
-              <strong className="text-ink"> form detail page</strong> after you save.
+              {mode === "create" ? (
+                <>Save this form first, then configure the day-of-month, recipients, and per-reminder copy on the next screen.</>
+              ) : (
+                <>Pick the exact day-of-month, configure recipients (one or more emails per company), and customize each reminder's copy below.</>
+              )}
             </p>
             {mode === "edit" && slug && (
-              <Link
-                href={`/forms/${slug}/edit`}
+              <a
+                href={`/forms/${slug}/edit#schedule`}
                 className="mt-2 inline-flex items-center gap-1 text-[11px] text-teal-600 hover:underline"
               >
-                Open schedule editor →
-              </Link>
+                Jump to schedule editor ↓
+              </a>
             )}
           </div>
 

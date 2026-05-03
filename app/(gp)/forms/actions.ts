@@ -113,7 +113,9 @@ export async function createForm(input: FormInput): Promise<FormResult> {
   }
 
   revalidatePath("/forms");
-  redirect(`/forms/${finalSlug}`);
+  // L.5d — land on the edit page so the GP can configure schedule, recipients,
+  // and reminders right after creating the form.
+  redirect(`/forms/${finalSlug}/edit?from=create`);
 }
 
 export async function updateForm(slug: string, input: FormInput): Promise<FormResult> {
@@ -348,7 +350,10 @@ export async function upsertFormSchedule(input: ScheduleInput): Promise<Schedule
 
 export type RecipientInput = {
   companyId: string;
+  /** Legacy single override. Will be migrated to the array. */
   founderEmailOverride?: string | null;
+  /** L.5d — multiple emails per recipient. Empty = inherit from company. */
+  founderEmails?: string[];
 };
 
 export type SetRecipientsResult = { ok: true; count: number } | { ok: false; error: string };
@@ -377,14 +382,29 @@ export async function setFormRecipients(input: {
     .eq("organization_id", ctx.organizationId);
   const validIds = new Set((validCompanies ?? []).map((c) => c.id));
 
+  const isValidEmail = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
   const rows = input.recipients
     .filter((r) => validIds.has(r.companyId))
     .map((r) => {
-      const trimmed = r.founderEmailOverride?.trim() || null;
-      const ok = !trimmed || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed);
-      return ok ? { form_id: form.id, company_id: r.companyId, founder_email_override: trimmed } : null;
-    })
-    .filter(Boolean) as { form_id: string; company_id: string; founder_email_override: string | null }[];
+      // Build the emails array from either the explicit list or the legacy single override.
+      const list = (r.founderEmails ?? [])
+        .map((e) => e.trim())
+        .filter(Boolean)
+        .filter(isValidEmail);
+      const single = r.founderEmailOverride?.trim() || null;
+      const singleOk = single && isValidEmail(single) ? single : null;
+      const finalList = list.length > 0
+        ? Array.from(new Set(list))
+        : (singleOk ? [singleOk] : []);
+      return {
+        form_id: form.id,
+        company_id: r.companyId,
+        // Keep founder_email_override populated with the first email so the
+        // legacy column stays useful.
+        founder_email_override: finalList[0] ?? null,
+        founder_emails: finalList,
+      };
+    });
 
   await (ctx.supabase as any).from("form_recipients").delete().eq("form_id", form.id);
   if (rows.length > 0) {

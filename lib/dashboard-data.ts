@@ -293,6 +293,8 @@ export interface CompanyDetail extends CompanyListItem {
   ownership: number;
   flag: string | null;
   founder: { name: string; email: string; role: string };
+  /** L.5d — additional founder emails. Empty when only founder.email is set. */
+  founderEmails: string[];
   investmentInstrument: InvestmentInstrument | null;
   safeCapUsd: number | null;
   safeDiscountPct: number | null;
@@ -307,7 +309,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, archived_at, " +
+      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_emails, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, archived_at, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month, period_kind)"
     )
     .eq("slug", slug)
@@ -333,6 +335,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
       email: c.founder_email ?? "",
       role: c.founder_role ?? "",
     },
+    founderEmails: ((c.founder_emails ?? []) as string[]).filter(Boolean),
     investmentInstrument: c.investment_instrument ?? null,
     safeCapUsd: c.safe_cap_usd != null ? Number(c.safe_cap_usd) : null,
     safeDiscountPct: c.safe_discount_pct != null ? Number(c.safe_discount_pct) : null,
@@ -1171,20 +1174,30 @@ export async function getFormRecipientsWithEmails(formId: string): Promise<impor
   const supabase = createClient();
   const { data } = await (supabase as any)
     .from("form_recipients")
-    .select("company_id, founder_email_override, companies(slug, name, founder_email)")
+    .select("company_id, founder_email_override, founder_emails, companies(slug, name, founder_email, founder_emails)")
     .eq("form_id", formId);
   return ((data ?? []) as any[])
     .map((r) => {
       const c = r.companies ?? {};
-      const def = c.founder_email ?? null;
-      const ov = r.founder_email_override ?? null;
+      const compDefaults: string[] = (c.founder_emails ?? []).filter(Boolean);
+      const fallback = c.founder_email ? [c.founder_email] : [];
+      const defList = compDefaults.length > 0 ? compDefaults : fallback;
+      const recipList: string[] = (r.founder_emails ?? []).filter(Boolean);
+      // Effective list: per-recipient override list wins; else fall back to
+      // the company's founder list; else legacy single override; else company.founder_email.
+      const effective = recipList.length > 0
+        ? recipList
+        : (r.founder_email_override ? [r.founder_email_override] : defList);
       return {
         companyId: r.company_id,
         companySlug: c.slug ?? "",
         companyName: c.name ?? "",
-        founderEmailDefault: def,
-        founderEmailOverride: ov,
-        effectiveEmail: ov || def || null,
+        founderEmailDefault: c.founder_email ?? null,
+        founderEmailDefaults: defList,
+        founderEmailOverride: r.founder_email_override ?? null,
+        founderEmails: recipList,
+        effectiveEmail: effective[0] ?? null,
+        effectiveEmails: effective,
       };
     })
     .sort((a, b) => a.companyName.localeCompare(b.companyName));

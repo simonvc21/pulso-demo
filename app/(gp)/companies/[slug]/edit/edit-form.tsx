@@ -137,8 +137,21 @@ export function CompanyEditForm({ slug, initial }: Props) {
       <Section title="Founder">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Input label="Name" value={v.founder.name ?? ""} onChange={(s) => updateFounder("name", s || null)} />
-          <Input label="Email" type="email" value={v.founder.email ?? ""} onChange={(s) => updateFounder("email", s || null)} />
+          <Input label="Primary email" type="email" value={v.founder.email ?? ""} onChange={(s) => updateFounder("email", s || null)} />
           <Input label="Role" value={v.founder.role ?? ""} onChange={(s) => updateFounder("role", s || null)} placeholder="CEO" />
+        </div>
+        <div className="mt-3">
+          <label className="block text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">
+            Additional emails (CFO, COO, anyone else who should receive forms)
+          </label>
+          <CompanyEmailChips
+            emails={v.founderEmails ?? []}
+            onChange={(next) => setV((prev) => ({ ...prev, founderEmails: next }))}
+            primaryEmail={v.founder.email}
+          />
+          <p className="text-[10px] text-muted mt-1">
+            All emails listed here become the default audience for forms sent to this company. The primary email is added automatically.
+          </p>
         </div>
       </Section>
 
@@ -262,5 +275,74 @@ function Textarea({
         className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
       />
     </label>
+  );
+}
+
+// L.5d — multi-email chip editor for the founder emails on a company.
+function CompanyEmailChips({
+  emails, onChange, primaryEmail,
+}: {
+  emails: string[];
+  onChange: (next: string[]) => void;
+  primaryEmail: string | null;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const commit = () => {
+    const v = draft.trim();
+    if (!v) return;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return;
+    if (emails.includes(v)) { setDraft(""); return; }
+    onChange([...emails, v]);
+    setDraft("");
+  };
+
+  const remove = (e: string) => onChange(emails.filter((x) => x !== e));
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 px-2 py-2 rounded-md border border-line bg-white">
+      {primaryEmail && (
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-paper2 border border-line text-[12px] text-muted"
+          title="Primary email — edit it in the field above"
+        >
+          {primaryEmail} (primary)
+        </span>
+      )}
+      {emails.map((e) => (
+        <span
+          key={e}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-50 border border-teal/30 text-[12px] text-teal-600"
+        >
+          {e}
+          <button
+            type="button"
+            onClick={() => remove(e)}
+            className="hover:text-coral"
+            aria-label={`Remove ${e}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        type="email"
+        value={draft}
+        onChange={(ev) => setDraft(ev.target.value)}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter" || ev.key === ",") {
+            ev.preventDefault();
+            commit();
+          }
+          if (ev.key === "Backspace" && draft === "" && emails.length > 0) {
+            ev.preventDefault();
+            remove(emails[emails.length - 1]);
+          }
+        }}
+        onBlur={commit}
+        placeholder="cfo@company.com"
+        className="h-7 px-2 rounded-md border border-line text-[12px] flex-1 min-w-[180px] focus:outline-none focus:ring-2 focus:ring-teal/30"
+      />
+    </div>
   );
 }

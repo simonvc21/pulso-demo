@@ -59,10 +59,11 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
     currentUserId = profile?.id ?? null;
   }
 
-  const last = company.metrics[company.metrics.length - 1];
+  // L.5d — don't 404 when a company has no metrics yet. Render the page with
+  // empty stats so LPs can still see the team / sector / description.
+  const last = company.metrics[company.metrics.length - 1] ?? { arr: 0, burn: 0, cash: 0, headcount: 0, revenue: 0, quarter: "" };
   const prev = company.metrics[company.metrics.length - 2];
   const yoy = company.metrics[company.metrics.length - 5] || company.metrics[0];
-  if (!last) notFound();
 
   const arrMoM = prev && prev.arr > 0 ? ((last.arr - prev.arr) / prev.arr) * 100 : 0;
   const arrYoY = yoy && yoy.arr > 0 ? ((last.arr - yoy.arr) / yoy.arr) * 100 : 0;

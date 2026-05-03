@@ -33,7 +33,7 @@ interface Props {
   /** L.5b — recipient list with per-row email override. */
   initialRecipients?: FormRecipient[];
   /** L.5b — every company in the org so the GP can add new recipients. */
-  allCompanies?: { id: string; slug: string; name: string; founderEmail: string | null }[];
+  allCompanies?: { id: string; slug: string; name: string; founderEmail: string | null; founderEmails: string[] }[];
 }
 
 const CADENCE_OPTIONS: { value: ScheduleCadence; label: string; hint: string }[] = [
@@ -172,7 +172,7 @@ export function ScheduleEditor({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-line shadow-card p-5">
+    <div id="schedule" className="bg-white rounded-xl border border-line shadow-card p-5 scroll-mt-24">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
           <h3 className="text-[10px] tracking-[0.16em] uppercase text-muted font-semibold inline-flex items-center gap-1.5">
@@ -506,8 +506,8 @@ function ReminderRow({
 // L.5b — RecipientsEditor: per-company picker with founder email override.
 // ---------------------------------------------------------------------------
 
-type AllCompany = { id: string; slug: string; name: string; founderEmail: string | null };
-type DraftRecipient = { companyId: string; founderEmailOverride: string | null };
+type AllCompany = { id: string; slug: string; name: string; founderEmail: string | null; founderEmails: string[] };
+type DraftRecipient = { companyId: string; founderEmails: string[] };
 
 function RecipientsEditor({
   formSlug, allCompanies, initial,
@@ -517,7 +517,10 @@ function RecipientsEditor({
   initial: FormRecipient[];
 }) {
   const [recipients, setRecipients] = useState<DraftRecipient[]>(
-    initial.map((r) => ({ companyId: r.companyId, founderEmailOverride: r.founderEmailOverride }))
+    initial.map((r) => ({
+      companyId: r.companyId,
+      founderEmails: r.founderEmails && r.founderEmails.length > 0 ? r.founderEmails : [],
+    }))
   );
   const [pending, startTransition] = useTransition();
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -528,21 +531,37 @@ function RecipientsEditor({
   const available = allCompanies.filter((c) => !recipientIds.has(c.id));
 
   function add(id: string) {
-    setRecipients((prev) => [...prev, { companyId: id, founderEmailOverride: null }]);
+    setRecipients((prev) => [...prev, { companyId: id, founderEmails: [] }]);
   }
   function remove(id: string) {
     setRecipients((prev) => prev.filter((r) => r.companyId !== id));
   }
-  function setOverride(id: string, value: string) {
+  function addEmail(id: string, email: string) {
+    const trimmed = email.trim();
+    if (!trimmed) return;
     setRecipients((prev) =>
-      prev.map((r) => (r.companyId === id ? { ...r, founderEmailOverride: value || null } : r))
+      prev.map((r) => {
+        if (r.companyId !== id) return r;
+        if (r.founderEmails.includes(trimmed)) return r;
+        return { ...r, founderEmails: [...r.founderEmails, trimmed] };
+      })
+    );
+  }
+  function removeEmail(id: string, email: string) {
+    setRecipients((prev) =>
+      prev.map((r) =>
+        r.companyId === id ? { ...r, founderEmails: r.founderEmails.filter((e) => e !== email) } : r
+      )
     );
   }
 
   function save() {
     setError(null);
     startTransition(async () => {
-      const res = await setFormRecipients({ formSlug, recipients });
+      const res = await setFormRecipients({
+        formSlug,
+        recipients: recipients.map((r) => ({ companyId: r.companyId, founderEmails: r.founderEmails })),
+      });
       if (!res.ok) { setError(res.error); return; }
       setSavedAt(Date.now());
     });
@@ -556,7 +575,7 @@ function RecipientsEditor({
             <Users className="h-3 w-3" /> Recipients
           </h3>
           <p className="text-[11px] text-muted mt-0.5">
-            One founder email per company. Leave override empty to use the company's stored founder email.
+            Add one or more founder emails per company. Leave the list empty to inherit from the company's default emails.
           </p>
         </div>
         <Button variant="gold" size="sm" className="gap-1.5" onClick={save} disabled={pending}>
@@ -567,37 +586,50 @@ function RecipientsEditor({
 
       {recipients.length === 0 ? (
         <div className="rounded-md border border-dashed border-line bg-paper2/30 p-4 text-center text-[12px] text-muted">
-          No recipients yet. Add a company below to start sending this form to its founder.
+          No recipients yet. Add a company below to start sending this form to its founders.
         </div>
       ) : (
         <ul className="rounded-md border border-line divide-y divide-line bg-white">
           {recipients.map((r) => {
             const c = byId.get(r.companyId);
             if (!c) return null;
-            const effective = r.founderEmailOverride || c.founderEmail || "";
+            const defaults = c.founderEmails && c.founderEmails.length > 0
+              ? c.founderEmails
+              : (c.founderEmail ? [c.founderEmail] : []);
+            const effective = r.founderEmails.length > 0 ? r.founderEmails : defaults;
             return (
-              <li key={r.companyId} className="px-3 py-2 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-ink truncate">{c.name}</div>
-                  <div className="text-[10px] text-muted truncate">
-                    {c.founderEmail ? <>Default: {c.founderEmail}</> : <span className="text-coral">No founder email on file</span>}
+              <li key={r.companyId} className="px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-ink truncate">{c.name}</div>
+                    <div className="text-[10px] text-muted truncate mt-0.5">
+                      {defaults.length > 0
+                        ? <>Default {defaults.length === 1 ? "email" : "emails"}: {defaults.join(", ")}</>
+                        : <span className="text-coral">No founder emails on the company</span>}
+                    </div>
+                    <div className="mt-2">
+                      <EmailChipEditor
+                        emails={r.founderEmails}
+                        onAdd={(e) => addEmail(r.companyId, e)}
+                        onRemove={(e) => removeEmail(r.companyId, e)}
+                        placeholder={defaults[0] ?? "founder@company.com"}
+                      />
+                      <div className="text-[10px] text-muted mt-1">
+                        {r.founderEmails.length === 0
+                          ? <>Will send to {effective.length} default {effective.length === 1 ? "email" : "emails"}.</>
+                          : <>Sends to {effective.length} {effective.length === 1 ? "email" : "emails"} (override).</>}
+                      </div>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => remove(r.companyId)}
+                    className="text-muted hover:text-coral p-1 mt-0.5"
+                    aria-label="Remove recipient"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <input
-                  type="email"
-                  value={r.founderEmailOverride ?? ""}
-                  onChange={(e) => setOverride(r.companyId, e.target.value)}
-                  placeholder={c.founderEmail ?? "founder@company.com"}
-                  className="h-8 px-2 rounded-md border border-line text-[12px] w-56 focus:outline-none focus:ring-2 focus:ring-teal/30"
-                />
-                <button
-                  type="button"
-                  onClick={() => remove(r.companyId)}
-                  className="text-muted hover:text-coral p-1"
-                  aria-label="Remove recipient"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
               </li>
             );
           })}
@@ -634,6 +666,65 @@ function RecipientsEditor({
           <Check className="h-3 w-3" /> Recipients saved.
         </div>
       )}
+    </div>
+  );
+}
+
+// L.5d — small reusable email chip editor.
+function EmailChipEditor({
+  emails, onAdd, onRemove, placeholder,
+}: {
+  emails: string[];
+  onAdd: (email: string) => void;
+  onRemove: (email: string) => void;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const commit = () => {
+    const v = draft.trim();
+    if (!v) return;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return;
+    onAdd(v);
+    setDraft("");
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {emails.map((e) => (
+        <span
+          key={e}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-50 border border-teal/30 text-[12px] text-teal-600"
+        >
+          {e}
+          <button
+            type="button"
+            onClick={() => onRemove(e)}
+            className="hover:text-coral"
+            aria-label={`Remove ${e}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        type="email"
+        value={draft}
+        onChange={(ev) => setDraft(ev.target.value)}
+        onKeyDown={(ev) => {
+          if (ev.key === "Enter" || ev.key === ",") {
+            ev.preventDefault();
+            commit();
+          }
+          if (ev.key === "Backspace" && draft === "" && emails.length > 0) {
+            ev.preventDefault();
+            onRemove(emails[emails.length - 1]);
+          }
+        }}
+        onBlur={commit}
+        placeholder={placeholder}
+        className="h-7 px-2 rounded-md border border-line text-[12px] flex-1 min-w-[180px] focus:outline-none focus:ring-2 focus:ring-teal/30"
+      />
     </div>
   );
 }
