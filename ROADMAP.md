@@ -82,7 +82,7 @@ Lo que destraba que un fondo nuevo se sume sin que yo (Simon) le haga el setup m
 - RLS adicional: si role='analyst' y la company NO está en user_company_access, no la ve.
 - UI en /settings/team: por usuario analyst, checklist de companies que puede ver.
 
-**B.4 Bulk import de métricas históricas** *(parcial — CSV shipped, Excel/PDF pendiente)*
+**B.4 Bulk import de métricas históricas** *(parcial — CSV + Excel shipped, PDF pendiente)*
 Para que un fondo que ya viene operando no pierda años de data al onboardearse.
 - ✅ Botón "Import CSV" en `/data` (toolbar) y en el step Metrics del onboarding wizard.
 - ✅ Acepta upload de archivo (.csv, max 2MB) o paste directo de texto.
@@ -94,7 +94,8 @@ Para que un fondo que ya viene operando no pierda años de data al onboardearse.
 - ✅ Modal de preview: muestra rows válidos (tabla scrollable) + errores línea-a-línea + headers reconocidos vs ignorados ANTES de commitear.
 - ✅ Server action `bulkImportMetrics` resuelve company por slug O nombre (case-insensitive), upsert por `(company_id, quarter)` — re-uploadear es safe. Reporta inserted / updated / skipped + per-row errors.
 - ✅ Plantilla descargable inline (botón "Download template" con sample CSV).
-- Pendiente B.4b: parser .xlsx (puede ser local con `xlsx` o vía Gemini si el archivo es feo).
+- ✅ B.4b: parser .xlsx via SheetJS `xlsx@0.18.5` (lib/xlsx-metrics.ts). Convierte la primera sheet del workbook a CSV string en cliente y lo manda al mismo `parseMetricsCsv` — el parser sigue siendo single source of truth de validación. Soporta .xlsx, .xlsm, .xls, .xlsb, .ods. Si hay múltiples sheets, importa la primera y avisa al user. Dynamic-imported para que el bundle de `/data` y `/onboarding` no cargue ~110 kB extra hasta que el usuario realmente elige un archivo Excel.
+- Security note: xlsx@0.18.5 tiene CVEs conocidas (prototype pollution + ReDoS en formula parsing). Mitigado: pasamos `cellFormula:false` para deshabilitar el formula parser y todo el output va por el strict CSV validator antes de tocar la DB. Riesgo real ≈ 0 para nuestro uso.
 - Pendiente B.4c: PDF/screenshot via Gemini Pro multi-modal — bigger lift, separate phase.
 
 **Entregable B:** un nuevo fondo se onboardea sin Slack de soporte. GP invita a su analista que solo ve 3 de 12 companies. Sube su histórico de un Excel y queda toda la grilla poblada.

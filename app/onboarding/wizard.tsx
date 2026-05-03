@@ -607,8 +607,8 @@ function Step5Metrics({
       ) : (
         <>
           <div className="mt-4 flex items-center gap-2 flex-wrap">
-            <MetricsCsvImport buttonLabel="Upload CSV" />
-            <span className="text-[11px] text-muted">Excel / PDF parsing coming soon.</span>
+            <MetricsCsvImport buttonLabel="Upload file" />
+            <span className="text-[11px] text-muted">CSV + Excel (.xlsx) supported. PDF parsing coming soon.</span>
           </div>
 
           <div className="mt-5 space-y-3">

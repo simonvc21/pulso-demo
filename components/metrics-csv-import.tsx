@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { parseMetricsCsv, type ParsedMetricRow } from "@/lib/csv-metrics";
 import { bulkImportMetrics } from "@/app/(gp)/data/actions";
 
+const XLSX_EXTENSIONS = /\.(xlsx|xlsm|xls|xlsb|ods)$/i;
+
 type CommitResult = {
   inserted: number;
   updated: number;
@@ -64,12 +66,32 @@ function ImportModal({ onClose, onComplete }: { onClose: () => void; onComplete?
       setServerError("File is larger than 2 MB. Trim it down or split into multiple uploads.");
       return;
     }
+    const isXlsx = XLSX_EXTENSIONS.test(file.name);
     const reader = new FileReader();
-    reader.onload = () => {
-      const txt = typeof reader.result === "string" ? reader.result : "";
-      handleText(txt);
+    reader.onload = async () => {
+      try {
+        if (isXlsx) {
+          // Dynamic import keeps the ~110 kB xlsx lib out of the initial bundle.
+          // Cost: a tiny delay (one round trip) the first time a user picks an xlsx
+          // file. Worth it — most uploads are CSV.
+          const { xlsxFileToCsv } = await import("@/lib/xlsx-metrics");
+          const buf = reader.result as ArrayBuffer;
+          const { csv, sheetName, totalSheets } = xlsxFileToCsv(buf);
+          handleText(csv);
+          if (totalSheets > 1) {
+            setServerError(`Imported sheet "${sheetName}" — workbook has ${totalSheets} sheets, others were ignored.`);
+          }
+        } else {
+          const txt = typeof reader.result === "string" ? reader.result : "";
+          handleText(txt);
+        }
+      } catch (err: any) {
+        setServerError(err?.message ?? "Could not read file");
+      }
     };
-    reader.readAsText(file);
+    reader.onerror = () => setServerError("File read failed");
+    if (isXlsx) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
   };
 
   const commit = () => {
@@ -135,12 +157,12 @@ function ImportModal({ onClose, onComplete }: { onClose: () => void; onComplete?
               className="bg-paper rounded-xl border-2 border-dashed border-line hover:border-navy px-5 py-6 text-center transition-colors group"
             >
               <Upload className="h-5 w-5 mx-auto text-muted group-hover:text-navy" />
-              <div className="mt-2 text-sm font-medium text-ink">Upload .csv file</div>
-              <div className="text-[11px] text-muted mt-0.5">Max 2 MB</div>
+              <div className="mt-2 text-sm font-medium text-ink">Upload .csv or .xlsx file</div>
+              <div className="text-[11px] text-muted mt-0.5">Max 2 MB · first sheet of the workbook</div>
               <input
                 ref={fileRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,.xlsm,.xls,.xlsb,.ods,text/csv"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];

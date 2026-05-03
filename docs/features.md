@@ -58,7 +58,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
   2. **LPs** — repeatable list (name, type, commitment, country, contact email). Inserted into `lps`; matched to LP users by email at sign-in.
   3. **Team** — invite-by-email with role select; sends magic links via existing `inviteUser` action.
   4. **Portfolio companies** — table-style manual entry (name, sector, country, stage, invested, ownership, founder + email). Stub "Upload CSV / Excel / PDF" button (real parser is B.4).
-  5. **Historical metrics** — manual quarterly backfill per company × quarter (ARR / cash / burn / revenue / headcount), **plus CSV upload** (B.4): drop a `.csv`, paste it, or download the template. Tolerant headers (company_slug | company | name; quarter as "Q1 2026" / "2026-Q1" / "Q1-2026"; $/,/% stripped). Preview with row-by-row errors before commit. Upserts by `(company_id, quarter)` so re-running is safe.
+  5. **Historical metrics** — manual quarterly backfill per company × quarter (ARR / cash / burn / revenue / headcount), **plus CSV / Excel upload** (B.4): drop a `.csv` / `.xlsx`, paste raw text, or download the template. Tolerant headers (company_slug | company | name; quarter as "Q1 2026" / "2026-Q1" / "Q1-2026"; $/,/% stripped). Preview with row-by-row errors before commit. Upserts by `(company_id, quarter)` so re-running is safe. Excel parsing uses SheetJS, lazy-loaded only when an xlsx file is picked.
 - New accounts start empty: the existing `handle_new_user` trigger only assigns the Patagonia seed to `simon.villena2010@gmail.com`; everyone else lands with no org and is routed to `/onboarding`.
 
 ### AI features (Gemini)
@@ -107,7 +107,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **No emails sent yet**: Resend integration (Fase C) is in the roadmap. Magic links work because Supabase Auth handles them; product emails (form invites, reminders, "your letter is ready") don't go out.
 - **Metrics schema is fixed**: every company has the same 5 quarterly metrics (ARR / burn / cash / revenue / headcount). Custom metrics per company is L.4 in the roadmap (large change).
 - **Dashboard layout is fixed**: widgets aren't draggable/resizable/recolorable. (L.5 was shipped and reverted; column `organizations.dashboard_config_json` stays in the DB, currently null for everyone.)
-- **Bulk import partial**: CSV upload of historical metrics is shipped (B.4 — `/data` toolbar + onboarding Step 5). Excel `.xlsx` and PDF/screenshot parsing are still pending.
+- **Bulk import partial**: CSV + Excel (`.xlsx`, `.xlsm`, `.xls`, `.xlsb`, `.ods`) upload of historical metrics is shipped (B.4 — `/data` toolbar + onboarding Step 5). PDF/screenshot parsing still pending. Excel parsing via SheetJS, lazy-loaded so it doesn't bloat initial page weight; first sheet of the workbook is imported, others are ignored with a warning.
 - **No subscription billing**: free for now, no Stripe integration. Planned in L.9.
 - **No audit log**: who-did-what tracking is in Fase G (planned).
 - **i18n partial**: only sidebar / topbar / dashboard core are translated. Companies / forms / settings pages still in English.
