@@ -220,6 +220,9 @@ export type ScheduleInput = {
   anchorMonth: number | null;
   reminderOffsetsDays: number[];
   active: boolean;
+  /** L.10b — Gmail-style email template for the founder invite. */
+  emailSubject?: string | null;
+  emailBody?: string | null;
 };
 
 export type ScheduleResult = { ok: true } | { ok: false; error: string };
@@ -256,6 +259,9 @@ export async function upsertFormSchedule(input: ScheduleInput): Promise<Schedule
       .filter((n) => Number.isInteger(n) && n > 0 && n <= 90)
   )).slice(0, 5).sort((a, b) => b - a);
 
+  const subject = input.emailSubject?.trim().slice(0, 200) || null;
+  const body = input.emailBody?.trim().slice(0, 4000) || null;
+
   const { error } = await ctx.supabase
     .from("form_schedules")
     .upsert(
@@ -267,7 +273,9 @@ export async function upsertFormSchedule(input: ScheduleInput): Promise<Schedule
         reminder_offsets_days: cleanOffsets,
         next_send_at: nextSendAt,
         active: input.active,
-      },
+        email_subject: subject,
+        email_body: body,
+      } as any,
       { onConflict: "form_id" },
     );
   if (error) return { ok: false, error: error.message };

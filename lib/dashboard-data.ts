@@ -191,6 +191,8 @@ export interface CompanyListItem {
   lastUpdate: string;
   logoUrl: string | null;
   metrics: DashboardMetric[];
+  /** L.6 — investment vehicle (SAFE / Convertible / Equity / etc.). Null = unknown. */
+  investmentInstrument: Database["public"]["Enums"]["investment_instrument"] | null;
 }
 
 export async function getCompanyList(): Promise<CompanyListItem[]> {
@@ -198,7 +200,7 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, " +
+      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, investment_instrument, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)"
     )
     .order("name", { ascending: true });
@@ -214,6 +216,7 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
     description: c.description,
     lastUpdate: relativeTime(c.last_update_at),
     logoUrl: c.logo_url ?? null,
+    investmentInstrument: c.investment_instrument ?? null,
     metrics: ((c.metrics ?? []) as MetricRow[])
       .map((m) => ({
         quarter: m.quarter,
@@ -1073,6 +1076,8 @@ export async function getFormSchedule(formId: string): Promise<FormSchedule | nu
     nextSendAt: data.next_send_at,
     lastSentAt: data.last_sent_at,
     active: data.active,
+    emailSubject: (data as any).email_subject ?? null,
+    emailBody: (data as any).email_body ?? null,
   };
 }
 
@@ -1093,6 +1098,8 @@ export async function getOrgFormSchedules(): Promise<FormScheduleWithMeta[]> {
     nextSendAt: r.next_send_at,
     lastSentAt: r.last_sent_at,
     active: r.active,
+    emailSubject: r.email_subject ?? null,
+    emailBody: r.email_body ?? null,
     formName: r.forms?.name ?? "Untitled form",
     formSlug: r.forms?.slug ?? "",
   }));

@@ -14,7 +14,29 @@ export interface FormSchedule {
   nextSendAt: string | null;
   lastSentAt: string | null;
   active: boolean;
+  /** L.10b — GP-authored invite email subject. Supports {company_name} / {founder_name} / {form_name}. */
+  emailSubject: string | null;
+  /** L.10b — invite email body. Same placeholders + {form_link} (auto-injected at end if missing). */
+  emailBody: string | null;
 }
+
+/** Substitute {var} placeholders. Unknown placeholders are left as-is so the
+ *  GP can spot typos in the preview. */
+export function renderEmailTemplate(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  return template.replace(/\{(\w+)\}/g, (_, name) => (name in vars ? vars[name] : `{${name}}`));
+}
+
+export const DEFAULT_EMAIL_SUBJECT = "{form_name} — {company_name}";
+export const DEFAULT_EMAIL_BODY = `Hi {founder_name},
+
+Quick check-in for {company_name}. Please fill in the {form_name} when you have a moment.
+
+{form_link}
+
+Thanks!`;
 
 /**
  * Compute the next time a schedule should fire, given the current time.

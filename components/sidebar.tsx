@@ -55,21 +55,27 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, labels }: Sidebar
   return (
     <aside
       className={cn(
-        "no-print hidden lg:flex flex-col shrink-0 bg-navy text-white h-screen sticky top-0 transition-all duration-200",
+        "no-print hidden lg:flex flex-col shrink-0 bg-navy text-white h-screen sticky top-0 transition-all duration-200 relative",
         collapsed ? "w-16" : "w-60"
       )}
     >
       {/* Brand + collapse toggle */}
-      <div className={cn("pt-6 pb-5 flex items-center", collapsed ? "px-3 justify-center" : "px-5 gap-2.5")}>
+      <div className={cn("pt-6 pb-5 flex items-center overflow-hidden", collapsed ? "px-2 justify-center" : "px-5 gap-2.5")}>
         {logoUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={logoUrl}
             alt={fundName}
-            className="h-8 w-8 rounded-md object-contain bg-white p-0.5 shrink-0"
+            className={cn(
+              "rounded-md object-contain bg-white p-0.5 shrink-0",
+              collapsed ? "h-9 w-9" : "h-8 w-8"
+            )}
           />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-gold flex items-center justify-center shrink-0">
+          <div className={cn(
+            "rounded-full bg-gold flex items-center justify-center shrink-0",
+            collapsed ? "h-9 w-9" : "h-8 w-8"
+          )}>
             <Zap className="h-4 w-4 text-navy" strokeWidth={2.5} fill="currentColor" />
           </div>
         )}
@@ -85,11 +91,11 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, labels }: Sidebar
         )}
       </div>
 
-      {/* Collapse toggle button — sits on the right edge */}
+      {/* Collapse toggle button — sits on the right edge, halfway down the brand row */}
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
-        className="absolute -right-3 top-7 h-6 w-6 rounded-full bg-navy border border-white/20 text-white/70 hover:text-gold hover:border-gold transition-colors inline-flex items-center justify-center z-10"
+        className="absolute -right-3 top-8 h-6 w-6 rounded-full bg-navy border border-white/20 text-white/70 hover:text-gold hover:border-gold transition-colors inline-flex items-center justify-center z-50 shadow-md"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
@@ -145,7 +151,7 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, labels }: Sidebar
       )}
       {collapsed && (
         <div className="px-2 py-3 border-t border-white/10 flex flex-col items-center gap-2">
-          <ThemeToggle />
+          <ThemeToggle cycle />
         </div>
       )}
 

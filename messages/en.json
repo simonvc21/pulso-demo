@@ -99,6 +99,7 @@
     "col_company": "Company",
     "col_sector": "Sector",
     "col_stage": "Stage",
+    "col_instrument": "Instrument",
     "col_invested": "Invested",
     "col_arr": "ARR (latest)",
     "col_qoq": "QoQ",

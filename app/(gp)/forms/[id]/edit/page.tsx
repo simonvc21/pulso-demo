@@ -44,7 +44,7 @@ export default async function EditFormPage({ params }: { params: { id: string } 
         initialRecipientIds={recipientIds}
       />
       <div className="px-8 max-w-5xl pb-12">
-        <ScheduleEditor formSlug={form.slug} initial={schedule} />
+        <ScheduleEditor formSlug={form.slug} formName={form.name} initial={schedule} />
       </div>
     </div>
   );

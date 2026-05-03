@@ -160,6 +160,8 @@ export type Database = {
           anchor_month: number | null
           cadence: Database["public"]["Enums"]["form_schedule_cadence"]
           created_at: string
+          email_body: string | null
+          email_subject: string | null
           form_id: string
           id: string
           last_sent_at: string | null
@@ -173,6 +175,8 @@ export type Database = {
           anchor_month?: number | null
           cadence?: Database["public"]["Enums"]["form_schedule_cadence"]
           created_at?: string
+          email_body?: string | null
+          email_subject?: string | null
           form_id: string
           id?: string
           last_sent_at?: string | null
@@ -186,6 +190,8 @@ export type Database = {
           anchor_month?: number | null
           cadence?: Database["public"]["Enums"]["form_schedule_cadence"]
           created_at?: string
+          email_body?: string | null
+          email_subject?: string | null
           form_id?: string
           id?: string
           last_sent_at?: string | null

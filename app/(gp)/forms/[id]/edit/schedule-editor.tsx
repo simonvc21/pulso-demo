@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Calendar, Loader2, Check, AlertCircle, Pause, Play, Plus, X } from "lucide-react";
+import { Calendar, Loader2, Check, AlertCircle, Pause, Play, Plus, X, Mail, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -11,12 +11,16 @@ import {
 } from "../../actions";
 import {
   computeNextSendAt,
+  renderEmailTemplate,
+  DEFAULT_EMAIL_SUBJECT,
+  DEFAULT_EMAIL_BODY,
   type ScheduleCadence,
   type FormSchedule,
 } from "@/lib/form-schedule";
 
 interface Props {
   formSlug: string;
+  formName: string;
   initial: FormSchedule | null;
 }
 
@@ -43,7 +47,7 @@ function formatDate(iso: string): string {
   });
 }
 
-export function ScheduleEditor({ formSlug, initial }: Props) {
+export function ScheduleEditor({ formSlug, formName, initial }: Props) {
   const [cadence, setCadence] = useState<ScheduleCadence>(initial?.cadence ?? "quarterly");
   const [sendDayOfMonth, setSendDayOfMonth] = useState<number>(initial?.sendDayOfMonth ?? 15);
   const [anchorMonth, setAnchorMonth] = useState<number>(initial?.anchorMonth ?? 1);
@@ -51,6 +55,8 @@ export function ScheduleEditor({ formSlug, initial }: Props) {
     initial?.reminderOffsetsDays ?? [7, 2]
   );
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
+  const [emailSubject, setEmailSubject] = useState<string>(initial?.emailSubject ?? DEFAULT_EMAIL_SUBJECT);
+  const [emailBody, setEmailBody] = useState<string>(initial?.emailBody ?? DEFAULT_EMAIL_BODY);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -77,11 +83,35 @@ export function ScheduleEditor({ formSlug, initial }: Props) {
         anchorMonth: showMonth ? anchorMonth : null,
         reminderOffsetsDays: reminderOffsets,
         active,
+        emailSubject,
+        emailBody,
       });
       if (!res.ok) { setError(res.error); return; }
       setSavedAt(Date.now());
     });
   }
+
+  function resetEmailTemplate() {
+    setEmailSubject(DEFAULT_EMAIL_SUBJECT);
+    setEmailBody(DEFAULT_EMAIL_BODY);
+  }
+
+  // Live preview vars — sample values for the GP to see what founders will get.
+  const previewVars = {
+    company_name: "Acme",
+    founder_name: "Diego Mendoza",
+    form_name: formName,
+    form_link: typeof window !== "undefined"
+      ? `${window.location.origin}/fill/${formSlug}?company=acme`
+      : `https://pulso-demo-three.vercel.app/fill/${formSlug}?company=acme`,
+  };
+  // Auto-append {form_link} if the body doesn't include it (so founders always
+  // get a link).
+  const bodyWithLink = emailBody.includes("{form_link}")
+    ? emailBody
+    : `${emailBody.trimEnd()}\n\n{form_link}`;
+  const previewSubject = renderEmailTemplate(emailSubject, previewVars);
+  const previewBody = renderEmailTemplate(bodyWithLink, previewVars);
 
   function pause() {
     setError(null);
@@ -232,6 +262,63 @@ export function ScheduleEditor({ formSlug, initial }: Props) {
           )}
         </div>
       )}
+
+      {/* Email template — Gmail-style subject + body with placeholders */}
+      <div className="border-t border-line pt-4 mb-4">
+        <div className="flex items-baseline justify-between gap-3 mb-2">
+          <div>
+            <span className="text-[10px] font-semibold text-ink tracking-[0.14em] uppercase inline-flex items-center gap-1.5">
+              <Mail className="h-3 w-3" /> Email to founder
+            </span>
+            <p className="text-[11px] text-muted mt-0.5">
+              Use <code className="bg-paper2 px-1 rounded">{"{company_name}"}</code>, <code className="bg-paper2 px-1 rounded">{"{founder_name}"}</code>, <code className="bg-paper2 px-1 rounded">{"{form_name}"}</code>, <code className="bg-paper2 px-1 rounded">{"{form_link}"}</code>. Pulso fills them per recipient. The form link is auto-added if you forget it.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={resetEmailTemplate}
+            className="text-[11px] text-muted hover:text-navy inline-flex items-center gap-1 shrink-0"
+          >
+            <RotateCcw className="h-3 w-3" /> Reset
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Subject</label>
+            <input
+              value={emailSubject}
+              onChange={(e) => setEmailSubject(e.target.value)}
+              maxLength={200}
+              className="w-full h-10 px-3 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+            />
+            <label className="block text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-1 mt-3">Body</label>
+            <textarea
+              value={emailBody}
+              onChange={(e) => setEmailBody(e.target.value)}
+              rows={8}
+              maxLength={4000}
+              className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 resize-none font-mono"
+            />
+            <div className="text-[10px] text-muted mt-0.5 text-right">{emailBody.length} / 4000</div>
+          </div>
+
+          {/* Live preview — what the founder actually sees */}
+          <div className="rounded-lg border border-line bg-paper2/40 p-3 text-[12px]">
+            <div className="text-[10px] tracking-[0.14em] uppercase text-muted font-semibold mb-1">Preview (sample values)</div>
+            <div className="bg-white rounded-md border border-line p-3">
+              <div className="text-[10px] text-muted">Subject</div>
+              <div className="text-sm font-semibold text-ink mb-2">{previewSubject}</div>
+              <div className="border-t border-line pt-2">
+                <pre className="text-[12px] text-ink whitespace-pre-wrap leading-relaxed font-sans">{previewBody}</pre>
+              </div>
+            </div>
+            <div className="text-[10px] text-muted mt-2">
+              Sample uses <strong>Acme</strong> / <strong>Diego Mendoza</strong>. Real sends use each recipient's data.
+            </div>
+          </div>
+        </div>
+      </div>
 
       {error && (
         <div className="rounded-md border border-coral/30 bg-coral/10 text-coral px-3 py-1.5 text-[11px] mb-3 flex items-center gap-1.5">

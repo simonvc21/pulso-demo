@@ -99,6 +99,7 @@
     "col_company": "Empresa",
     "col_sector": "Sector",
     "col_stage": "Etapa",
+    "col_instrument": "Instrumento",
     "col_invested": "Invertido",
     "col_arr": "ARR (último)",
     "col_qoq": "QoQ",

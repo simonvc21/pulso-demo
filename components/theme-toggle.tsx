@@ -5,8 +5,15 @@ import { useTheme } from "next-themes";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function ThemeToggle({ compact = false }: { compact?: boolean }) {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+interface Props {
+  compact?: boolean;
+  /** When true, renders as a single button that cycles through themes
+   *  (used by the collapsed sidebar where horizontal space is tight). */
+  cycle?: boolean;
+}
+
+export function ThemeToggle({ compact = false, cycle = false }: Props) {
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -16,7 +23,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
       <div
         className={cn(
           "rounded-lg border border-white/10 bg-white/5",
-          compact ? "h-8 w-24" : "h-9 w-full"
+          cycle ? "h-7 w-7" : compact ? "h-8 w-24" : "h-9 w-full"
         )}
       />
     );
@@ -29,6 +36,24 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   ];
 
   const current = (theme as "light" | "dark" | "system" | undefined) ?? "system";
+
+  if (cycle) {
+    const idx = options.findIndex((o) => o.value === current);
+    const cur = options[idx >= 0 ? idx : 2];
+    const next = options[(idx + 1) % options.length];
+    const Icon = cur.icon;
+    return (
+      <button
+        type="button"
+        onClick={() => setTheme(next.value)}
+        title={`Theme: ${cur.label} (click for ${next.label})`}
+        aria-label={`Theme: ${cur.label} (click to cycle)`}
+        className="h-7 w-7 rounded-md flex items-center justify-center bg-white/5 border border-white/10 text-white/70 hover:text-gold hover:border-gold/40 transition-colors"
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </button>
+    );
+  }
 
   return (
     <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-white/5 border border-white/10">

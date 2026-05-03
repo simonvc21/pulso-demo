@@ -11,6 +11,16 @@ const countryFlag: Record<string, string> = {
   MX: "🇲🇽", BR: "🇧🇷", CO: "🇨🇴", CL: "🇨🇱", AR: "🇦🇷", PE: "🇵🇪",
 };
 
+const instrumentLabel: Record<string, string> = {
+  safe: "SAFE",
+  convertible_note: "Conv. Note",
+  equity: "Equity",
+  saft: "SAFT",
+  warrant: "Warrant",
+  loan: "Loan",
+  other: "Other",
+};
+
 export default async function LpCompaniesListPage() {
   const [companies, fund] = await Promise.all([getCompanyList(), getFund()]);
   const fundName = fund?.name ?? "Your fund";
@@ -35,6 +45,7 @@ export default async function LpCompaniesListPage() {
               <th className="text-left font-semibold px-5 py-3">{ts("companies.col_company")}</th>
               <th className="text-left font-semibold px-3 py-3 hidden md:table-cell">{ts("companies.col_sector")}</th>
               <th className="text-left font-semibold px-3 py-3 hidden md:table-cell">{ts("companies.col_stage")}</th>
+              <th className="text-left font-semibold px-3 py-3 hidden lg:table-cell">{ts("companies.col_instrument")}</th>
               <th className="text-right font-semibold px-3 py-3 hidden sm:table-cell">ARR</th>
               <th className="text-right font-semibold px-3 py-3 hidden sm:table-cell">{ts("companies.col_qoq")}</th>
               <th className="text-left font-semibold px-3 py-3">{ts("companies.col_status")}</th>
@@ -77,6 +88,13 @@ export default async function LpCompaniesListPage() {
                   </td>
                   <td className="px-3 py-3 text-xs text-ink hidden md:table-cell">{c.sector ? <Badge>{c.sector}</Badge> : null}</td>
                   <td className="px-3 py-3 text-xs text-ink hidden md:table-cell">{c.stage}</td>
+                  <td className="px-3 py-3 text-xs hidden lg:table-cell">
+                    {c.investmentInstrument ? (
+                      <Badge tone="gold">{instrumentLabel[c.investmentInstrument] ?? c.investmentInstrument}</Badge>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-3 text-sm font-semibold text-ink text-right tabular-nums hidden sm:table-cell">{fmtUSD(lastArr, { compact: true })}</td>
                   <td className={`px-3 py-3 text-xs font-medium text-right tabular-nums hidden sm:table-cell ${qoq >= 0 ? "text-teal-600" : "text-coral"}`}>{prevArr > 0 ? fmtPct(qoq, 1) : "—"}</td>
                   <td className="px-3 py-3"><StatusBadge status={c.status} /></td>
