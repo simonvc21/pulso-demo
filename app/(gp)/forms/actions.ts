@@ -174,7 +174,8 @@ export async function sendFormNow(slug: string): Promise<FormResult> {
   const { count } = await supabase
     .from("companies")
     .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId);
+    .eq("organization_id", organizationId)
+    .is("archived_at", null);
 
   const { error } = await supabase
     .from("forms")

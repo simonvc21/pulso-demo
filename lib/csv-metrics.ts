@@ -132,7 +132,127 @@ function normalizeQuarter(raw: string): string | null {
   return null;
 }
 
+// Airtable-style wide format: one row per company, columns are
+// "<metric> <period>" or "<period> <metric>" pairs.
+// We detect this by scanning headers for tokens that contain BOTH a metric
+// keyword AND a period token, then unpivot to long format so the rest of the
+// pipeline keeps working.
+const METRIC_TOKEN_PATTERNS: Array<{ keys: RegExp; canonical: "arr" | "burn" | "cash" | "revenue" | "headcount" }> = [
+  { keys: /\b(arr)\b/i, canonical: "arr" },
+  { keys: /\b(burn|monthly[_\s-]?burn)\b/i, canonical: "burn" },
+  { keys: /\b(cash)\b/i, canonical: "cash" },
+  { keys: /\b(revenue|rev)\b/i, canonical: "revenue" },
+  { keys: /\b(headcount|fte|employees|team[_\s-]?size)\b/i, canonical: "headcount" },
+];
+
+const MONTH_NAMES_RE = /(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)/i;
+
+function extractPeriodFromHeader(h: string): string | null {
+  // "Jan 2024" / "January 2024" / "Jan-24" / "Jan/24"
+  const m1 = MONTH_NAMES_RE.exec(h);
+  if (m1) {
+    const yMatch = /(20\d{2})/.exec(h) ?? /[-/](\d{2})\b/.exec(h);
+    if (yMatch) {
+      const y = yMatch[1].length === 2 ? `20${yMatch[1]}` : yMatch[1];
+      const norm = normalizeQuarter(`${m1[1]} ${y}`);
+      return norm;
+    }
+  }
+  // "2024-01" / "2024/01" / "2024-Q1"
+  const m2 = /^(?:.*?\D)?(20\d{2})[-/](\d{1,2}|Q[1-4])(?:\D.*)?$/i.exec(h);
+  if (m2) return normalizeQuarter(`${m2[1]}-${m2[2]}`);
+  // "Q1 2024"
+  const m3 = /Q[1-4]\s*20\d{2}|20\d{2}\s*Q[1-4]/i.exec(h);
+  if (m3) return normalizeQuarter(m3[0]);
+  return null;
+}
+
+function extractMetricFromHeader(h: string): "arr" | "burn" | "cash" | "revenue" | "headcount" | null {
+  for (const pat of METRIC_TOKEN_PATTERNS) {
+    if (pat.keys.test(h)) return pat.canonical;
+  }
+  return null;
+}
+
+interface WideDetection {
+  isWide: boolean;
+  // For each wide column: { idx, metric, period }. Other columns are pass-through.
+  wideCols: Array<{ idx: number; metric: ReturnType<typeof extractMetricFromHeader>; period: string | null }>;
+  passthroughIdx: number[];
+}
+
+function detectWide(rawHeaders: string[]): WideDetection {
+  const wideCols: WideDetection["wideCols"] = [];
+  const passthroughIdx: number[] = [];
+  for (let i = 0; i < rawHeaders.length; i++) {
+    const h = rawHeaders[i];
+    const period = extractPeriodFromHeader(h);
+    const metric = extractMetricFromHeader(h);
+    if (period && metric) {
+      wideCols.push({ idx: i, metric, period });
+    } else {
+      passthroughIdx.push(i);
+    }
+  }
+  // Heuristic: at least 3 wide columns spanning ≥2 distinct periods is "wide".
+  const distinctPeriods = new Set(wideCols.map((c) => c.period));
+  const isWide = wideCols.length >= 3 && distinctPeriods.size >= 2;
+  return { isWide, wideCols, passthroughIdx };
+}
+
+/** Convert a wide-format CSV (Airtable-style) into a long-format CSV that the
+ *  existing parser can consume. Returns null if the input doesn't look wide. */
+export function unpivotWideMetricsCsv(text: string): string | null {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return null;
+  const rawHeaders = splitCsvLine(lines[0]).map((h) => h.trim());
+  const headers = rawHeaders.map(normalizeHeader);
+
+  const det = detectWide(rawHeaders);
+  if (!det.isWide) return null;
+
+  const idxCompany = pickColumn(headers, COMPANY_KEYS);
+  if (idxCompany < 0) return null;
+
+  // Build long rows. Group wide columns by period, so each (company, period)
+  // row carries every metric for that period at once.
+  const out: string[] = ["company,quarter,arr_usd,burn_usd,cash_usd,revenue_usd,headcount"];
+  for (let r = 1; r < lines.length; r++) {
+    const cells = splitCsvLine(lines[r]);
+    const company = (cells[idxCompany] ?? "").trim();
+    if (!company) continue;
+
+    const byPeriod = new Map<string, { arr?: string; burn?: string; cash?: string; revenue?: string; headcount?: string }>();
+    for (const wc of det.wideCols) {
+      if (!wc.period || !wc.metric) continue;
+      const v = (cells[wc.idx] ?? "").trim();
+      if (!v) continue;
+      const bucket = byPeriod.get(wc.period) ?? {};
+      bucket[wc.metric] = v;
+      byPeriod.set(wc.period, bucket);
+    }
+
+    for (const [period, vals] of byPeriod) {
+      const escape = (s: string) => /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      out.push([
+        escape(company),
+        escape(period),
+        vals.arr ?? "",
+        vals.burn ?? "",
+        vals.cash ?? "",
+        vals.revenue ?? "",
+        vals.headcount ?? "",
+      ].join(","));
+    }
+  }
+  return out.length > 1 ? out.join("\n") : null;
+}
+
 export function parseMetricsCsv(text: string): ParseResult {
+  // L.4c — auto-detect Airtable wide-format and unpivot before parsing.
+  const widened = unpivotWideMetricsCsv(text);
+  if (widened) text = widened;
+
   const errors: string[] = [];
   const rows: ParsedMetricRow[] = [];
 

@@ -16,6 +16,7 @@ import {
 import { inviteUser } from "../(gp)/settings/team-actions";
 import { FUND_ROLES, type FundRole } from "@/lib/roles";
 import { MetricsCsvImport } from "@/components/metrics-csv-import";
+import { CompaniesCsvImport } from "@/components/companies-csv-import";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -525,15 +526,17 @@ function Step4Companies({
         One row per company. CSV / Excel / PDF import is on the way — for now, type them in. You can always add more later.
       </p>
 
-      <div className="mt-4">
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-1.5 text-[11px] text-muted cursor-not-allowed"
-          title="Bulk import is on the roadmap (Phase B.4)"
-        >
-          <Upload className="h-3 w-3" /> Upload CSV / Excel / PDF · coming soon
-        </button>
+      <div className="mt-4 flex items-center gap-2 flex-wrap">
+        <CompaniesCsvImport
+          onImport={(imported) => {
+            // Replace empty rows, append the imported ones.
+            setCompanies((prev) => {
+              const nonEmpty = prev.filter((c) => c.name.trim().length > 0);
+              return [...nonEmpty, ...imported];
+            });
+          }}
+        />
+        <span className="text-[11px] text-muted">CSV + Excel (.xlsx) supported.</span>
       </div>
 
       <div className="mt-5 space-y-3">

@@ -140,7 +140,7 @@ function ImportModal({ onClose, onComplete }: { onClose: () => void; onComplete?
           <div>
             <h2 className="text-base font-semibold text-ink">Import metrics from CSV</h2>
             <p className="text-[11px] text-muted mt-0.5">
-              One row per company × quarter. We upsert on (company, quarter) — re-uploading is safe.
+              One row per company × period (long format), or Airtable-style wide format with month columns — we auto-detect and unpivot. Re-uploading is safe (upsert).
             </p>
           </div>
           <button onClick={onClose} className="text-muted hover:text-ink">

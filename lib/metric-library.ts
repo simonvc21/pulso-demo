@@ -41,6 +41,7 @@ export async function getMetricLibrary(): Promise<MetricLibrary> {
     supabase
       .from("companies")
       .select("id, slug, name")
+      .is("archived_at", null)
       .order("name"),
   ]);
 

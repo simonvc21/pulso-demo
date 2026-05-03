@@ -122,7 +122,8 @@ export async function GET(request: NextRequest) {
       const { data: companies } = await supabase
         .from("companies")
         .select("id, name, metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)")
-        .in("id", companyIds);
+        .in("id", companyIds)
+        .is("archived_at", null);
 
       const byCompany = new Map<string, { name: string; metrics: AlertContext["metrics"] }>();
       for (const c of (companies ?? []) as any[]) {

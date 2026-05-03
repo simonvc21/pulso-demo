@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Topbar } from "@/components/topbar";
 import { TopbarBell } from "@/components/topbar-bell";
 import { StatusBadge, Badge } from "@/components/ui/badge";
-import { getCompanyList, getFund } from "@/lib/dashboard-data";
+import { getCompanyList, getFund, getArchivedCompanyCount } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct } from "@/lib/utils";
 import { ArrowUpRight } from "lucide-react";
 import { ts } from "@/lib/i18n-server";
@@ -23,18 +23,42 @@ const instrumentLabel: Record<string, string> = {
   other: "Other",
 };
 
-export default async function CompaniesPage() {
-  const [companies, fund] = await Promise.all([getCompanyList(), getFund()]);
+export default async function CompaniesPage({ searchParams }: { searchParams: { archived?: string } }) {
+  const showArchived = searchParams?.archived === "1";
+  const [companies, fund, archivedCount] = await Promise.all([
+    getCompanyList({ archived: showArchived }),
+    getFund(),
+    getArchivedCompanyCount(),
+  ]);
   const fundName = fund?.name ?? "Your fund";
 
   return (
     <>
       <Topbar
         title={ts("companies.title")}
-        breadcrumb={`${fundName} · ${companies.length} ${ts("companies.breadcrumb_active")}`}
+        breadcrumb={`${fundName} · ${companies.length} ${showArchived ? "archived" : ts("companies.breadcrumb_active")}`}
         bell={<TopbarBell />}
       />
-      <div className="px-8 py-6 animate-fade-in">
+      <div className="px-8 py-6 animate-fade-in space-y-3">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/companies"
+            className={`text-[12px] px-2.5 h-7 inline-flex items-center rounded-md border ${!showArchived ? "bg-navy text-white border-navy" : "bg-white text-muted border-line hover:text-ink"}`}
+          >
+            Active
+          </Link>
+          <Link
+            href="/companies?archived=1"
+            className={`text-[12px] px-2.5 h-7 inline-flex items-center gap-1.5 rounded-md border ${showArchived ? "bg-navy text-white border-navy" : "bg-white text-muted border-line hover:text-ink"}`}
+          >
+            Archived
+            {archivedCount > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold tabular-nums ${showArchived ? "bg-white/20 text-white" : "bg-paper2 text-muted"}`}>
+                {archivedCount}
+              </span>
+            )}
+          </Link>
+        </div>
         <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
           <table className="w-full">
             <thead>

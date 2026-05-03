@@ -140,6 +140,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("companies")
       .select("id, slug, name, status, flag, metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_kind)")
+      .is("archived_at", null)
       .order("name", { ascending: true }),
   ]);
 
@@ -236,15 +237,19 @@ export interface CompanyListItem {
   trackingCadence: Database["public"]["Enums"]["tracking_cadence"];
 }
 
-export async function getCompanyList(): Promise<CompanyListItem[]> {
+export async function getCompanyList(opts?: { archived?: boolean }): Promise<CompanyListItem[]> {
   const supabase = createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("companies")
     .select(
       "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, investment_instrument, tracking_cadence, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month, period_kind)"
     )
     .order("name", { ascending: true });
+  query = opts?.archived
+    ? query.not("archived_at", "is", null)
+    : query.is("archived_at", null);
+  const { data } = await query;
 
   return (data ?? []).map((c: any) => ({
     slug: c.slug,
@@ -275,6 +280,15 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
 
 export type InvestmentInstrument = Database["public"]["Enums"]["investment_instrument"];
 
+export async function getArchivedCompanyCount(): Promise<number> {
+  const supabase = createClient();
+  const { count } = await supabase
+    .from("companies")
+    .select("id", { count: "exact", head: true })
+    .not("archived_at", "is", null);
+  return count ?? 0;
+}
+
 export interface CompanyDetail extends CompanyListItem {
   ownership: number;
   flag: string | null;
@@ -284,6 +298,8 @@ export interface CompanyDetail extends CompanyListItem {
   safeDiscountPct: number | null;
   website: string | null;
   linkedinUrl: string | null;
+  /** L.4c — soft-delete timestamp. Null means active. */
+  archivedAt: string | null;
 }
 
 export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | null> {
@@ -291,7 +307,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, " +
+      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, archived_at, " +
         "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month, period_kind)"
     )
     .eq("slug", slug)
@@ -323,6 +339,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
     website: c.website ?? null,
     linkedinUrl: c.linkedin_url ?? null,
     trackingCadence: c.tracking_cadence ?? "monthly",
+    archivedAt: c.archived_at ?? null,
     // For now we keep filtering to quarter rows so the existing chart code
     // (which expects 8 quarters) keeps working. Refactor to consume monthly
     // rows is L.12b.
@@ -695,6 +712,7 @@ export async function getCompanyOptions(): Promise<CompanyOption[]> {
   const { data } = await supabase
     .from("companies")
     .select("id, slug, name")
+    .is("archived_at", null)
     .order("name", { ascending: true });
   return (data ?? []).map((c: any) => ({ id: c.id, slug: c.slug, name: c.name }));
 }
@@ -949,6 +967,7 @@ export async function getDataMatrix(): Promise<DataMatrix> {
         "id, slug, name, sector, country, stage, status, logo_url, " +
           "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_year, period_month, period_kind)"
       )
+      .is("archived_at", null)
       .order("name", { ascending: true }),
     supabase.from("organizations").select("data_columns_json").limit(1),
     supabase.from("metric_notes").select("company_id, quarter, metric_key, note, period_year, period_month, period_kind"),

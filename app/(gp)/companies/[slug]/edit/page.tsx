@@ -7,6 +7,7 @@ import { getCompanyBySlug, getCompanyCustomMetrics } from "@/lib/dashboard-data"
 import { CompanyEditForm } from "./edit-form";
 import { CompanyLogoUploader } from "./logo-uploader";
 import { CustomMetricsEditor } from "./custom-metrics-editor";
+import { ArchiveCard } from "./archive-card";
 import type { CompanyInput } from "../../actions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -79,6 +80,7 @@ export default async function EditCompanyPage({ params }: { params: { slug: stri
             contextQuarters={contextQuarters}
           />
         )}
+        <ArchiveCard slug={company.slug} name={company.name} archivedAt={company.archivedAt} />
       </div>
     </>
   );

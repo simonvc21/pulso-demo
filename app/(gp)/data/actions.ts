@@ -113,11 +113,12 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
   const orgId = profile.organization_id;
   const userId = profile.id;
 
-  // Pull every company once so we can resolve by either slug or name.
+  // Pull every active company once so we can resolve by either slug or name.
   const { data: companies } = await supabase
     .from("companies")
     .select("id, slug, name")
-    .eq("organization_id", orgId);
+    .eq("organization_id", orgId)
+    .is("archived_at", null);
 
   const bySlug = new Map<string, string>();
   const byName = new Map<string, string>();

@@ -138,6 +138,15 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
       />
 
       <div className="px-8 py-6 space-y-6 animate-fade-in">
+        {company.archivedAt && (
+          <div className="bg-coral/10 border border-coral/30 text-coral rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm">
+            <span className="font-semibold">Archived</span>
+            <span className="text-coral/80 text-[12px]">
+              This company is hidden from dashboards and pickers. Restore it from{" "}
+              <Link href={`/companies/${company.slug}/edit`} className="underline">the edit page</Link>.
+            </span>
+          </div>
+        )}
         {/* Hero */}
         <div className="bg-white rounded-xl border border-line shadow-card p-6">
           <div className="flex items-start gap-5">

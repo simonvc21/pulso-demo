@@ -153,7 +153,7 @@ export async function bulkUpsertCustomValues(rows: BulkCustomRow[]): Promise<Bul
 
   // Resolve all companies and metrics in this org once.
   const [{ data: companies }, { data: defs }] = await Promise.all([
-    supabase.from("companies").select("id, slug, name").eq("organization_id", organizationId),
+    supabase.from("companies").select("id, slug, name").eq("organization_id", organizationId).is("archived_at", null),
     supabase.from("metric_definitions").select("id, label").eq("organization_id", organizationId),
   ]);
   const bySlug = new Map<string, string>();

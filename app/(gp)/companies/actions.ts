@@ -374,3 +374,40 @@ export async function deleteCompanyUpdate(updateId: string): Promise<DeleteCompa
   if (slug) revalidatePath(`/companies/${slug}`);
   return { ok: true };
 }
+
+
+// ---------------------------------------------------------------------------
+// L.4c — Soft-delete (archive) for companies
+// ---------------------------------------------------------------------------
+
+export type ArchiveResult = { ok: true } | { ok: false; error: string };
+
+export async function archiveCompany(slug: string): Promise<ArchiveResult> {
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  const { error } = await ctx.supabase
+    .from("companies")
+    .update({ archived_at: new Date().toISOString() } as any)
+    .eq("slug", slug)
+    .eq("organization_id", ctx.organizationId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/companies");
+  revalidatePath("/dashboard");
+  revalidatePath(`/companies/${slug}`);
+  return { ok: true };
+}
+
+export async function unarchiveCompany(slug: string): Promise<ArchiveResult> {
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+  const { error } = await ctx.supabase
+    .from("companies")
+    .update({ archived_at: null } as any)
+    .eq("slug", slug)
+    .eq("organization_id", ctx.organizationId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/companies");
+  revalidatePath("/dashboard");
+  revalidatePath(`/companies/${slug}`);
+  return { ok: true };
+}
