@@ -116,6 +116,81 @@ export async function updateMemberRole(memberId: string, role: Role): Promise<Re
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Per-company access for analyst/viewer roles
+// ---------------------------------------------------------------------------
+
+export async function getMemberCompanyAccess(memberId: string): Promise<{ ok: true; companyIds: string[] } | { ok: false; error: string }> {
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // Confirm member belongs to the same org (RLS does this too).
+  const { data: member } = await ctx.supabase
+    .from("users")
+    .select("id")
+    .eq("id", memberId)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!member) return { ok: false, error: "Member not found in this fund" };
+
+  const { data, error } = await ctx.supabase
+    .from("user_company_access")
+    .select("company_id")
+    .eq("user_id", memberId);
+  if (error) return { ok: false, error: error.message };
+
+  return { ok: true, companyIds: (data ?? []).map((r) => r.company_id) };
+}
+
+/** Replaces the full set of granted companies for a member. Pass [] to
+ *  reset to "full org access" (no rows = default unrestricted). */
+export async function setMemberCompanyAccess(memberId: string, companyIds: string[]): Promise<Result> {
+  const ctx = await requireGpOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  if (memberId === ctx.userId) {
+    return { ok: false, error: "You can't restrict your own access" };
+  }
+
+  // Confirm member is in the same org
+  const { data: member } = await ctx.supabase
+    .from("users")
+    .select("id, role")
+    .eq("id", memberId)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!member) return { ok: false, error: "Member not found in this fund" };
+
+  // Confirm every company belongs to the same org (defense in depth)
+  if (companyIds.length > 0) {
+    const { data: validCompanies } = await ctx.supabase
+      .from("companies")
+      .select("id")
+      .eq("organization_id", ctx.organizationId)
+      .in("id", companyIds);
+    const validSet = new Set((validCompanies ?? []).map((c) => c.id));
+    const allValid = companyIds.every((id) => validSet.has(id));
+    if (!allValid) return { ok: false, error: "Some companies are not in this fund" };
+  }
+
+  // Replace atomically: delete then insert
+  const { error: delErr } = await ctx.supabase
+    .from("user_company_access")
+    .delete()
+    .eq("user_id", memberId);
+  if (delErr) return { ok: false, error: delErr.message };
+
+  if (companyIds.length > 0) {
+    const { error: insErr } = await ctx.supabase
+      .from("user_company_access")
+      .insert(companyIds.map((cid) => ({ user_id: memberId, company_id: cid })));
+    if (insErr) return { ok: false, error: insErr.message };
+  }
+
+  revalidatePath("/settings/team");
+  return { ok: true };
+}
+
 export async function removeMember(memberId: string): Promise<Result> {
   const ctx = await requireGpOrg();
   if (!ctx.ok) return { ok: false, error: ctx.error };

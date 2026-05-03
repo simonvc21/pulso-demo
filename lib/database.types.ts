@@ -346,6 +346,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_company_access: {
+        Row: {
+          company_id: string
+          granted_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          granted_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          granted_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_invitations: {
         Row: {
           accepted_at: string | null
@@ -428,6 +446,7 @@ export type Database = {
       get_org_members: { Args: never; Returns: Json }
       run_metric_alerts: { Args: never; Returns: Json }
       bump_ai_usage: { Args: { p_org: string; p_feature: string }; Returns: number }
+      can_access_company: { Args: { p_company_id: string }; Returns: boolean }
       get_public_form: {
         Args: { p_company_slug: string; p_form_slug: string }
         Returns: Json

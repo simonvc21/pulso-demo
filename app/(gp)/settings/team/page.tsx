@@ -2,14 +2,18 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { TopbarBell } from "@/components/topbar-bell";
-import { getOrgMembers, getCurrentUser } from "@/lib/dashboard-data";
+import { getOrgMembers, getCurrentUser, getCompanyOptions } from "@/lib/dashboard-data";
 import { isAdminRole } from "@/lib/roles";
 import { TeamPanel } from "./team-panel";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
-  const [members, profile] = await Promise.all([getOrgMembers(), getCurrentUser()]);
+  const [members, profile, companies] = await Promise.all([
+    getOrgMembers(),
+    getCurrentUser(),
+    getCompanyOptions(),
+  ]);
 
   const me = members.members.find((m) => m.email.toLowerCase() === profile?.email?.toLowerCase());
   const currentUserId = me?.id ?? null;
@@ -32,6 +36,7 @@ export default async function TeamPage() {
           initialInvitations={members.invitations}
           currentUserId={currentUserId}
           canManage={canManage}
+          companies={companies}
         />
       </div>
     </>
