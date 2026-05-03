@@ -11,6 +11,10 @@ export type Block =
   | { id: string; type: "metric_chart"; companySlug: string; metric: "arr" | "burn" | "cash" | "revenue" | "headcount"; caption?: string | null }
   | { id: string; type: "watch_list"; heading?: string | null; companies: Array<{ slug: string; reason: string }> }
   | { id: string; type: "custom_metric_leaderboard"; metricDefinitionId: string; heading?: string | null }
+  // L.6b — fund-level chart blocks (no company picker — they pull aggregates)
+  | { id: string; type: "fund_arr_by_company"; heading?: string | null; caption?: string | null }
+  | { id: string; type: "fund_arr_trend"; heading?: string | null; caption?: string | null }
+  | { id: string; type: "sector_breakdown"; heading?: string | null; mode: "arr" | "invested" | "count" }
   | { id: string; type: "divider" };
 
 export interface KpiItem {

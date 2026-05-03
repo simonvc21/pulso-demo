@@ -7,7 +7,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Type, BarChart3, Building2, AlertTriangle, Trophy, Minus,
+  Type, BarChart3, Building2, AlertTriangle, Trophy, Minus, PieChart, TrendingUp, Layers,
   Plus, Trash2, ArrowUp, ArrowDown, Loader2, Check, Eye, Send, X, FileX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -193,8 +193,11 @@ export function NewsletterEditor({ newsletter, companies, metricDefinitions }: P
           {([
             { type: "text", label: "Text",                  icon: Type },
             { type: "kpi_grid", label: "KPI grid",          icon: BarChart3 },
+            { type: "fund_arr_by_company", label: "Fund: ARR by company", icon: BarChart3 },
+            { type: "fund_arr_trend", label: "Fund: ARR trend", icon: TrendingUp },
+            { type: "sector_breakdown", label: "Fund: sector mix", icon: Layers },
             { type: "company_highlight", label: "Company spotlight", icon: Building2 },
-            { type: "metric_chart", label: "Metric chart",  icon: BarChart3 },
+            { type: "metric_chart", label: "Company metric chart",  icon: BarChart3 },
             { type: "watch_list", label: "Watch list",      icon: AlertTriangle },
             { type: "custom_metric_leaderboard", label: "Custom leaderboard", icon: Trophy },
             { type: "divider", label: "Divider",            icon: Minus },
@@ -412,6 +415,43 @@ function BlockCard({
         </div>
       )}
 
+      {(block.type === "fund_arr_by_company" || block.type === "fund_arr_trend") && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input
+            value={block.heading ?? ""}
+            onChange={(e) => onPatch({ heading: e.target.value || null })}
+            placeholder={block.type === "fund_arr_by_company" ? "ARR by company" : "Aggregated portfolio ARR"}
+            className="h-9 px-2.5 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+          <input
+            value={block.caption ?? ""}
+            onChange={(e) => onPatch({ caption: e.target.value || null })}
+            placeholder="Caption (optional)"
+            className="h-9 px-2.5 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+        </div>
+      )}
+
+      {block.type === "sector_breakdown" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input
+            value={block.heading ?? ""}
+            onChange={(e) => onPatch({ heading: e.target.value || null })}
+            placeholder="Portfolio mix by sector"
+            className="h-9 px-2.5 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+          />
+          <select
+            value={block.mode}
+            onChange={(e) => onPatch({ mode: e.target.value })}
+            className="h-9 px-2.5 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+          >
+            <option value="arr">By ARR</option>
+            <option value="invested">By invested capital</option>
+            <option value="count">By number of companies</option>
+          </select>
+        </div>
+      )}
+
       {block.type === "divider" && (
         <p className="text-[11px] text-muted">Visual separator. No content.</p>
       )}
@@ -567,6 +607,12 @@ function makeBlock(
       return { id: newId(), type: "watch_list", heading: "Watch list", companies: [] };
     case "custom_metric_leaderboard":
       return { id: newId(), type: "custom_metric_leaderboard", metricDefinitionId: metricDefs[0]?.id ?? "", heading: null };
+    case "fund_arr_by_company":
+      return { id: newId(), type: "fund_arr_by_company", heading: null, caption: null };
+    case "fund_arr_trend":
+      return { id: newId(), type: "fund_arr_trend", heading: null, caption: null };
+    case "sector_breakdown":
+      return { id: newId(), type: "sector_breakdown", heading: null, mode: "arr" };
     case "divider":
       return { id: newId(), type: "divider" };
   }
@@ -576,8 +622,11 @@ function labelFor(t: Block["type"]): string {
   return {
     text: "Text",
     kpi_grid: "KPI grid",
+    fund_arr_by_company: "Fund · ARR by company",
+    fund_arr_trend: "Fund · ARR trend",
+    sector_breakdown: "Fund · sector mix",
     company_highlight: "Company spotlight",
-    metric_chart: "Metric chart",
+    metric_chart: "Company metric chart",
     watch_list: "Watch list",
     custom_metric_leaderboard: "Custom metric leaderboard",
     divider: "Divider",

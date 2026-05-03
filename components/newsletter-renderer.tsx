@@ -6,9 +6,12 @@
 
 import { CompanyHistoryChart } from "@/components/company-history-chart";
 import { CustomMetricChart } from "@/components/custom-metric-chart";
+import { PortfolioBarChart } from "@/components/portfolio-bar-chart";
+import { ArrTrendChart } from "@/components/arr-trend-chart";
 import { createClient } from "@/lib/supabase/server";
 import type { Block, Newsletter } from "@/lib/newsletter";
 import { fmtUSD } from "@/lib/utils";
+import { getDashboardData } from "@/lib/dashboard-data";
 // Inline minimal version of metricRowToLabel — keeps the renderer free of any
 // extra import surface. Only handles month rows since L.12 monthlies-only.
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -32,19 +35,34 @@ interface ResolvedCustomSeries {
   byCompany: Array<{ companyName: string; latest: number | null }>;
 }
 
+interface FundData {
+  // Shape lifted from getDashboardData but only the bits we render.
+  companies: Array<{ slug: string; name: string; status: string; metrics: any[] }>;
+  arrTrend: Array<{ quarter: string; arr: number }>;
+  sectorBreakdown: Array<{ sector: string; arr: number; invested: number; count: number }>;
+}
+
 interface RenderedData {
   companies: Map<string, ResolvedCompany>;
   customSeries: Map<string, ResolvedCustomSeries>;
+  fund: FundData | null;
 }
 
 async function resolve(blocks: Block[]): Promise<RenderedData> {
   const supabase = createClient();
   const companySlugs = new Set<string>();
   const metricDefIds = new Set<string>();
+  let needsFundData = false;
+  let needsSectorBreakdown = false;
   for (const b of blocks) {
     if (b.type === "company_highlight" || b.type === "metric_chart") companySlugs.add(b.companySlug);
     if (b.type === "watch_list") for (const c of b.companies) companySlugs.add(c.slug);
     if (b.type === "custom_metric_leaderboard") metricDefIds.add(b.metricDefinitionId);
+    if (b.type === "fund_arr_by_company" || b.type === "fund_arr_trend") needsFundData = true;
+    if (b.type === "sector_breakdown") {
+      needsFundData = true;
+      needsSectorBreakdown = true;
+    }
   }
 
   const companies = new Map<string, ResolvedCompany>();
@@ -108,7 +126,59 @@ async function resolve(blocks: Block[]): Promise<RenderedData> {
     }
   }
 
-  return { companies, customSeries };
+  let fund: FundData | null = null;
+  if (needsFundData) {
+    const ds = await getDashboardData();
+    let sectorBreakdown: FundData["sectorBreakdown"] = [];
+    if (needsSectorBreakdown) {
+      // Pull sector + invested for breakdown views.
+      const { data: companyRows } = await supabase
+        .from("companies")
+        .select("sector, invested_usd, status")
+        .is("archived_at", null);
+      const byKey = new Map<string, { arr: number; invested: number; count: number }>();
+      const arrBySlug = new Map<string, number>();
+      for (const c of ds.companies) {
+        arrBySlug.set(c.slug, c.metrics[c.metrics.length - 1]?.arr ?? 0);
+      }
+      // Walk companies again (we need sector from the supabase query for the
+      // dashboard-data view doesn't expose it).
+      for (const c of (companyRows ?? []) as any[]) {
+        const key = c.sector?.trim() || "Uncategorized";
+        const cur = byKey.get(key) ?? { arr: 0, invested: 0, count: 0 };
+        cur.invested += Number(c.invested_usd ?? 0);
+        cur.count += 1;
+        byKey.set(key, cur);
+      }
+      // Add ARR by joining to the dashboard data on slug — but we already
+      // averaged over `companies`, so re-walk using ds.companies (which has
+      // ARR) joined back to sector via a quick lookup.
+      const { data: slugToSector } = await supabase
+        .from("companies")
+        .select("slug, sector")
+        .is("archived_at", null);
+      const sectorBySlug = new Map<string, string>();
+      for (const r of (slugToSector ?? []) as any[]) {
+        sectorBySlug.set(r.slug, r.sector?.trim() || "Uncategorized");
+      }
+      for (const c of ds.companies) {
+        const sector = sectorBySlug.get(c.slug) ?? "Uncategorized";
+        const cur = byKey.get(sector) ?? { arr: 0, invested: 0, count: 0 };
+        cur.arr += c.metrics[c.metrics.length - 1]?.arr ?? 0;
+        byKey.set(sector, cur);
+      }
+      sectorBreakdown = Array.from(byKey.entries())
+        .map(([sector, v]) => ({ sector, ...v }))
+        .sort((a, b) => b.arr - a.arr);
+    }
+    fund = {
+      companies: ds.companies as any,
+      arrTrend: ds.arrTrend,
+      sectorBreakdown,
+    };
+  }
+
+  return { companies, customSeries, fund };
 }
 
 interface RendererProps {
@@ -282,6 +352,75 @@ function BlockRender({ block, data }: { block: Block; data: RenderedData }) {
                     <span className="text-ink tabular-nums">
                       {row.latest != null ? row.latest.toLocaleString("en-US") : "—"}
                       {series.unit ? ` ${series.unit}` : ""}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded-full bg-paper2 overflow-hidden">
+                    <div className="h-full bg-teal-600" style={{ width: `${pct}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      );
+    }
+
+    case "fund_arr_by_company": {
+      if (!data.fund) return null;
+      return (
+        <section>
+          <h2 className="font-serif text-xl font-bold text-ink mb-2">
+            {block.heading ?? "ARR by company"}
+          </h2>
+          {block.caption && <p className="text-[12px] text-muted mb-2">{block.caption}</p>}
+          <div className="rounded-xl border border-line bg-white p-2 -mx-1">
+            <PortfolioBarChart companies={data.fund.companies as any} />
+          </div>
+        </section>
+      );
+    }
+
+    case "fund_arr_trend": {
+      if (!data.fund) return null;
+      return (
+        <section>
+          <h2 className="font-serif text-xl font-bold text-ink mb-2">
+            {block.heading ?? "Aggregated portfolio ARR"}
+          </h2>
+          {block.caption && <p className="text-[12px] text-muted mb-2">{block.caption}</p>}
+          <div className="rounded-xl border border-line bg-white p-2 -mx-1">
+            <ArrTrendChart data={data.fund.arrTrend} />
+          </div>
+        </section>
+      );
+    }
+
+    case "sector_breakdown": {
+      if (!data.fund || data.fund.sectorBreakdown.length === 0) return null;
+      const rows = data.fund.sectorBreakdown;
+      const total = Math.max(1, rows.reduce((a, r) =>
+        a + (block.mode === "invested" ? r.invested : block.mode === "count" ? r.count : r.arr), 0));
+      const fmtVal = (r: typeof rows[number]) => {
+        if (block.mode === "invested") return fmtUSD(r.invested, { compact: true });
+        if (block.mode === "count")    return `${r.count} ${r.count === 1 ? "company" : "companies"}`;
+        return fmtUSD(r.arr, { compact: true });
+      };
+      const valOf = (r: typeof rows[number]) =>
+        block.mode === "invested" ? r.invested : block.mode === "count" ? r.count : r.arr;
+      return (
+        <section>
+          <h2 className="font-serif text-xl font-bold text-ink mb-3">
+            {block.heading ?? `Portfolio mix by sector — ${block.mode === "invested" ? "invested capital" : block.mode === "count" ? "number of companies" : "ARR"}`}
+          </h2>
+          <ul className="rounded-xl border border-line bg-white p-4 space-y-3">
+            {rows.map((r) => {
+              const pct = (valOf(r) / total) * 100;
+              return (
+                <li key={r.sector}>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="text-ink font-medium truncate">{r.sector}</span>
+                    <span className="text-ink tabular-nums">
+                      {fmtVal(r)} <span className="text-muted text-[11px]">({pct.toFixed(0)}%)</span>
                     </span>
                   </div>
                   <div className="mt-1 h-1.5 rounded-full bg-paper2 overflow-hidden">

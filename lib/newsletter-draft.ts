@@ -122,6 +122,28 @@ export async function buildDefaultDraft(input: DraftInput): Promise<{
     ],
   });
 
+  // L.6b — fund-level visualizations after the KPIs.
+  blocks.push({
+    id: newId(),
+    type: "fund_arr_trend",
+    heading: "Aggregated portfolio ARR",
+    caption: "Trailing months across the active portfolio.",
+  });
+
+  blocks.push({
+    id: newId(),
+    type: "fund_arr_by_company",
+    heading: "ARR by company",
+    caption: "Latest period · normalized USD · color = health status.",
+  });
+
+  blocks.push({
+    id: newId(),
+    type: "sector_breakdown",
+    heading: "Portfolio mix by sector",
+    mode: "arr",
+  });
+
   if (growers.length > 0) {
     blocks.push({ id: newId(), type: "divider" });
     blocks.push({

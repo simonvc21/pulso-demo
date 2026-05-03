@@ -49,9 +49,19 @@ export default async function LpHomePage() {
         </div>
       )}
 
+      {/* L.6b — Fund overview link, right under the KPI strip. */}
+      {companies.length > 0 && (
+        <Link href="/lp/portfolio" className="block group mt-3 text-right">
+          <span className="text-[11px] text-teal-600 hover:underline inline-flex items-center gap-1">
+            <BarChart3 className="h-3 w-3" />
+            See full fund overview (graphs, watch list, trends) →
+          </span>
+        </Link>
+      )}
+
       {/* Portfolio is the primary callout. */}
       {companies.length > 0 ? (
-        <Link href="/lp/companies" className="block group mt-5">
+        <Link href="/lp/companies" className="block group mt-3">
           <div className="bg-gradient-to-r from-navy to-navy-700 text-white rounded-2xl p-6 flex items-center gap-5 hover:shadow-cardHover transition-shadow">
             <div className="h-12 w-12 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
               <Briefcase className="h-5 w-5 text-gold" />
