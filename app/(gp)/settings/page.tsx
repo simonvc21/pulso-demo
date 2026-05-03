@@ -9,10 +9,12 @@ import { signOut } from "./actions";
 import { FundForm } from "./fund-form";
 import { BrandingForm } from "./branding-form";
 import { ts } from "@/lib/i18n-server";
+import { unstable_noStore as noStore } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  noStore();
   const [profile, fund] = await Promise.all([getCurrentUser(), getFund()]);
 
   return (

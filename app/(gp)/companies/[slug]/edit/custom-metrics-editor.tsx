@@ -173,8 +173,10 @@ export function CustomMetricsEditor({ companyId, initialSeries, contextQuarters 
       </div>
 
       {showAdd && (
-        <div className="bg-paper rounded-lg border border-dashed border-line p-3 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+        <div className="bg-paper rounded-lg border border-dashed border-line p-3 mb-4 space-y-3">
+          {/* Three fields share a row; buttons get their own row so they
+              never overlap the inputs even on small viewports. */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
             <div className="md:col-span-5">
               <label className="block text-[9px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Label</label>
               <input
@@ -187,7 +189,7 @@ export function CustomMetricsEditor({ companyId, initialSeries, contextQuarters 
                 className="w-full h-9 px-2.5 rounded-md border border-line text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
               />
             </div>
-            <div className="md:col-span-3">
+            <div className="md:col-span-4">
               <label className="block text-[9px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Type</label>
               <select
                 value={newType}
@@ -197,7 +199,7 @@ export function CustomMetricsEditor({ companyId, initialSeries, contextQuarters 
                 {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-3">
               <label className="block text-[9px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Unit</label>
               <input
                 value={newUnit}
@@ -207,22 +209,22 @@ export function CustomMetricsEditor({ companyId, initialSeries, contextQuarters 
                 className="w-full h-9 px-2.5 rounded-md border border-line text-xs bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
               />
             </div>
-            <div className="md:col-span-2 flex items-center gap-1.5 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} disabled={pending}>
-                Cancel
-              </Button>
-              <Button
-                variant="gold"
-                size="sm"
-                className="gap-1.5"
-                onClick={addDefinition}
-                disabled={pending || !newLabel.trim()}
-                title={!newLabel.trim() ? "Type a label first" : undefined}
-              >
-                {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                Add
-              </Button>
-            </div>
+          </div>
+          <div className="flex items-center gap-1.5 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowAdd(false)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button
+              variant="gold"
+              size="sm"
+              className="gap-1.5"
+              onClick={addDefinition}
+              disabled={pending || !newLabel.trim()}
+              title={!newLabel.trim() ? "Type a label first" : undefined}
+            >
+              {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+              Add
+            </Button>
           </div>
         </div>
       )}
