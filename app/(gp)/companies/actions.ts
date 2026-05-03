@@ -155,3 +155,129 @@ export async function createCompany(input: CompanyInput): Promise<CompanyResult>
   revalidatePath("/dashboard");
   redirect(`/companies/${finalSlug}`);
 }
+
+// ---------------------------------------------------------------------------
+// L.4 — Custom metrics per company
+// ---------------------------------------------------------------------------
+
+import type { Database as DB2 } from "@/lib/database.types";
+
+type CustomMetricType = DB2["public"]["Enums"]["custom_metric_type"];
+const VALID_CUSTOM_TYPES: CustomMetricType[] = ["currency", "number", "percent", "ratio", "count"];
+
+export type MetricDefinitionInput = {
+  label: string;
+  type: CustomMetricType;
+  unit?: string | null;
+};
+
+export type MetricDefinitionResult =
+  | { ok: true; id: string }
+  | { ok: false; error: string };
+
+export async function createMetricDefinition(input: MetricDefinitionInput): Promise<MetricDefinitionResult> {
+  const label = input.label.trim();
+  if (!label) return { ok: false, error: "Label is required" };
+  if (label.length > 60) return { ok: false, error: "Label must be ≤ 60 chars" };
+  const type = VALID_CUSTOM_TYPES.includes(input.type) ? input.type : "number";
+  const unit = input.unit?.trim().slice(0, 20) || null;
+
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // Find or insert (unique on org+label).
+  const { data: existing } = await ctx.supabase
+    .from("metric_definitions")
+    .select("id")
+    .eq("organization_id", ctx.organizationId)
+    .ilike("label", label)
+    .maybeSingle();
+  if (existing?.id) return { ok: true, id: existing.id };
+
+  const { data, error } = await ctx.supabase
+    .from("metric_definitions")
+    .insert({ organization_id: ctx.organizationId, label, type, unit })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? "Insert failed" };
+
+  revalidatePath("/companies");
+  return { ok: true, id: data.id };
+}
+
+export type DeleteDefinitionResult = { ok: true } | { ok: false; error: string };
+
+export async function deleteMetricDefinition(definitionId: string): Promise<DeleteDefinitionResult> {
+  if (!definitionId) return { ok: false, error: "Missing id" };
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // Cascade deletes the values.
+  const { error } = await ctx.supabase
+    .from("metric_definitions")
+    .delete()
+    .eq("id", definitionId)
+    .eq("organization_id", ctx.organizationId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/companies");
+  return { ok: true };
+}
+
+export type CustomMetricValueInput = {
+  companyId: string;
+  metricDefinitionId: string;
+  quarter: string;
+  value: number | null;
+};
+
+export type CustomMetricValueResult = { ok: true } | { ok: false; error: string };
+
+export async function upsertCustomMetricValue(input: CustomMetricValueInput): Promise<CustomMetricValueResult> {
+  if (!input.companyId) return { ok: false, error: "Company id required" };
+  if (!input.metricDefinitionId) return { ok: false, error: "Metric required" };
+  if (!/^Q[1-4]\s+\d{4}$/.test(input.quarter)) return { ok: false, error: "Invalid quarter" };
+  if (input.value != null && !Number.isFinite(input.value)) {
+    return { ok: false, error: "Value must be a number" };
+  }
+
+  const ctx = await requireOrg();
+  if (!ctx.ok) return { ok: false, error: ctx.error };
+
+  // RLS gates the company; we still belt-and-suspenders.
+  const { data: company } = await ctx.supabase
+    .from("companies")
+    .select("id, slug")
+    .eq("id", input.companyId)
+    .eq("organization_id", ctx.organizationId)
+    .maybeSingle();
+  if (!company) return { ok: false, error: "Company not found" };
+
+  if (input.value == null) {
+    // Null clears the cell — delete the row.
+    const { error } = await ctx.supabase
+      .from("custom_metric_values")
+      .delete()
+      .eq("company_id", input.companyId)
+      .eq("metric_definition_id", input.metricDefinitionId)
+      .eq("quarter", input.quarter);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await ctx.supabase
+      .from("custom_metric_values")
+      .upsert(
+        {
+          company_id: input.companyId,
+          metric_definition_id: input.metricDefinitionId,
+          quarter: input.quarter,
+          value: input.value,
+        },
+        { onConflict: "company_id,metric_definition_id,quarter" },
+      );
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath(`/companies/${company.slug}`);
+  revalidatePath(`/companies/${company.slug}/edit`);
+  return { ok: true };
+}

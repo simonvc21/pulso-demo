@@ -321,14 +321,16 @@ Feedback sobre lo que falta para que la app se sienta verdaderamente personal de
 
 ### Modelo de datos grande (1 semana cada uno)
 
-**L.4 Métricas custom por company**
-Hoy todas las companies tienen el mismo schema de métricas (arr, burn, cash, revenue, headcount). En la realidad un fondo va a querer trackear distinto a una fintech vs una climate vs un marketplace.
-- Migrar tabla `metrics` a `metric_values(company_id, quarter, metric_key, value_numeric, value_text, value_json)`.
-- Nueva tabla `metric_definitions(organization_id, key, label, type, unit, applies_to_companies[])`.
-- UI per-company para "agregar métrica custom" (CMV, GMV, NPS, churn, etc.).
-- Charts y data table se adaptan a las métricas que esa company tiene.
-- **Es un cambio grande**: rompe `metrics` table schema, migration de data existente, todos los charts/queries que asumen las 5 métricas.
-- Pre-requisito: validar pgvector / RAG primero porque vamos a meter mucho más data.
+**L.4 Métricas custom por company** *(parcial — additive shipped, /data spreadsheet integration pendiente)*
+Hoy todas las companies tienen el mismo schema de 5 métricas universales. L.4 agrega métricas extra per-company sin romper nada de eso.
+- ✅ Approach **additive** (no replace): la tabla `metrics` queda como está (las 5 universales se siguen agregando para los KPIs del dashboard, LP letter, etc.). Las métricas custom viven en tablas separadas.
+- ✅ Migration: enum `custom_metric_type` (currency / number / percent / ratio / count) + `metric_definitions(organization_id, label, type, unit)` con UNIQUE(org, label) + `custom_metric_values(company_id, metric_definition_id, quarter, value)` con UNIQUE(company, definition, quarter). RLS escopeada via `user_org_id()` y `can_access_company`. Cascade delete por company y por definition.
+- ✅ UI editor en `/companies/[slug]/edit` → bloque "Custom metrics" con form para crear definitions (label + type + unit), tabla inline con quarters como columnas, edición autosave por celda, delete metric.
+- ✅ Detail page `/companies/[slug]` → stat strip (5 cards con latest + QoQ delta) + grid de mini line charts (uno por metric).
+- ✅ Surfaced a `lib/chat-context.ts`: cada company en el JSON dump ahora tiene un array `custom_metrics: [{ label, type, unit, values: [{quarter, value}] }]`. Pulso AI puede responder "¿qué NPS tiene Acme?" o "comparame el GMV de las dos marketplaces".
+- Pendiente L.4b: integrar al `/data` spreadsheet (aparecen como columnas extra opcionales, requiere repensar el schema del column-config L.3 para soportar mix de universales + custom).
+- Pendiente L.4c: surfaced a LP letter cuando GP marca un custom metric como "share with LPs".
+- Pendiente L.4d: bulk import CSV/xlsx de custom metrics (extender B.4).
 
 **L.5 Dashboard editor de widgets** *(reverted — UX no nos gustó)*
 - Se shippeó y se removió el mismo día. La columna `organizations.dashboard_config_json` queda en la DB (null para todos), por si volvemos a explorar.

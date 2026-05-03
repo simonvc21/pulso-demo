@@ -938,3 +938,75 @@ export async function getDataMatrix(): Promise<DataMatrix> {
 
   return { quarters, companies, notes, columnsConfig };
 }
+
+// ---------------------------------------------------------------------------
+// L.4 — Custom metrics per company
+// ---------------------------------------------------------------------------
+
+export type CustomMetricType = "currency" | "number" | "percent" | "ratio" | "count";
+
+export interface CustomMetricDefinition {
+  id: string;
+  label: string;
+  type: CustomMetricType;
+  unit: string | null;
+}
+
+export interface CustomMetricSeries {
+  definition: CustomMetricDefinition;
+  /** Sorted oldest → newest. */
+  values: Array<{ quarter: string; value: number | null }>;
+  latest: number | null;
+  prev: number | null;
+}
+
+/** Per-company custom metric data: every series the company has values for. */
+export async function getCompanyCustomMetrics(companyId: string): Promise<CustomMetricSeries[]> {
+  const supabase = createClient();
+  const { data: rows } = await supabase
+    .from("custom_metric_values")
+    .select("quarter, value, metric_definitions(id, label, type, unit)")
+    .eq("company_id", companyId)
+    .order("quarter", { ascending: true });
+
+  // Group by definition.
+  const byDef = new Map<string, CustomMetricSeries>();
+  for (const r of (rows ?? []) as any[]) {
+    const def = r.metric_definitions;
+    if (!def) continue;
+    const key = def.id;
+    const series: CustomMetricSeries = byDef.get(key) ?? {
+      definition: { id: def.id, label: def.label, type: def.type, unit: def.unit },
+      values: [],
+      latest: null,
+      prev: null,
+    };
+    series.values.push({
+      quarter: r.quarter,
+      value: r.value != null ? Number(r.value) : null,
+    });
+    byDef.set(key, series);
+  }
+
+  const out: CustomMetricSeries[] = [];
+  for (const s of byDef.values()) {
+    s.values.sort((a, b) => quarterKey(a.quarter) - quarterKey(b.quarter));
+    s.latest = s.values[s.values.length - 1]?.value ?? null;
+    s.prev = s.values[s.values.length - 2]?.value ?? null;
+    out.push(s);
+  }
+  // Stable ordering: by label.
+  out.sort((a, b) => a.definition.label.localeCompare(b.definition.label));
+  return out;
+}
+
+/** All metric definitions for the caller's org (for the "add metric" picker
+ *  on the edit page). */
+export async function listOrgMetricDefinitions(): Promise<CustomMetricDefinition[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("metric_definitions")
+    .select("id, label, type, unit")
+    .order("label", { ascending: true });
+  return (data ?? []) as CustomMetricDefinition[];
+}

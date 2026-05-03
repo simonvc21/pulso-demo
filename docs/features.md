@@ -20,8 +20,8 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Login** (`/login`) with magic link + password fallback.
 - **Dashboard** (`/dashboard`) — fund KPIs (Total invested, Portfolio ARR, YoY growth, Runway), bar chart of ARR by company, watch list, ARR trend, activity feed, AI banner (dismissable, persists 24h via localStorage), portfolio newsletter section with founder updates.
 - **Companies list** (`/companies`) — table with logo, sector, country, stage, invested, latest ARR, QoQ delta, status badge.
-- **Company detail** (`/companies/[slug]`) — hero with logo + founder, **investment-instrument badge (SAFE / Convertible Note / Equity / SAFT / Warrant / Loan / Other) with cap + discount summary**, **website + LinkedIn link icons**, stat grid (invested / ARR / cash / burn / headcount / YoY), quarterly history charts (ARR / cash / revenue / headcount), recent submissions list, AI insight callout, newsletter feed scoped to the company.
-- **Company edit** (`/companies/[slug]/edit`) — full editor incl. logo uploader, investment-terms section (instrument + conditional cap/discount for SAFE/Convertible), Links section (website + LinkedIn).
+- **Company detail** (`/companies/[slug]`) — hero with logo + founder, **investment-instrument badge (SAFE / Convertible Note / Equity / SAFT / Warrant / Loan / Other) with cap + discount summary**, **website + LinkedIn link icons**, stat grid (invested / ARR / cash / burn / headcount / YoY), quarterly history charts (ARR / cash / revenue / headcount), **custom metrics block (L.4)** — stat strip with QoQ delta + mini line chart per metric, recent submissions list, AI insight callout, newsletter feed scoped to the company.
+- **Company edit** (`/companies/[slug]/edit`) — full editor incl. logo uploader, investment-terms section (instrument + conditional cap/discount for SAFE/Convertible), Links section (website + LinkedIn), **Custom metrics editor (L.4)** with per-org metric definitions + inline-editable quarterly value grid + autosave + delete.
 - **Forms list** (`/forms`) — template cards with cadence, field count, response rate.
 - **Form detail** (`/forms/[slug]`) — fields grouped, recent submissions list with AI-assisted badge, send-now / pause buttons.
 - **Form builder** (`/forms/new` and `/forms/[slug]/edit`):
@@ -105,7 +105,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 
 - **Demo seed is global**: Patagonia Fund I and its 8 seeded companies are the default. New accounts get a `/onboarding` wizard but the seed is still in the DB.
 - **No emails sent yet**: Resend integration (Fase C) is in the roadmap. Magic links work because Supabase Auth handles them; product emails (form invites, reminders, "your letter is ready") don't go out.
-- **Metrics schema is fixed**: every company has the same 5 quarterly metrics (ARR / burn / cash / revenue / headcount). Custom metrics per company is L.4 in the roadmap (large change).
+- **Universal metrics still fixed in /data**: the spreadsheet's universal 5 (ARR / burn / cash / revenue / headcount) are still hard-coded across the dashboard, exports, and CSV import. **Custom per-company metrics now ship (L.4)** — visible on the company detail + edit pages and surfaced to Pulso AI — but they don't yet appear as columns in the /data view (L.4b).
 - **Dashboard layout is fixed**: widgets aren't draggable/resizable/recolorable. (L.5 was shipped and reverted; column `organizations.dashboard_config_json` stays in the DB, currently null for everyone.)
 - **Bulk import partial**: CSV + Excel (`.xlsx`, `.xlsm`, `.xls`, `.xlsb`, `.ods`) upload of historical metrics is shipped (B.4 — `/data` toolbar + onboarding Step 5). PDF/screenshot parsing still pending. Excel parsing via SheetJS, lazy-loaded so it doesn't bloat initial page weight; first sheet of the workbook is imported, others are ignored with a warning.
 - **No subscription billing**: free for now, no Stripe integration. Planned in L.9.

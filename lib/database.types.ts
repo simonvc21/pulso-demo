@@ -94,6 +94,36 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_metric_values: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          metric_definition_id: string
+          quarter: string
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          metric_definition_id: string
+          quarter: string
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          metric_definition_id?: string
+          quarter?: string
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: []
+      }
       form_recipients: {
         Row: { company_id: string; created_at: string; form_id: string }
         Insert: { company_id: string; created_at?: string; form_id: string }
@@ -277,6 +307,33 @@ export type Database = {
           note?: string
           quarter?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      metric_definitions: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          organization_id: string
+          type: Database["public"]["Enums"]["custom_metric_type"]
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          organization_id: string
+          type?: Database["public"]["Enums"]["custom_metric_type"]
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          organization_id?: string
+          type?: Database["public"]["Enums"]["custom_metric_type"]
+          unit?: string | null
         }
         Relationships: []
       }
@@ -535,6 +592,7 @@ export type Database = {
     Enums: {
       company_stage: "Pre-seed" | "Seed" | "Series A" | "Series B"
       company_status: "healthy" | "watch" | "critical" | "no_data"
+      custom_metric_type: "currency" | "number" | "percent" | "ratio" | "count"
       form_cadence: "monthly" | "quarterly" | "annual" | "ad_hoc"
       form_field_type:
         | "currency"
