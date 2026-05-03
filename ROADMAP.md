@@ -349,17 +349,15 @@ UI:
 - Investment instrument badges + website/linkedin links de L.6 también renderizan en la detalle LP.
 - Pendiente para L.7b si lo necesitamos: flag `companies.lp_visible bool` para esconder companies "critical" del LP.
 
-**L.8 Onboarding wizard expandido (extiende B.1 + sustituye seed)**
-Cuentas nuevas arrancan vacías y atraviesan un flujo opcional de setup.
-- El wizard `/onboarding` ya existe (Fase B.1). Expandirlo a 5 steps, todos skippeables:
-  1. **Fund profile** (nombre, logo, tesis, descripción, links — usa los campos de L.2).
-  2. **Add LPs** (lista repeatable: nombre, type, commitment, country, email).
-  3. **Invite team members** (analyst / partner / etc., con magic link — ya existe).
-  4. **Add portfolio companies** (list manual — ya existe — o subida CSV/Excel/PDF que parsea via Gemini, ver B.4).
-  5. **Upload historical metrics** (CSV/Excel/PDF, por company, ver B.4).
-  6. **Create your first form** (skip si querés usar templates por defecto).
-- El seed actual (Patagonia + 8 companies + 64 metrics) NO debe correr para cuentas nuevas — pasa a ser un script `scripts/seed-demo.sql` que sólo el demo usa.
-- Cada step tiene un "Skip for now" que avanza sin bloquear.
+**L.8 Onboarding wizard expandido (extiende B.1)** ✅ shipped
+- `/onboarding` ahora tiene 5 steps todos skippeables: **Fund** → **LPs** → **Team** → **Portfolio** → **Metrics**.
+  1. Fund: nombre, vintage, size, currency, **descripción, tesis (visible para LPs), website**. Persiste en `organizations` con los campos de L.2.
+  2. LPs: lista repeatable (nombre, type, commitment, country, email). Insert en `lps`. Match por email cuando el LP se loguea.
+  3. Team: invite-by-email con role select (existente — ya estaba en B.1).
+  4. Portfolio: tabla entry de companies (existente). Stub button "Upload CSV / Excel / PDF · coming soon" para B.4.
+  5. Metrics: backfill manual quarterly por company × quarter (ARR / cash / burn / revenue / headcount). Upsert por `(company_id, quarter)` para idempotencia. Stub upload button para B.4.
+- Seed: NO se aplicó cambio — el trigger `handle_new_user` ya deja `organization_id = NULL` para emails nuevos (sólo `simon.villena2010@gmail.com` recibe Patagonia). Cuentas nuevas ya arrancan vacías → caen en `/onboarding`. Mover el seed a `scripts/seed-demo.sql` queda como cleanup futuro.
+- Pendiente para L.8b: sub-step opcional "Create your first form" + parsers reales en B.4.
 
 **L.9 Plans & subscriptions en Settings**
 Nueva sección entre "Branding" y "Team":

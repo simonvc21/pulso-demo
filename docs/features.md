@@ -53,7 +53,13 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 
 ### Onboarding (initial)
 - `/onboarding` wizard auto-triggered when a user logs in without a fund.
-- 3 steps: fund profile (name, vintage, size, currency), portfolio companies (table-style entry), invite teammates. All optional / skippable.
+- **5 steps** (L.8), every one skippable:
+  1. **Fund profile** — name + vintage + size + currency + description + investment thesis (visible to LPs) + website.
+  2. **LPs** — repeatable list (name, type, commitment, country, contact email). Inserted into `lps`; matched to LP users by email at sign-in.
+  3. **Team** — invite-by-email with role select; sends magic links via existing `inviteUser` action.
+  4. **Portfolio companies** — table-style manual entry (name, sector, country, stage, invested, ownership, founder + email). Stub "Upload CSV / Excel / PDF" button (real parser is B.4).
+  5. **Historical metrics** — manual quarterly backfill per company × quarter (ARR / cash / burn / revenue / headcount). Upserts by `(company_id, quarter)` so re-running is safe. Stub upload button for B.4.
+- New accounts start empty: the existing `handle_new_user` trigger only assigns the Patagonia seed to `simon.villena2010@gmail.com`; everyone else lands with no org and is routed to `/onboarding`.
 
 ### AI features (Gemini)
 - All AI through `lib/gemini.ts` wrapper using `GEMINI_API_KEY`.
