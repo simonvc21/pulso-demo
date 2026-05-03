@@ -329,6 +329,43 @@ Hoy todas las companies tienen el mismo schema de métricas (arr, burn, cash, re
 - "Add widget" del catálogo: KPIs custom, charts adicionales (cohorts, funnel, custom metric over time).
 - Cambio de colores y títulos por widget.
 
+**L.6 Companies: instrumento de inversión + links**
+Nuevos campos en `companies`:
+- `investment_instrument enum` ("safe", "convertible_note", "equity", "saft", "warrant", "loan").
+- `safe_cap_usd numeric` y `safe_discount_pct numeric` (sólo cuando aplica).
+- `website text` y `linkedin_url text`.
+UI:
+- Editor en `/companies/[slug]/edit`: nuevo bloque "Investment terms" con tipo + cap + discount + website + linkedin.
+- En `/companies/[slug]` mostrar el badge del instrumento al lado del Stage, y los íconos de website/linkedin junto al founder.
+- Surface a Pulso AI (chat-context) y al LP letter para que se vea cómo está estructurada la inversión.
+
+**L.7 LPs ven dashboards de cada company del portfolio**
+Hoy `/lp` solo lista letters. Los LPs deberían poder explorar el portafolio igual que el GP, en modo lectura.
+- Nuevo `/lp/companies` (lista) y `/lp/companies/[slug]` (detalle) con los mismos cards/charts pero sin acciones de edición.
+- RLS: agregar policy especial para `role='lp'` que les permita SELECT en `companies` + `metrics` de su org.
+- El nombre y métricas de companies "critical" se muestran solo si el GP las marcó como visibles (futuro flag `companies.lp_visible bool default true`). Por ahora todas visibles para no bloquear la entrega.
+- El chatbot LP ya tiene acceso al portfolio entero (verificado en `lib/chat-context.ts`) — esto solo agrega la UI que se la haga ver.
+
+**L.8 Onboarding wizard expandido (extiende B.1 + sustituye seed)**
+Cuentas nuevas arrancan vacías y atraviesan un flujo opcional de setup.
+- El wizard `/onboarding` ya existe (Fase B.1). Expandirlo a 5 steps, todos skippeables:
+  1. **Fund profile** (nombre, logo, tesis, descripción, links — usa los campos de L.2).
+  2. **Add LPs** (lista repeatable: nombre, type, commitment, country, email).
+  3. **Invite team members** (analyst / partner / etc., con magic link — ya existe).
+  4. **Add portfolio companies** (list manual — ya existe — o subida CSV/Excel/PDF que parsea via Gemini, ver B.4).
+  5. **Upload historical metrics** (CSV/Excel/PDF, por company, ver B.4).
+  6. **Create your first form** (skip si querés usar templates por defecto).
+- El seed actual (Patagonia + 8 companies + 64 metrics) NO debe correr para cuentas nuevas — pasa a ser un script `scripts/seed-demo.sql` que sólo el demo usa.
+- Cada step tiene un "Skip for now" que avanza sin bloquear.
+
+**L.9 Plans & subscriptions en Settings**
+Nueva sección entre "Branding" y "Team":
+- Card "Subscription" muestra el plan actual (Starter/Growth/Scale del pricing del landing) y el ciclo de billing.
+- Botones: "Upgrade plan" (modal con los 3 tiers comparados), "Downgrade", "Cancel subscription".
+- Backend: integrar Stripe Customer Portal (más rápido que UI propia). Una sola tabla `subscriptions(organization_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end)`.
+- Webhook `/api/stripe/webhook` actualiza la tabla en eventos `customer.subscription.*`.
+- Para el demo: stub seguro que lee/escribe la tabla pero las acciones reales redirigen al Stripe Portal cuando STRIPE_SECRET_KEY esté seteado.
+
 ---
 
 ## Fase G — Settings avanzado (2 días)
