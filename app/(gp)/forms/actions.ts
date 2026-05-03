@@ -15,6 +15,12 @@ export type DraftField = {
   required?: boolean;
   group?: string;
   options?: string[];
+  /** L.4d — when set, founder submissions auto-write this field's numeric
+   *  value to the company's metrics row for the form's period. */
+  metricKey?: "arr" | "burn" | "cash" | "revenue" | "headcount" | null;
+  /** L.4d — when set, founder submissions auto-write this field's numeric
+   *  value to custom_metric_values for this metric definition. */
+  metricDefinitionId?: string | null;
 };
 
 export type FormInput = {

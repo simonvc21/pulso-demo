@@ -4,6 +4,7 @@ import {
   getCompanyOptions,
   getFormRecipientIds,
   getFormSchedule,
+  listOrgMetricDefinitions,
 } from "@/lib/dashboard-data";
 import { FormBuilder } from "../../form-builder";
 import type { FormInput } from "../../actions";
@@ -15,10 +16,11 @@ export default async function EditFormPage({ params }: { params: { id: string } 
   const form = await getFormBySlug(params.id);
   if (!form) notFound();
 
-  const [companies, recipientIds, schedule] = await Promise.all([
+  const [companies, recipientIds, schedule, metricDefinitions] = await Promise.all([
     getCompanyOptions(),
     getFormRecipientIds(form.id),
     getFormSchedule(form.id),
+    listOrgMetricDefinitions(),
   ]);
 
   const initial: FormInput = {
@@ -31,6 +33,8 @@ export default async function EditFormPage({ params }: { params: { id: string } 
       required: f.required,
       group: f.group,
       options: f.options,
+      metricKey: f.metricKey ?? null,
+      metricDefinitionId: f.metricDefinitionId ?? null,
     })),
   };
 
@@ -42,6 +46,7 @@ export default async function EditFormPage({ params }: { params: { id: string } 
         initial={initial}
         companies={companies}
         initialRecipientIds={recipientIds}
+        metricDefinitions={metricDefinitions}
       />
       <div className="px-8 max-w-5xl pb-12">
         <ScheduleEditor formSlug={form.slug} formName={form.name} initial={schedule} />

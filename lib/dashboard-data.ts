@@ -467,6 +467,9 @@ export type FormFieldRow = {
   required?: boolean;
   group?: string;
   options?: string[];
+  /** L.4d — auto-write target for numeric fields. Null/undefined = narrative. */
+  metricKey?: "arr" | "burn" | "cash" | "revenue" | "headcount" | null;
+  metricDefinitionId?: string | null;
 };
 
 export interface FormTemplateDetail {

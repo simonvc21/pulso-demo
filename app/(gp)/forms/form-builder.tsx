@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { FormFieldType } from "@/lib/types";
-import type { CompanyOption } from "@/lib/dashboard-data";
+import type { CompanyOption, CustomMetricDefinition } from "@/lib/dashboard-data";
 import type { DraftField, FormInput } from "./actions";
 import { createForm, updateForm } from "./actions";
 import { suggestFormFields, rewriteFieldLabel } from "./ai-actions";
@@ -49,9 +49,11 @@ interface BuilderProps {
   slug?: string;
   companies: CompanyOption[];
   initialRecipientIds?: string[];
+  /** L.4d — org metric definitions for the "save to" picker. */
+  metricDefinitions?: CustomMetricDefinition[];
 }
 
-export function FormBuilder({ mode, initial, slug, companies, initialRecipientIds }: BuilderProps) {
+export function FormBuilder({ mode, initial, slug, companies, initialRecipientIds, metricDefinitions = [] }: BuilderProps) {
   const seed = initial ?? defaultNewForm;
   const [name, setName] = useState(seed.name);
   const [cadence, setCadence] = useState<FormInput["cadence"]>(seed.cadence);
@@ -449,6 +451,58 @@ export function FormBuilder({ mode, initial, slug, companies, initialRecipientId
                     className="w-full mt-1 h-9 px-3 rounded-lg border border-line text-xs focus:outline-none focus:ring-2 focus:ring-teal/30"
                   />
                 </div>
+                {(selected.type === "currency" || selected.type === "number" || selected.type === "percent") && (
+                  <div>
+                    <label className="text-[11px] font-medium text-ink">Save to metric</label>
+                    <select
+                      value={
+                        selected.metricKey
+                          ? `std:${selected.metricKey}`
+                          : selected.metricDefinitionId
+                          ? `def:${selected.metricDefinitionId}`
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (!v) {
+                          updateField(selected.id, { metricKey: null, metricDefinitionId: null });
+                        } else if (v.startsWith("std:")) {
+                          updateField(selected.id, {
+                            metricKey: v.slice(4) as DraftField["metricKey"],
+                            metricDefinitionId: null,
+                          });
+                        } else if (v.startsWith("def:")) {
+                          updateField(selected.id, {
+                            metricKey: null,
+                            metricDefinitionId: v.slice(4),
+                          });
+                        }
+                      }}
+                      className="w-full mt-1 h-9 px-3 rounded-lg border border-line text-xs focus:outline-none focus:ring-2 focus:ring-teal/30"
+                    >
+                      <option value="">— Don't auto-save (narrative only) —</option>
+                      <optgroup label="Standard financials">
+                        <option value="std:arr">ARR (USD)</option>
+                        <option value="std:revenue">Revenue (USD)</option>
+                        <option value="std:burn">Burn (USD/month)</option>
+                        <option value="std:cash">Cash (USD)</option>
+                        <option value="std:headcount">Headcount</option>
+                      </optgroup>
+                      {metricDefinitions.length > 0 && (
+                        <optgroup label="Custom metrics">
+                          {metricDefinitions.map((d) => (
+                            <option key={d.id} value={`def:${d.id}`}>
+                              {d.label}{d.unit ? ` (${d.unit})` : ""}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <p className="mt-1 text-[10px] text-muted leading-snug">
+                      When the founder submits, this number lands in the chart for the form's period — no copy/paste.
+                    </p>
+                  </div>
+                )}
                 {selected.type === "select" && (
                   <div>
                     <label className="text-[11px] font-medium text-ink">Options (one per line)</label>
@@ -734,6 +788,12 @@ function SortableFieldRow({
             <div className="text-sm font-medium text-ink">{field.label}</div>
             {field.required && <Badge tone="gold">Required</Badge>}
             {field.group && <Badge>{field.group}</Badge>}
+            {(field.metricKey || field.metricDefinitionId) && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-teal-600 bg-teal-50 border border-teal/30 px-1.5 py-0.5 rounded">
+                <Save className="h-2.5 w-2.5" />
+                {field.metricKey ? `→ ${field.metricKey.toUpperCase()}` : "→ chart"}
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-muted mt-0.5 capitalize">{field.type} field</div>
           <div className="mt-2.5">
