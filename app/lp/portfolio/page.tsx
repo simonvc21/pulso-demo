@@ -10,7 +10,7 @@ import { PortfolioMetricBarChart } from "@/components/portfolio-metric-bar-chart
 import { PortfolioTrendChart } from "@/components/portfolio-trend-chart";
 import { RunwayDistribution } from "@/components/runway-distribution";
 import { WatchList } from "@/components/watch-list";
-import { fmtUSD } from "@/lib/utils";
+import { fmtMoney } from "@/lib/utils";
 import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { ts } from "@/lib/i18n-server";
@@ -27,6 +27,7 @@ export default async function LpPortfolioPage() {
   const fundSize = Number(organization?.size_usd ?? 0);
   const fundDeployed = Number(organization?.deployed_usd ?? 0);
   const deployedPct = fundSize > 0 ? Math.round((fundDeployed / fundSize) * 100) : 0;
+  const ccy = organization?.currency ?? "USD";
   const latestPeriod = (() => {
     const allLabels: string[] = [];
     for (const c of companies) for (const m of c.metrics) allLabels.push(m.quarter);
@@ -54,12 +55,12 @@ export default async function LpPortfolioPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label={ts("dashboard.kpi_total_invested")}
-          value={fmtUSD(fundDeployed, { compact: true })}
+          value={fmtMoney(fundDeployed, { compact: true }, ccy)}
           hint={`${deployedPct}% ${ts("dashboard.deployed")}`}
         />
         <KpiCard
           label={ts("dashboard.kpi_portfolio_arr")}
-          value={fmtUSD(kpis.arrTotal, { compact: true })}
+          value={fmtMoney(kpis.arrTotal, { compact: true }, ccy)}
           delta={{
             text: `${kpis.qoqArrGrowth >= 0 ? "+" : ""}${kpis.qoqArrGrowth.toFixed(1)}% MoM`,
             trend: kpis.qoqArrGrowth >= 0 ? "up" : "down",
@@ -74,7 +75,7 @@ export default async function LpPortfolioPage() {
         <KpiCard
           label={ts("dashboard.kpi_runway")}
           value={`${kpis.runwayMonths.toFixed(1)} mo`}
-          hint={`${fmtUSD(kpis.cash, { compact: true })} ${ts("dashboard.cash")}`}
+          hint={`${fmtMoney(kpis.cash, { compact: true }, ccy)} ${ts("dashboard.cash")}`}
         />
       </div>
 

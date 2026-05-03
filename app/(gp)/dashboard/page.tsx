@@ -11,7 +11,7 @@ import { RunwayDistribution } from "@/components/runway-distribution";
 import { WatchList } from "@/components/watch-list";
 import { ActivityFeed } from "@/components/activity-feed";
 import { Button } from "@/components/ui/button";
-import { fmtUSD } from "@/lib/utils";
+import { fmtMoney } from "@/lib/utils";
 import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { DashboardAIBanner } from "@/components/dashboard-ai-banner";
@@ -28,6 +28,9 @@ export default async function DashboardPage() {
   const fundName = organization?.name ?? "Your fund";
   const fundSize = Number(organization?.size_usd ?? 0);
   const fundDeployed = Number(organization?.deployed_usd ?? 0);
+  // L.7 — currency-aware display. All amounts stored as USD, shown in the
+  // org's chosen currency symbol.
+  const ccy = organization?.currency ?? "USD";
   const deployedPct = fundSize > 0 ? Math.round((fundDeployed / fundSize) * 100) : 0;
   const newThisQ = 2;
   // L.12 — Latest period label across the portfolio (e.g. "Mar 2026"). Pulled
@@ -72,13 +75,13 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
             label={ts("dashboard.kpi_total_invested")}
-            value={fmtUSD(fundDeployed, { compact: true })}
+            value={fmtMoney(fundDeployed, { compact: true }, ccy)}
             delta={{ text: "+ $4.1M MoM", trend: "up" }}
             hint={`${deployedPct}% ${ts("dashboard.deployed")}`}
           />
           <KpiCard
             label={ts("dashboard.kpi_portfolio_arr")}
-            value={fmtUSD(kpis.arrTotal, { compact: true })}
+            value={fmtMoney(kpis.arrTotal, { compact: true }, ccy)}
             delta={{ text: `${kpis.qoqArrGrowth >= 0 ? "+" : ""}${kpis.qoqArrGrowth.toFixed(1)}% MoM`, trend: kpis.qoqArrGrowth >= 0 ? "up" : "down" }}
             hint={`${newThisQ} ${ts("dashboard.new_this_q")}`}
           />
@@ -92,7 +95,7 @@ export default async function DashboardPage() {
             label={ts("dashboard.kpi_runway")}
             value={`${kpis.runwayMonths.toFixed(1)} mo`}
             delta={{ text: "− 1.8 mo MoM", trend: "down" }}
-            hint={`${fmtUSD(kpis.cash, { compact: true })} ${ts("dashboard.cash")}`}
+            hint={`${fmtMoney(kpis.cash, { compact: true }, ccy)} ${ts("dashboard.cash")}`}
           />
         </div>
 

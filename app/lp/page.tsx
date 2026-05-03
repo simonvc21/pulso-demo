@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronRight, FileText, Calendar, Eye, Briefcase, MessageSquare, BarChart3, TrendingUp } from "lucide-react";
 import { getLpLetters, getCompanyList, getDashboardData } from "@/lib/dashboard-data";
 import { listNewsletters } from "@/lib/newsletter";
-import { fmtUSD, fmtPct } from "@/lib/utils";
+import { fmtMoney, fmtPct } from "@/lib/utils";
 import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,7 @@ export default async function LpHomePage() {
   const kpis = dashboard.kpis;
   const watchCount = dashboard.watchList.length;
   const latestNewsletter = newsletters[0] ?? null;
+  const ccy = dashboard.organization?.currency ?? "USD";
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
@@ -30,12 +31,12 @@ export default async function LpHomePage() {
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <KpiTile
             label="Portfolio ARR"
-            value={fmtUSD(kpis.arrTotal, { compact: true })}
+            value={fmtMoney(kpis.arrTotal, { compact: true }, ccy)}
             delta={kpis.arrPrev > 0 ? fmtPct(kpis.qoqArrGrowth, 1) : null}
             positive={kpis.qoqArrGrowth >= 0}
             icon={TrendingUp}
           />
-          <KpiTile label="Cash on hand" value={fmtUSD(kpis.cash, { compact: true })} />
+          <KpiTile label="Cash on hand" value={fmtMoney(kpis.cash, { compact: true }, ccy)} />
           <KpiTile
             label="Avg runway"
             value={kpis.runwayMonths > 0 ? `${kpis.runwayMonths.toFixed(0)} mo` : "—"}
