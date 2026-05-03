@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingWizard } from "./wizard";
+import { getServerLocale } from "@/lib/i18n-server";
+import { getDictionary } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +25,13 @@ export default async function OnboardingPage() {
     redirect("/dashboard");
   }
 
+  const dict = getDictionary(getServerLocale()).onboarding ?? {};
+
   return (
     <OnboardingWizard
       userEmail={user.email ?? ""}
       userName={(user.user_metadata?.name as string | undefined) ?? null}
+      dict={dict}
     />
   );
 }

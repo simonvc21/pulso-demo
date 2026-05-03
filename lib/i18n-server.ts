@@ -17,6 +17,6 @@ export function getServerDictionary() {
   return baseGetDict(getServerLocale());
 }
 
-export function ts(key: string): string {
-  return baseT(key, getServerLocale());
+export function ts(key: string, vars?: Record<string, string | number>): string {
+  return baseT(key, getServerLocale(), vars);
 }

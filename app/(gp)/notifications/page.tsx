@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { getNotifications } from "@/lib/dashboard-data";
 import { markAllNotificationsRead } from "./actions";
 import { cn } from "@/lib/utils";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +46,13 @@ export default async function NotificationsPage() {
     <>
       <Topbar
         bell={<TopbarBell />}
-        title="Notifications"
-        breadcrumb={`${items.length} total · ${unread} unread`}
+        title={ts("notifications.title")}
+        breadcrumb={ts("notifications.breadcrumb", { total: items.length, unread })}
         actions={
           unread > 0 ? (
             <form action={async () => { "use server"; await markAllNotificationsRead(); }}>
               <Button type="submit" variant="outline" size="sm" className="gap-1.5">
-                <Check className="h-3.5 w-3.5" /> Mark all read
+                <Check className="h-3.5 w-3.5" /> {ts("notifications.mark_all_read")}
               </Button>
             </form>
           ) : null

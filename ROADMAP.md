@@ -188,10 +188,12 @@ Para que cada fondo sienta que es *su* tool, no Pulso.
 - Persistir layout en `users.dashboard_layout_json` (per-usuario, no per-fondo, para que cada uno arme el suyo).
 - Botón "Add widget" con catálogo: KPIs custom, charts adicionales (cohorts, top movers, etc).
 
-**D.6 Switch de idioma EN/ES**
-- next-intl. Reemplazar todos los strings hardcoded por `t('...')`.
-- Detectar Accept-Language en server side, default a en.
-- Toggle en topbar.
+**D.6 Switch de idioma EN/ES** ✅ shipped (phase 2)
+- ✅ Cookie-driven (`pulso_locale`) con `LocaleSwitcher` en el sidebar. Sin next-intl — usamos un wrapper liviano `lib/i18n.ts` (client-safe) + `lib/i18n-server.ts` (lee cookies) que devuelve `t(key, locale, vars?)`.
+- ✅ Phase 1 (anterior): sidebar, topbar search, dashboard core + KPIs.
+- ✅ Phase 2 (this pass): companies list + detail topbar/columns, data toolbar + tip + filter placeholder, notifications topbar + mark-all-read, forms topbar + new-form button, settings (todos los cards), LP portal (header / portfolio callout / letters empty state / company list + detail), onboarding stepper (5 step labels).
+- Helper soporta interpolación `{{n}}` para "Explorá las {{n}} empresas" / "{{total}} totales · {{unread}} sin leer".
+- Pendiente: form-builder internals (drag-drop UX), edit forms, /lps Add-LP modal, label de roles dentro de cards, modals de team management. Esos son strings menos visibles y más volátiles — los dejamos para un D.6c si hace falta.
 
 **Entregable D:** fondo con su logo, colores y dashboard custom. Light/dark. EN/ES.
 

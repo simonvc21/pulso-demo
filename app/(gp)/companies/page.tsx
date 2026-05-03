@@ -5,6 +5,7 @@ import { StatusBadge, Badge } from "@/components/ui/badge";
 import { getCompanyList, getFund } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct } from "@/lib/utils";
 import { ArrowUpRight } from "lucide-react";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,8 @@ export default async function CompaniesPage() {
   return (
     <>
       <Topbar
-        title="Companies"
-        breadcrumb={`${fundName} · ${companies.length} active`}
+        title={ts("companies.title")}
+        breadcrumb={`${fundName} · ${companies.length} ${ts("companies.breadcrumb_active")}`}
         bell={<TopbarBell />}
       />
       <div className="px-8 py-6 animate-fade-in">
@@ -28,14 +29,14 @@ export default async function CompaniesPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-paper2 text-[10px] tracking-[0.14em] text-muted uppercase">
-                <th className="text-left font-semibold px-5 py-3">Company</th>
-                <th className="text-left font-semibold px-3 py-3">Sector</th>
-                <th className="text-left font-semibold px-3 py-3">Stage</th>
-                <th className="text-right font-semibold px-3 py-3">Invested</th>
-                <th className="text-right font-semibold px-3 py-3">ARR (latest)</th>
-                <th className="text-right font-semibold px-3 py-3">QoQ</th>
-                <th className="text-left font-semibold px-3 py-3">Status</th>
-                <th className="text-right font-semibold px-5 py-3">Last update</th>
+                <th className="text-left font-semibold px-5 py-3">{ts("companies.col_company")}</th>
+                <th className="text-left font-semibold px-3 py-3">{ts("companies.col_sector")}</th>
+                <th className="text-left font-semibold px-3 py-3">{ts("companies.col_stage")}</th>
+                <th className="text-right font-semibold px-3 py-3">{ts("companies.col_invested")}</th>
+                <th className="text-right font-semibold px-3 py-3">{ts("companies.col_arr")}</th>
+                <th className="text-right font-semibold px-3 py-3">{ts("companies.col_qoq")}</th>
+                <th className="text-left font-semibold px-3 py-3">{ts("companies.col_status")}</th>
+                <th className="text-right font-semibold px-5 py-3">{ts("companies.col_last_update")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">

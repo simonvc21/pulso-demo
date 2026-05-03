@@ -26,6 +26,8 @@ interface Props {
   companies: DataMatrixCompany[];
   initialNotes: DataMetricNotes;
   initialColumns: DataColumnsConfig;
+  /** Localized strings passed from the server page (avoids importing i18n into client bundle). */
+  dict?: Record<string, string>;
 }
 
 interface NoteEditTarget {
@@ -40,7 +42,8 @@ interface NoteEditTarget {
 const noteKey = (companyId: string, quarter: string, key: string) =>
   `${companyId}|${quarter}|${key}`;
 
-export function DataGrid({ quarters, companies: initial, initialNotes, initialColumns }: Props) {
+export function DataGrid({ quarters, companies: initial, initialNotes, initialColumns, dict = {} }: Props) {
+  const td = (k: string, fallback: string) => dict[k] ?? fallback;
   const [companies, setCompanies] = useState(initial);
   const [view, setView] = useState<View>("by_company");
   const [filter, setFilter] = useState("");
@@ -147,7 +150,7 @@ export function DataGrid({ quarters, companies: initial, initialNotes, initialCo
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter companies, sectors, countries…"
+              placeholder={td("filter_placeholder", "Filter companies, sectors, countries…")}
               className="h-9 pl-8 pr-3 w-72 rounded-lg bg-paper border border-line text-xs text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-teal/30"
             />
           </div>
@@ -160,7 +163,7 @@ export function DataGrid({ quarters, companies: initial, initialNotes, initialCo
                 view === "by_company" ? "bg-navy text-white" : "text-muted hover:text-ink"
               )}
             >
-              By company
+              {td("by_company", "By company")}
             </button>
             <button
               type="button"
@@ -170,7 +173,7 @@ export function DataGrid({ quarters, companies: initial, initialNotes, initialCo
                 view === "by_quarter" ? "bg-navy text-white" : "text-muted hover:text-ink"
               )}
             >
-              By quarter
+              {td("by_quarter", "By quarter")}
             </button>
           </div>
           <ColumnConfigPopover config={columns} onChange={setColumns} />
@@ -217,7 +220,7 @@ export function DataGrid({ quarters, companies: initial, initialNotes, initialCo
       </div>
 
       <div className="text-[11px] text-muted">
-        Tip: tab to move between cells. Right-click any cell (or click the bubble) to add a note. Empty saves as null.
+        {td("tip", "Tip: tab to move between cells. Right-click any cell (or click the bubble) to add a note. Empty saves as null.")}
       </div>
 
       {noteTarget && (

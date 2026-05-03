@@ -24,7 +24,11 @@ export function getDictionary(locale: Locale = DEFAULT_LOCALE): Messages {
   return dictionaries[locale] ?? dictionaries.en;
 }
 
-export function t(key: string, locale: Locale = DEFAULT_LOCALE): string {
+export function t(
+  key: string,
+  locale: Locale = DEFAULT_LOCALE,
+  vars?: Record<string, string | number>,
+): string {
   const dict = getDictionary(locale);
   const parts = key.split(".");
   let cur: any = dict;
@@ -35,5 +39,9 @@ export function t(key: string, locale: Locale = DEFAULT_LOCALE): string {
       return key;
     }
   }
-  return typeof cur === "string" ? cur : key;
+  if (typeof cur !== "string") return key;
+  if (!vars) return cur;
+  return cur.replace(/\{\{(\w+)\}\}/g, (_, name) =>
+    name in vars ? String(vars[name]) : `{{${name}}}`
+  );
 }

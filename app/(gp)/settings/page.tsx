@@ -8,6 +8,7 @@ import { getCurrentUser, getFund, parseTheme } from "@/lib/dashboard-data";
 import { signOut } from "./actions";
 import { FundForm } from "./fund-form";
 import { BrandingForm } from "./branding-form";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,18 +18,18 @@ export default async function SettingsPage() {
   return (
     <>
       <Topbar
-        title="Settings"
-        breadcrumb="Profile · fund · session"
+        title={ts("settings.title")}
+        breadcrumb={ts("settings.breadcrumb")}
         bell={<TopbarBell />}
       />
       <div className="px-8 py-6 space-y-6 animate-fade-in max-w-3xl">
         {/* Profile */}
-        <Card title="Your profile" subtitle="Read-only for the demo">
-          <Field icon={User} label="Name" value={profile?.name ?? "—"} />
-          <Field icon={Mail} label="Email" value={profile?.email ?? "—"} />
+        <Card title={ts("settings.your_profile")} subtitle={ts("settings.your_profile_subtitle")}>
+          <Field icon={User} label={ts("auth.name")} value={profile?.name ?? "—"} />
+          <Field icon={Mail} label={ts("auth.email")} value={profile?.email ?? "—"} />
           <Field
             icon={Shield}
-            label="Role"
+            label={ts("auth.role")}
             valueNode={
               <Badge tone={profile?.role === "gp" ? "gold" : "default"}>
                 {(profile?.role ?? "viewer").toUpperCase()}
@@ -38,7 +39,7 @@ export default async function SettingsPage() {
         </Card>
 
         {/* Fund */}
-        <Card title="Fund" subtitle="Edit your fund's profile. Visible to your team and on LP letters.">
+        <Card title={ts("settings.fund_card")} subtitle={ts("settings.fund_subtitle")}>
           {fund ? (
             <FundForm
               initial={{
@@ -61,8 +62,8 @@ export default async function SettingsPage() {
 
         {/* Branding */}
         <Card
-          title="Branding"
-          subtitle="Logo and colors. Shows up in the sidebar, on LP letters, and across the app."
+          title={ts("settings.branding")}
+          subtitle={ts("settings.branding_subtitle")}
         >
           {fund ? (
             <BrandingForm
@@ -86,8 +87,8 @@ export default async function SettingsPage() {
                 <Users className="h-5 w-5 text-teal-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-ink">Team</h3>
-                <p className="text-[11px] text-muted mt-0.5">Invite analysts and partners, manage roles, revoke access</p>
+                <h3 className="text-sm font-semibold text-ink">{ts("settings.team")}</h3>
+                <p className="text-[11px] text-muted mt-0.5">{ts("settings.team_subtitle")}</p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors" />
             </div>
@@ -96,8 +97,8 @@ export default async function SettingsPage() {
 
         {/* Integrations placeholder */}
         <Card
-          title="Integrations"
-          subtitle="Coming soon: QuickBooks, Contabilizei, Xero, Slack, Google Drive"
+          title={ts("settings.integrations")}
+          subtitle={ts("settings.integrations_subtitle")}
         >
           <div className="text-[12px] text-muted">
             Integrations will let Pulso pull financial data automatically — phase 2 of the roadmap.
@@ -105,10 +106,10 @@ export default async function SettingsPage() {
         </Card>
 
         {/* Session */}
-        <Card title="Session" subtitle="Sign out of this device">
+        <Card title={ts("settings.session")} subtitle={ts("settings.session_subtitle")}>
           <form action={signOut}>
             <Button type="submit" variant="outline" size="sm" className="gap-1.5">
-              <LogOut className="h-3.5 w-3.5" /> Sign out
+              <LogOut className="h-3.5 w-3.5" /> {ts("settings.sign_out")}
             </Button>
           </form>
         </Card>

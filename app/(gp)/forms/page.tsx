@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getFormTemplates, type FormCadence } from "@/lib/dashboard-data";
 import { Plus, Calendar, Send, Repeat, ChevronRight, Eye } from "lucide-react";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function FormsPage({
     <>
       <Topbar
         bell={<TopbarBell />}
-        title="Forms"
+        title={ts("forms.title")}
         breadcrumb={
           companySlug
             ? `Pick a form to send to ${companySlug}`
@@ -36,7 +37,7 @@ export default async function FormsPage({
         actions={
           <Link href="/forms/new">
             <Button variant="primary" size="sm" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> New form
+              <Plus className="h-3.5 w-3.5" /> {ts("forms.new_form")}
             </Button>
           </Link>
         }

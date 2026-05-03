@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, FileText, Calendar, Eye, Briefcase } from "lucide-react";
 import { getLpLetters, getCompanyList } from "@/lib/dashboard-data";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +10,12 @@ export default async function LpHomePage() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
-      <div className="text-[11px] font-semibold text-gold-600 tracking-[0.18em] uppercase">LP Portal</div>
+      <div className="text-[11px] font-semibold text-gold-600 tracking-[0.18em] uppercase">{ts("lp_portal.header")}</div>
       <h1 className="mt-2 text-3xl font-serif font-bold text-ink leading-tight">
-        Your letters and updates
+        {ts("lp_portal.letters_title")}
       </h1>
       <p className="mt-2 text-sm text-muted">
-        Quarterly portfolio updates from the funds you've committed to.
+        {ts("lp_portal.letters_subtitle")}
       </p>
 
       {companies.length > 0 && (
@@ -24,9 +25,9 @@ export default async function LpHomePage() {
               <Briefcase className="h-5 w-5 text-gold" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] tracking-[0.18em] uppercase text-gold font-semibold">Live portfolio</div>
-              <h2 className="mt-1 text-lg font-serif font-bold">Explore the {companies.length} companies in this fund</h2>
-              <p className="text-[12px] text-white/70 mt-1">KPIs, quarterly history, and the latest updates from each founder. Updated continuously.</p>
+              <div className="text-[10px] tracking-[0.18em] uppercase text-gold font-semibold">{ts("lp_portal.portfolio_callout_label")}</div>
+              <h2 className="mt-1 text-lg font-serif font-bold">{ts("lp_portal.portfolio_callout_title", { n: companies.length })}</h2>
+              <p className="text-[12px] text-white/70 mt-1">{ts("lp_portal.portfolio_callout_body")}</p>
             </div>
             <ChevronRight className="h-5 w-5 text-white/60 group-hover:text-gold transition-colors shrink-0" />
           </div>
@@ -38,9 +39,9 @@ export default async function LpHomePage() {
           <div className="h-12 w-12 rounded-full bg-paper2 flex items-center justify-center mx-auto">
             <FileText className="h-6 w-6 text-muted" />
           </div>
-          <h2 className="mt-4 text-base font-serif font-semibold text-ink">No letters yet</h2>
+          <h2 className="mt-4 text-base font-serif font-semibold text-ink">{ts("lp_portal.letters_empty_title")}</h2>
           <p className="mt-2 text-[13px] text-muted max-w-md mx-auto">
-            Your GP hasn't shared anything with you yet. Letters will appear here as soon as they're published.
+            {ts("lp_portal.letters_empty_body")}
           </p>
         </div>
       ) : (

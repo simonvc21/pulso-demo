@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { StatusBadge, Badge } from "@/components/ui/badge";
 import { getCompanyList, getFund } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct } from "@/lib/utils";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,26 +18,26 @@ export default async function LpCompaniesListPage() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
       <Link href="/lp" className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink">
-        <ArrowLeft className="h-3 w-3" /> Back to letters
+        <ArrowLeft className="h-3 w-3" /> {ts("lp_portal.back_to_letters")}
       </Link>
-      <div className="mt-3 text-[11px] font-semibold text-gold-600 tracking-[0.18em] uppercase">{fundName} · Portfolio</div>
+      <div className="mt-3 text-[11px] font-semibold text-gold-600 tracking-[0.18em] uppercase">{fundName} · {ts("lp_portal.portfolio_btn")}</div>
       <h1 className="mt-2 text-3xl font-serif font-bold text-ink leading-tight">
-        Companies in this fund
+        {ts("lp_portal.companies_title")}
       </h1>
       <p className="mt-2 text-sm text-muted">
-        {companies.length} active companies. Tap any name for live KPIs and quarterly history.
+        {ts("lp_portal.companies_subtitle", { n: companies.length })}
       </p>
 
       <div className="mt-8 bg-white rounded-xl border border-line shadow-card overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="bg-paper2 text-[10px] tracking-[0.14em] text-muted uppercase">
-              <th className="text-left font-semibold px-5 py-3">Company</th>
-              <th className="text-left font-semibold px-3 py-3 hidden md:table-cell">Sector</th>
-              <th className="text-left font-semibold px-3 py-3 hidden md:table-cell">Stage</th>
+              <th className="text-left font-semibold px-5 py-3">{ts("companies.col_company")}</th>
+              <th className="text-left font-semibold px-3 py-3 hidden md:table-cell">{ts("companies.col_sector")}</th>
+              <th className="text-left font-semibold px-3 py-3 hidden md:table-cell">{ts("companies.col_stage")}</th>
               <th className="text-right font-semibold px-3 py-3 hidden sm:table-cell">ARR</th>
-              <th className="text-right font-semibold px-3 py-3 hidden sm:table-cell">QoQ</th>
-              <th className="text-left font-semibold px-3 py-3">Status</th>
+              <th className="text-right font-semibold px-3 py-3 hidden sm:table-cell">{ts("companies.col_qoq")}</th>
+              <th className="text-left font-semibold px-3 py-3">{ts("companies.col_status")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">

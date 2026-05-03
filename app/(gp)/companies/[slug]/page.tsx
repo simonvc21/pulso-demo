@@ -9,6 +9,7 @@ import { CompanyHistoryChart } from "@/components/company-history-chart";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { getCompanyBySlug, getNewsletterUpdates, type DashboardMetric } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -58,30 +59,30 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
         title={`${company.name}`}
         breadcrumb={
           <Link href="/companies" className="inline-flex items-center gap-1 hover:text-ink transition-colors">
-            <ArrowLeft className="h-3 w-3" /> Companies
+            <ArrowLeft className="h-3 w-3" /> {ts("companies.back_to_companies")}
           </Link>
         }
         actions={
           <div className="flex items-center gap-2">
             <Link href={`/companies/${company.slug}/edit`}>
               <Button variant="outline" size="sm" className="gap-1.5">
-                <Pencil className="h-3.5 w-3.5" /> Edit
+                <Pencil className="h-3.5 w-3.5" /> {ts("companies.edit")}
               </Button>
             </Link>
             {company.founder.email ? (
               <a href={`mailto:${company.founder.email}?subject=${encodeURIComponent(`${company.name} — quick check-in`)}`}>
                 <Button variant="outline" size="sm" className="gap-1.5">
-                  <Mail className="h-3.5 w-3.5" /> Email founder
+                  <Mail className="h-3.5 w-3.5" /> {ts("companies.email_founder")}
                 </Button>
               </a>
             ) : (
               <Button variant="outline" size="sm" className="gap-1.5" disabled>
-                <Mail className="h-3.5 w-3.5" /> No founder email
+                <Mail className="h-3.5 w-3.5" /> {ts("companies.no_founder_email")}
               </Button>
             )}
             <Link href={`/forms?company=${company.slug}`}>
               <Button variant="primary" size="sm" className="gap-1.5">
-                <FileText className="h-3.5 w-3.5" /> Send a form
+                <FileText className="h-3.5 w-3.5" /> {ts("companies.send_form")}
               </Button>
             </Link>
           </div>
@@ -150,7 +151,7 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
               </div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">Founder</div>
+              <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">{ts("companies.founder")}</div>
               <div className="text-sm font-semibold text-ink mt-1">{company.founder.name}</div>
               <div className="text-[11px] text-muted">{company.founder.role}</div>
               {company.founder.email && (
@@ -168,7 +169,7 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
                   <Sparkles className="h-3.5 w-3.5 text-gold" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-gold font-semibold tracking-[0.16em] uppercase">Pulso AI insight</div>
+                  <div className="text-[10px] text-gold font-semibold tracking-[0.16em] uppercase">{ts("companies.ai_insight")}</div>
                   <div className="text-[13px] mt-1 leading-relaxed">{aiInsight}</div>
                 </div>
               </div>

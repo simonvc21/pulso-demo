@@ -22,9 +22,18 @@ type Step = 1 | 2 | 3 | 4 | 5;
 interface Props {
   userEmail: string;
   userName: string | null;
+  dict?: {
+    header?: string;
+    step?: string;
+    fund_step?: string;
+    lps_step?: string;
+    team_step?: string;
+    portfolio_step?: string;
+    metrics_step?: string;
+  };
 }
 
-export function OnboardingWizard({ userEmail, userName }: Props) {
+export function OnboardingWizard({ userEmail, userName, dict = {} }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [pending, startTransition] = useTransition();
@@ -146,14 +155,14 @@ export function OnboardingWizard({ userEmail, userName }: Props) {
             <Zap className="h-3.5 w-3.5 text-navy" fill="currentColor" />
           </div>
           <div>
-            <div className="text-[11px] tracking-[0.18em] font-semibold">PULSO · ONBOARDING</div>
+            <div className="text-[11px] tracking-[0.18em] font-semibold">{dict.header ?? "PULSO · ONBOARDING"}</div>
             <div className="text-[10px] text-white/60">{userName ?? userEmail}</div>
           </div>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
-        <Stepper step={step} />
+        <Stepper step={step} dict={dict} />
 
         {error && (
           <div className="mb-4 text-[12px] text-coral bg-red-50 border border-red-100 rounded-md px-3 py-2">
@@ -241,14 +250,15 @@ function emptyMetric(slug: string): MetricDraft {
 // Stepper
 // ---------------------------------------------------------------------------
 
-function Stepper({ step }: { step: Step }) {
+function Stepper({ step, dict = {} }: { step: Step; dict?: Props["dict"] }) {
   const items = [
-    { n: 1, label: "Fund", icon: Building2 },
-    { n: 2, label: "LPs", icon: Briefcase },
-    { n: 3, label: "Team", icon: Users },
-    { n: 4, label: "Portfolio", icon: FileText },
-    { n: 5, label: "Metrics", icon: BarChart3 },
+    { n: 1, label: dict?.fund_step ?? "Fund", icon: Building2 },
+    { n: 2, label: dict?.lps_step ?? "LPs", icon: Briefcase },
+    { n: 3, label: dict?.team_step ?? "Team", icon: Users },
+    { n: 4, label: dict?.portfolio_step ?? "Portfolio", icon: FileText },
+    { n: 5, label: dict?.metrics_step ?? "Metrics", icon: BarChart3 },
   ] as const;
+  const stepWord = dict?.step ?? "Step";
   return (
     <div className="mb-8 flex items-center gap-2 sm:gap-3">
       {items.map((it, i) => {
@@ -266,7 +276,7 @@ function Stepper({ step }: { step: Step }) {
             </div>
             <div className="hidden md:block">
               <div className={cn("text-[10px] tracking-[0.14em] uppercase font-semibold", active ? "text-gold-600" : done ? "text-teal-600" : "text-muted")}>
-                Step {it.n}
+                {stepWord} {it.n}
               </div>
               <div className={cn("text-sm font-medium", active || done ? "text-ink" : "text-muted")}>
                 {it.label}

@@ -6,6 +6,7 @@ import { CompanyHistoryChart } from "@/components/company-history-chart";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { getCompanyBySlug, getNewsletterUpdates, type DashboardMetric } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
+import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 animate-fade-in space-y-6">
       <Link href="/lp/companies" className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink">
-        <ArrowLeft className="h-3 w-3" /> Back to portfolio
+        <ArrowLeft className="h-3 w-3" /> {ts("lp_portal.back_to_portfolio")}
       </Link>
 
       {/* Hero */}
@@ -105,7 +106,7 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
             </div>
           </div>
           <div className="text-right hidden sm:block">
-            <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">Founder</div>
+            <div className="text-[10px] text-muted tracking-[0.14em] uppercase font-semibold">{ts("lp_portal.founder_label")}</div>
             <div className="text-sm font-semibold text-ink mt-1">{company.founder.name || "—"}</div>
             <div className="text-[11px] text-muted">{company.founder.role}</div>
           </div>
@@ -147,9 +148,9 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
       <PortfolioNewsletter updates={updates} />
 
       <div className="text-[11px] text-muted text-center pt-4">
-        Information sourced from founder submissions and shared by your GP.{" "}
+        {ts("lp_portal.info_footer")}{" "}
         <a href="mailto:" className="text-teal-600 hover:underline inline-flex items-center gap-1">
-          Question? Ask your GP <ExternalLink className="h-2.5 w-2.5" />
+          {ts("lp_portal.ask_gp")} <ExternalLink className="h-2.5 w-2.5" />
         </a>
       </div>
     </div>

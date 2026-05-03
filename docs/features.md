@@ -85,7 +85,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **White-label**: per-org logo (Supabase Storage `org-assets` bucket), per-company logos.
 - **Brand colors**: navy / primary / accent picker in Settings → Branding. Tailwind tokens are CSS-variable backed; the GP layout converts hex → RGB triplets and injects them. Changing colors updates every `bg-navy`, `text-gold`, `border-teal` instantly.
 - **Dark mode**: 3-state toggle (Light / Dark / System) in the sidebar via `next-themes`. Surface tokens swap via CSS vars; status pastels (red-50 / teal-50 / gold-50) get low-alpha versions in dark.
-- **Internationalization**: cookie-driven EN/ES with `LocaleSwitcher` in the sidebar. Translated: sidebar nav, topbar search, dashboard headers/KPIs/captions. Full app translation pending.
+- **Internationalization**: cookie-driven EN/ES with `LocaleSwitcher` in the sidebar. Translated surfaces: sidebar nav, topbar search, dashboard core, companies list + detail, data spreadsheet toolbar + tip, notifications page + mark-all-read, forms list + new-form button, all settings cards (profile / fund / branding / integrations / team / session), LP portal (header + Letters/Portfolio nav + portfolio callout + companies list + detail), onboarding stepper (Fund / LPs / Team / Portfolio / Metrics). Form-builder internals + Add-LP modal still English (deeper UI, deferred).
 ### Cron jobs
 - `vercel.json` registers `/api/cron/metric-alerts` daily at 14:00 UTC.
 - Endpoint protected by Vercel's `x-vercel-cron` header or `CRON_SECRET` bearer.
@@ -110,7 +110,7 @@ Last updated: 2026-05-02 (synced with the latest deployed commit).
 - **Bulk import partial**: CSV + Excel (`.xlsx`, `.xlsm`, `.xls`, `.xlsb`, `.ods`) upload of historical metrics is shipped (B.4 — `/data` toolbar + onboarding Step 5). PDF/screenshot parsing still pending. Excel parsing via SheetJS, lazy-loaded so it doesn't bloat initial page weight; first sheet of the workbook is imported, others are ignored with a warning.
 - **No subscription billing**: free for now, no Stripe integration. Planned in L.9.
 - **No audit log**: who-did-what tracking is in Fase G (planned).
-- **i18n partial**: only sidebar / topbar / dashboard core are translated. Companies / forms / settings pages still in English.
+- **i18n: form-builder internals still English**: most user-facing pages now translate (D.6 phase 2). The exceptions are deep UX surfaces — form-builder drag-drop labels, Add-LP modal, team management modals — deferred to D.6c.
 - **Vercel Preview env vars**: `GEMINI_API_KEY` is set on Production + Development but Preview deploys don't have it (CLI v52 quirk).
 - **AI cost cap**: hard-coded 150 chat / 60 form helper calls per fund per day. No per-user breakdown.
 - **Chat memory**: lives only in the open conversation tab — closing the dock resets history. No long-term memory.
