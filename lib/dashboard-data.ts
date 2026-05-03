@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
+import { parseDashboardConfig as parseDashboardConfigImpl, type DashboardConfig as DashboardConfigType } from "./dashboard-config";
 
 type CompanyRow = Database["public"]["Tables"]["companies"]["Row"];
 type MetricRow = Database["public"]["Tables"]["metrics"]["Row"];
@@ -41,6 +42,18 @@ export function parseTheme(raw: unknown): FundTheme {
   };
 }
 
+// L.5 — Dashboard customization config: types + parser live in dashboard-config.ts
+// (client-safe). Re-exported here so existing imports from dashboard-data keep working.
+export {
+  DEFAULT_DASHBOARD_CONFIG,
+  parseDashboardConfig,
+  type DashboardConfig,
+  type DashboardWidgetAccent,
+  type DashboardWidgetConfig,
+  type DashboardWidgetId,
+  type DashboardWidgetSize,
+} from "./dashboard-config";
+
 export interface DashboardMetric {
   quarter: string;
   arr: number;
@@ -76,6 +89,7 @@ export interface DashboardData {
   kpis: DashboardKpis;
   arrTrend: { quarter: string; arr: number }[];
   watchList: DashboardCompany[];
+  dashboardConfig: DashboardConfigType;
 }
 
 // Quarter strings sort lexicographically wrong ("Q4 2025" > "Q1 2026"),
@@ -101,14 +115,25 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   // RLS scopes both queries to the caller's organization.
   const [{ data: orgs }, { data: companyRows }] = await Promise.all([
-    supabase.from("organizations").select("id, name, size_usd, deployed_usd, vintage, currency").limit(1),
+    supabase.from("organizations").select("id, name, size_usd, deployed_usd, vintage, currency, dashboard_config_json").limit(1),
     supabase
       .from("companies")
       .select("id, slug, name, status, flag, metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd)")
       .order("name", { ascending: true }),
   ]);
 
-  const organization = orgs?.[0] ?? null;
+  const orgRow = orgs?.[0] ?? null;
+  const organization = orgRow
+    ? {
+        id: orgRow.id,
+        name: orgRow.name,
+        size_usd: orgRow.size_usd,
+        deployed_usd: orgRow.deployed_usd,
+        vintage: orgRow.vintage,
+        currency: orgRow.currency,
+      }
+    : null;
+  const dashboardConfig = parseDashboardConfigImpl(orgRow?.dashboard_config_json);
 
   const companies: DashboardCompany[] = (companyRows ?? []).map((c: any) => {
     const metrics: DashboardMetric[] = (c.metrics ?? [])
@@ -138,7 +163,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     .filter((c) => c.status === "critical" || c.status === "watch")
     .sort((a, b) => (a.status === "critical" ? -1 : 1));
 
-  return { organization, companies, kpis, arrTrend, watchList };
+  return { organization, companies, kpis, arrTrend, watchList, dashboardConfig };
 }
 
 function computeKpis(companies: DashboardCompany[]): DashboardKpis {

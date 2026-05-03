@@ -236,6 +236,7 @@ export type Database = {
         Row: {
           created_at: string
           currency: string
+          dashboard_config_json: Json | null
           deployed_usd: number | null
           description: string | null
           founded_year: number | null
@@ -254,6 +255,7 @@ export type Database = {
         Insert: {
           created_at?: string
           currency?: string
+          dashboard_config_json?: Json | null
           deployed_usd?: number | null
           description?: string | null
           founded_year?: number | null
@@ -272,6 +274,7 @@ export type Database = {
         Update: {
           created_at?: string
           currency?: string
+          dashboard_config_json?: Json | null
           deployed_usd?: number | null
           description?: string | null
           founded_year?: number | null
