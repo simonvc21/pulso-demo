@@ -10,12 +10,72 @@ import { createClient } from "@/lib/supabase/server";
 import type { Block, NewsletterCadence } from "./newsletter";
 import { newId } from "./newsletter";
 import { fmtUSD, fmtPct } from "./utils";
+import { gemini } from "@/lib/gemini";
 
 interface DraftInput {
   organizationId: string;
   periodLabel: string;
   cadence: NewsletterCadence;
   fundName: string;
+  /** L.6d — when set, Overview + Outlook are AI-generated using this framing. */
+  prompt?: string;
+}
+
+const PROMPT_SYSTEM = `You are a writing editor helping a venture capital General Partner draft a paragraph for a Limited Partner newsletter.
+
+Rules:
+- Use ONLY facts present in the data context provided. Do not invent companies, numbers, dates, rounds, or events.
+- Match the voice of premium VC LP letters: confident, factual, direct, free of hype.
+- Output prose only. No markdown, no headings, no lists, no quote marks.
+- Length: 2-4 sentences for Overview/Outlook unless the GP prompt asks for more.
+- Honor the GP's framing prompt while staying grounded in the data.`;
+
+async function generateOverview(opts: {
+  fundName: string;
+  periodLabel: string;
+  prompt: string;
+  facts: string;
+}): Promise<string | null> {
+  try {
+    const userPrompt =
+      `Fund: ${opts.fundName}\nPeriod: ${opts.periodLabel}\n\n` +
+      `GP framing prompt:\n${opts.prompt}\n\n` +
+      `Real data context (use these facts only — never invent):\n${opts.facts}\n\n` +
+      `Write the OVERVIEW paragraph that opens this LP newsletter. Return prose only.`;
+    const text = await gemini.generate(userPrompt, { systemInstruction: PROMPT_SYSTEM, temperature: 0.5 });
+    return cleanProse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function generateOutlook(opts: {
+  fundName: string;
+  periodLabel: string;
+  prompt: string;
+  facts: string;
+}): Promise<string | null> {
+  try {
+    const userPrompt =
+      `Fund: ${opts.fundName}\nPeriod: ${opts.periodLabel}\n\n` +
+      `GP framing prompt:\n${opts.prompt}\n\n` +
+      `Real data context:\n${opts.facts}\n\n` +
+      `Write the OUTLOOK / closing paragraph for this LP newsletter — what's next, how the GP is supporting companies, ` +
+      `and a brief thank-you to LPs. Return prose only.`;
+    const text = await gemini.generate(userPrompt, { systemInstruction: PROMPT_SYSTEM, temperature: 0.5 });
+    return cleanProse(text);
+  } catch {
+    return null;
+  }
+}
+
+function cleanProse(s: string): string {
+  return s.trim()
+    .replace(/^["']/, "")
+    .replace(/["']$/, "")
+    .replace(/^```[\s\S]*?\n/, "")
+    .replace(/\n```$/, "")
+    .trim();
 }
 
 export async function buildDefaultDraft(input: DraftInput): Promise<{
@@ -103,26 +163,69 @@ export async function buildDefaultDraft(input: DraftInput): Promise<{
   // ---- Default block layout ----
   const blocks: Block[] = [];
 
-  // Opening narrative — period summary in the same voice as the example
-  // newsletter the user showed (stat-rich, momentum-framed).
+  // L.6d — Build a compact facts string the AI can ground itself on.
+  const factsBlob = (() => {
+    const lines: string[] = [];
+    lines.push(`Fund: ${input.fundName}`);
+    lines.push(`Period: ${input.periodLabel}`);
+    lines.push(`Active companies: ${companies.length}`);
+    lines.push(`Portfolio ARR: ${fmtUSD(arrTotal, { compact: true })}` +
+      (arrPrev > 0 ? ` (${arrMoM >= 0 ? "+" : ""}${arrMoM.toFixed(2)}% vs prior period)` : ""));
+    lines.push(`Combined cash on hand: ${fmtUSD(cashTotal, { compact: true })}`);
+    if (burnTotal > 0) lines.push(`Aggregate monthly burn: ${fmtUSD(burnTotal, { compact: true })}`);
+    if (runwayMo > 0) lines.push(`Average portfolio runway: ${runwayMo.toFixed(1)} months`);
+    lines.push(`Headcount across portfolio: ${headcountTotal}`);
+    if (watchEntries.length > 0) {
+      lines.push(`Watch list: ${watchEntries.map((e) => `${companies.find((c) => c.slug === e.slug)?.name ?? e.slug} (${e.reason})`).join("; ")}`);
+    }
+    lines.push(`\nPer-company snapshot (latest period):`);
+    for (const c of companies) {
+      const last = c.latest;
+      if (!last) continue;
+      const runway = last.burn > 0 ? last.cash / last.burn : null;
+      lines.push(
+        `- ${c.name} (${c.sector ?? "—"}, ${c.status}): ARR ${fmtUSD(last.arr, { compact: true })}, ` +
+        `cash ${fmtUSD(last.cash, { compact: true })}, burn ${last.burn > 0 ? fmtUSD(last.burn, { compact: false }) + "/mo" : "—"}, ` +
+        (runway != null ? `${runway.toFixed(1)}mo runway, ` : "") +
+        `${last.headcount} FTE` +
+        (c.flag ? `, flag: ${c.flag}` : "")
+      );
+    }
+    return lines.join("\n");
+  })();
+
+  // Opening narrative — AI-generated when a prompt was given, else structured.
   const periodWord = input.cadence === "monthly" ? "month"
     : input.cadence === "quarterly" ? "quarter"
     : input.cadence === "annual" ? "year"
     : "period";
   const directionWord = arrMoM >= 0 ? "growth" : "contraction";
-  const introBody =
-    `${input.fundName} concluded ${input.periodLabel} with ` +
-    (arrPrev > 0
-      ? `${arrMoM >= 0 ? "strong " : ""}portfolio-wide ARR ${directionWord}, ` +
-        `${arrMoM >= 0 ? "increasing" : "decreasing"} by ${Math.abs(arrMoM).toFixed(2)}% from the prior ${periodWord} ` +
-        `to reach a total of ${fmtUSD(arrTotal, { compact: true })}.`
-      : `aggregated ARR of ${fmtUSD(arrTotal, { compact: true })} across ${companies.length} active portfolio companies.`) +
-    ` Combined cash on hand stands at ${fmtUSD(cashTotal, { compact: true })}` +
-    (burnTotal > 0
-      ? ` against ${fmtUSD(burnTotal, { compact: true })}/mo of aggregate burn — approximately ${runwayMo.toFixed(0)} months of runway in the system.`
-      : `.`) +
-    ` This update reflects the continued execution of our founders across the region` +
-    (watchEntries.length > 0 ? `, despite some companies facing specific challenges.` : `.`);
+
+  let introBody: string | null = null;
+  if (input.prompt && input.prompt.trim().length > 0) {
+    introBody = await generateOverview({
+      fundName: input.fundName,
+      periodLabel: input.periodLabel,
+      prompt: input.prompt,
+      facts: factsBlob,
+    });
+  }
+  if (!introBody) {
+    // Structured fallback (always works even if AI is down).
+    introBody =
+      `${input.fundName} concluded ${input.periodLabel} with ` +
+      (arrPrev > 0
+        ? `${arrMoM >= 0 ? "strong " : ""}portfolio-wide ARR ${directionWord}, ` +
+          `${arrMoM >= 0 ? "increasing" : "decreasing"} by ${Math.abs(arrMoM).toFixed(2)}% from the prior ${periodWord} ` +
+          `to reach a total of ${fmtUSD(arrTotal, { compact: true })}.`
+        : `aggregated ARR of ${fmtUSD(arrTotal, { compact: true })} across ${companies.length} active portfolio companies.`) +
+      ` Combined cash on hand stands at ${fmtUSD(cashTotal, { compact: true })}` +
+      (burnTotal > 0
+        ? ` against ${fmtUSD(burnTotal, { compact: true })}/mo of aggregate burn — approximately ${runwayMo.toFixed(0)} months of runway in the system.`
+        : `.`) +
+      ` This update reflects the continued execution of our founders across the region` +
+      (watchEntries.length > 0 ? `, despite some companies facing specific challenges.` : `.`);
+  }
 
   blocks.push({
     id: newId(),
@@ -200,16 +303,30 @@ export async function buildDefaultDraft(input: DraftInput): Promise<{
 
   // Outlook / closing note.
   blocks.push({ id: newId(), type: "divider" });
-  blocks.push({
-    id: newId(),
-    type: "text",
-    heading: "Outlook",
-    body:
+
+  let outlookBody: string | null = null;
+  if (input.prompt && input.prompt.trim().length > 0) {
+    outlookBody = await generateOutlook({
+      fundName: input.fundName,
+      periodLabel: input.periodLabel,
+      prompt: input.prompt,
+      facts: factsBlob,
+    });
+  }
+  if (!outlookBody) {
+    outlookBody =
       `As we move forward, we are encouraged by the overall trajectory of our portfolio` +
       (arrMoM >= 0 ? `, particularly the strong performance of our healthy companies. ` : `. `) +
       `We remain committed to actively supporting our watch and critical companies, working closely with their leadership ` +
       `to address challenges and ensure they have the resources and strategic guidance needed to navigate current market conditions.\n\n` +
-      `Thank you for your continued partnership.`,
+      `Thank you for your continued partnership.`;
+  }
+
+  blocks.push({
+    id: newId(),
+    type: "text",
+    heading: "Outlook",
+    body: outlookBody,
   });
 
   return { coverTitle, coverSubtitle, heroMetricSummary, blocks };

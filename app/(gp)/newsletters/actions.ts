@@ -39,6 +39,8 @@ export type CreateInput = {
   cadence: NewsletterCadence;
   periodLabel?: string;          // defaults to current period in the chosen cadence
   autoDraft: boolean;            // false = blank starting point
+  /** L.6d — optional GP prompt that steers Overview + Outlook tone via Gemini. */
+  prompt?: string;
 };
 
 export type CreateResult = { ok: true; id: string } | { ok: false; error: string };
@@ -62,6 +64,7 @@ export async function createNewsletter(input: CreateInput): Promise<CreateResult
       periodLabel,
       cadence: input.cadence,
       fundName,
+      prompt: input.prompt?.trim() || undefined,
     });
     coverTitle = draft.coverTitle;
     coverSubtitle = draft.coverSubtitle;

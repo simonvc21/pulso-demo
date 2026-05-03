@@ -15,11 +15,32 @@ const CADENCES: { value: NewsletterCadence; label: string; hint: string }[] = [
   { value: "ad_hoc",    label: "Ad-hoc",     hint: "One-off update or special note" },
 ];
 
+// L.6d — Suggested prompts. Click to set the prompt; user can edit further.
+const SUGGESTED_PROMPTS: { label: string; prompt: string }[] = [
+  {
+    label: "Confident growth-mode update",
+    prompt: "Frame this as a confident, growth-focused update. Emphasize MoM ARR momentum, the standout companies, and how we're leaning into our thesis. Mention specific deployments if any. Keep tone professional but optimistic.",
+  },
+  {
+    label: "Cautious / market-aware",
+    prompt: "Take a cautious, market-aware tone. Acknowledge headwinds in the broader market, highlight runway management across the portfolio, and how we're working with founders on capital efficiency. Honest about the watch list.",
+  },
+  {
+    label: "Thesis check-in",
+    prompt: "Frame this as a thesis check-in. Tie the portfolio's progress back to our investment thesis (LATAM B2B SaaS / fintech / etc). Highlight which companies are the strongest validation and where we're learning.",
+  },
+  {
+    label: "End-of-period reflection",
+    prompt: "Reflective tone. Look back at the period: what went well, what surprised us, what we'd do differently. Close with priorities for the next period and how LPs can help (intros, hires, etc).",
+  },
+];
+
 export function NewNewsletterForm() {
   const router = useRouter();
   const [cadence, setCadence] = useState<NewsletterCadence>("quarterly");
   const [periodLabel, setPeriodLabel] = useState<string>(defaultPeriodLabel("quarterly"));
   const [autoDraft, setAutoDraft] = useState(true);
+  const [prompt, setPrompt] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -28,10 +49,19 @@ export function NewNewsletterForm() {
     setPeriodLabel(defaultPeriodLabel(c));
   }
 
+  function pickPrompt(p: string) {
+    setPrompt(p);
+  }
+
   function submit() {
     setError(null);
     startTransition(async () => {
-      const res = await createNewsletter({ cadence, periodLabel, autoDraft });
+      const res = await createNewsletter({
+        cadence,
+        periodLabel,
+        autoDraft,
+        prompt: prompt.trim() || undefined,
+      });
       if (!res.ok) { setError(res.error); return; }
       router.push(`/newsletters/${res.id}/edit`);
     });
@@ -42,8 +72,8 @@ export function NewNewsletterForm() {
       <div>
         <h2 className="font-serif text-lg font-bold text-ink">Generate your next LP letter</h2>
         <p className="text-[12px] text-muted mt-1">
-          Pulso drafts a starting point from your portfolio data — KPIs, standout companies, watch list.
-          You edit and publish when ready.
+          Pulso drafts a starting point from your portfolio data — KPIs, charts, per-company paragraphs,
+          watch list. Add a prompt below to steer the tone and emphasis. You edit and publish when ready.
         </p>
       </div>
 
@@ -86,6 +116,42 @@ export function NewNewsletterForm() {
         </p>
       </div>
 
+      {/* L.6d — AI prompt + suggestions */}
+      <div>
+        <label className="block text-[10px] font-semibold text-ink tracking-[0.14em] uppercase mb-1.5 inline-flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3 text-gold-600" />
+          Tell the AI what to focus on (optional)
+        </label>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={4}
+          maxLength={1500}
+          placeholder="e.g. Highlight Vextra's $4M extension round and Lumen's product launch. Be honest about Brio's runway. Closing should set up the Q1 fundraise from LPs."
+          className="w-full px-3 py-2 rounded-lg border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30 resize-none leading-relaxed"
+        />
+        <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-muted mr-1">Try:</span>
+            {SUGGESTED_PROMPTS.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => pickPrompt(s.prompt)}
+                className="text-[11px] px-2 py-1 rounded-md border border-line bg-paper2/50 text-ink hover:border-gold/40 hover:bg-gold-50 transition-colors"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted tabular-nums">{prompt.length} / 1500</span>
+        </div>
+        <p className="mt-2 text-[10px] text-muted leading-relaxed">
+          When set, the AI rewrites the Overview + Outlook paragraphs with this framing while keeping every
+          number and company name from your real data. Per-company paragraphs stay grounded in metrics.
+        </p>
+      </div>
+
       <div className="rounded-lg border border-line p-3 bg-paper2/40">
         <label className="flex items-start gap-2 cursor-pointer">
           <input
@@ -100,8 +166,8 @@ export function NewNewsletterForm() {
               Auto-draft from portfolio data
             </div>
             <p className="text-[11px] text-muted mt-0.5">
-              Pulls current KPIs, standouts (top MoM ARR), and watch list. Adds a "What's next" section
-              for you to fill in. Uncheck for a blank starting point.
+              Pulls KPIs, charts, per-company paragraphs, watch list. Uncheck for a blank starting point
+              (the prompt is ignored too).
             </p>
           </div>
         </label>
@@ -119,7 +185,7 @@ export function NewNewsletterForm() {
         </Button>
         <Button variant="gold" size="sm" className="gap-1.5" onClick={submit} disabled={pending}>
           {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-          {pending ? "Generating…" : "Create draft"}
+          {pending ? (prompt ? "Generating with AI…" : "Generating…") : (prompt ? "Create AI-steered draft" : "Create draft")}
         </Button>
       </div>
     </div>
