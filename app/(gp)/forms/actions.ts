@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
+import { logUsageEvent } from "@/lib/value-analytics";
 
 type Cadence = Database["public"]["Enums"]["form_cadence"];
 
@@ -187,6 +188,17 @@ export async function sendFormNow(slug: string): Promise<FormResult> {
 
   revalidatePath("/forms");
   revalidatePath(`/forms/${slug}`);
+
+  // L.20 — emit one event per recipient so the "hours saved" estimate scales
+  // (5 min per recipient is the baseline manual cost).
+  if (count && count > 0) {
+    await logUsageEvent({
+      organizationId,
+      kind: "form_sent",
+      count,
+      metadata: { form_slug: slug, form_id: form.id, recipients: count },
+    });
+  }
   return { ok: true, slug };
 }
 

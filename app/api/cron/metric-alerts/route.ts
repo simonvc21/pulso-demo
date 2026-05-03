@@ -89,10 +89,25 @@ export async function GET(request: NextRequest) {
   const sinceIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const { data: fresh } = await supabase
     .from("notifications")
-    .select("id, kind, title, metadata_json, body")
+    .select("id, kind, title, metadata_json, body, organization_id")
     .in("kind", ALERT_KINDS as unknown as string[])
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: false });
+
+  // L.20 — emit one usage_event per fresh alert. Organization comes from
+  // the notification row (cron-side, not auth-scoped).
+  if (fresh && fresh.length > 0) {
+    const eventRows = fresh
+      .filter((n: any) => n.organization_id)
+      .map((n: any) => ({
+        organization_id: n.organization_id,
+        kind: "alert_created" as const,
+        metadata: { notification_id: n.id, kind: n.kind } as any,
+      }));
+    if (eventRows.length > 0) {
+      await supabase.from("usage_events").insert(eventRows);
+    }
+  }
 
   let enriched = 0;
   let skipped = 0;

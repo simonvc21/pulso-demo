@@ -12,6 +12,7 @@ import { fmtUSD } from "@/lib/utils";
 import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { DashboardAIBanner } from "@/components/dashboard-ai-banner";
+import { ValueBanner } from "@/components/value-banner";
 import { ts } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,10 @@ export default async function DashboardPage() {
       />
 
       <div className="px-8 py-6 space-y-6 animate-fade-in">
+        {/* L.20 — "This month with Pulso · X hours saved" banner. Renders nothing
+            when there's no activity yet, so the dashboard stays clean for new orgs. */}
+        <ValueBanner />
+
         {/* AI insight banner — dismissable, persists 24h via localStorage */}
         <DashboardAIBanner
           qoqGrowth={kpis.qoqArrGrowth}

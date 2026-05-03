@@ -694,6 +694,33 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_events: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["usage_event_kind"]
+          metadata: Json | null
+          organization_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["usage_event_kind"]
+          metadata?: Json | null
+          organization_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["usage_event_kind"]
+          metadata?: Json | null
+          organization_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           auth_user_id: string | null
@@ -797,6 +824,7 @@ export type Database = {
       user_org_id: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       ai_usage_summary: { Args: { p_days?: number }; Returns: Json }
+      value_summary: { Args: { p_days?: number }; Returns: Json }
       compute_ai_cost_micro: {
         Args: { p_model: string; p_input_tokens: number; p_output_tokens: number }
         Returns: number
@@ -805,6 +833,15 @@ export type Database = {
     Enums: {
       ai_conversation_scope: "gp" | "lp"
       ai_feature: "chat" | "form_helper" | "metric_alerts" | "lp_summary" | "auto_title"
+      usage_event_kind:
+        | "report_generated"
+        | "alert_created"
+        | "form_sent"
+        | "form_received"
+        | "chat_query"
+        | "metrics_imported"
+        | "lp_letter_published"
+        | "company_update_posted"
       ai_message_role: "user" | "assistant"
       company_stage: "Pre-seed" | "Seed" | "Series A" | "Series B"
       company_status: "healthy" | "watch" | "critical" | "no_data"

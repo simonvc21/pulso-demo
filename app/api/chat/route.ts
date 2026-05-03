@@ -10,6 +10,7 @@ import {
   getCurrentUserRowId,
 } from "@/lib/chat-history";
 import { logAiCall } from "@/lib/ai-usage";
+import { logUsageEvent } from "@/lib/value-analytics";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -185,6 +186,7 @@ export async function POST(request: NextRequest) {
   }
 
   // L.15 — log the actual chat call's tokens + cost.
+  // L.20 — log a value event so the "hours saved" widget counts it.
   if (ctx.organization?.id) {
     try {
       const userCtx = await getCurrentUserRowId();
@@ -197,8 +199,14 @@ export async function POST(request: NextRequest) {
         outputTokens: usage.outputTokens,
         conversationId,
       });
+      await logUsageEvent({
+        organizationId: ctx.organization.id,
+        userId: userCtx?.userId ?? null,
+        kind: "chat_query",
+        metadata: { conversation_id: conversationId, scope: ctx.scope },
+      });
     } catch (err) {
-      console.error("[L.15] AI usage log failed:", err);
+      console.error("[L.15/L.20] usage log failed:", err);
     }
   }
 

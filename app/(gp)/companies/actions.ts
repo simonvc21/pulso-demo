@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
+import { logUsageEvent } from "@/lib/value-analytics";
 
 type Stage = Database["public"]["Enums"]["company_stage"];
 type Status = Database["public"]["Enums"]["company_status"];
@@ -326,6 +327,13 @@ export async function addCompanyUpdate(input: { companyId: string; body: string 
   if (error || !data) return { ok: false, error: error?.message ?? "Insert failed" };
 
   revalidatePath(`/companies/${company.slug}`);
+  // L.20 — track team-update posts (cheap heuristic, included for completeness).
+  await logUsageEvent({
+    organizationId: ctx.organizationId,
+    userId: authorUserId,
+    kind: "company_update_posted",
+    metadata: { company_id: input.companyId, slug: company.slug },
+  });
   return { ok: true, id: data.id };
 }
 

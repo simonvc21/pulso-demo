@@ -114,6 +114,22 @@ export default async function SettingsPage() {
           </div>
         </Link>
 
+        {/* Value delivered — L.20 */}
+        <Link href="/settings/value" className="block group">
+          <div className="bg-white rounded-xl border border-line shadow-card hover:shadow-cardHover transition-shadow overflow-hidden">
+            <div className="px-5 py-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-teal-50 flex items-center justify-center shrink-0">
+                <Sparkles className="h-5 w-5 text-teal-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-ink">Value delivered</h3>
+                <p className="text-[11px] text-muted mt-0.5">Hours saved, reports generated, alerts surfaced</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted group-hover:text-ink transition-colors" />
+            </div>
+          </div>
+        </Link>
+
         {/* Integrations placeholder */}
         <Card
           title={ts("settings.integrations")}

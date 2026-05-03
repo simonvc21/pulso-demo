@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DATA_METRICS, type DataMetricKey } from "@/lib/data-metrics";
+import { logUsageEvent } from "@/lib/value-analytics";
 
 const KEYS = new Set<string>(DATA_METRICS.map((m) => m.key));
 
@@ -97,11 +98,12 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
 
   const { data: profile } = await supabase
     .from("users")
-    .select("organization_id")
+    .select("id, organization_id")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (!profile?.organization_id) return { ok: false, error: "No fund assigned" };
   const orgId = profile.organization_id;
+  const userId = profile.id;
 
   // Pull every company once so we can resolve by either slug or name.
   const { data: companies } = await supabase
@@ -174,6 +176,18 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
   revalidatePath("/data");
   revalidatePath("/dashboard");
   revalidatePath("/companies");
+
+  // L.20 — emit one value event per imported metric row so the "hours saved"
+  // estimate scales with import size (1 min/row manual is the heuristic).
+  if (inserted + updated > 0) {
+    await logUsageEvent({
+      organizationId: orgId,
+      userId,
+      kind: "metrics_imported",
+      count: inserted + updated,
+      metadata: { inserted, updated, skipped },
+    });
+  }
 
   return { ok: true, inserted, updated, skipped, errors };
 }
