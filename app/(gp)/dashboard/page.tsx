@@ -13,6 +13,7 @@ import { ActivityFeed } from "@/components/activity-feed";
 import { Button } from "@/components/ui/button";
 import { fmtMoney } from "@/lib/utils";
 import { getDashboardData, getNewsletterUpdates } from "@/lib/dashboard-data";
+import { getLatestArrFromSheets } from "@/lib/sheets-arr";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
 import { DashboardAIBanner } from "@/components/dashboard-ai-banner";
 import { ts } from "@/lib/i18n-server";
@@ -20,10 +21,24 @@ import { ts } from "@/lib/i18n-server";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [{ organization, companies, kpis, arrTrend, cashTrend, burnTrend, headcountTrend, watchList }, updates] = await Promise.all([
+  const [{ organization, companies, kpis, arrTrend, cashTrend, burnTrend, headcountTrend, watchList }, updates, sheetsArr] = await Promise.all([
     getDashboardData(),
     getNewsletterUpdates(8),
+    getLatestArrFromSheets(),
   ]);
+
+  // L.10 / Fase 1.7 — Override the latest-period ARR with whatever the
+  // company's "KPIs trimestrales" sheet says (column "ARR"). When the sheet
+  // doesn't exist or has no value, leave the legacy `metrics` value intact so
+  // the dashboard keeps rendering during the transition window.
+  const companiesForArrChart = companies.map((c) => {
+    const sheetArr = sheetsArr.get(c.id);
+    if (sheetArr == null || c.metrics.length === 0) return c;
+    const lastIdx = c.metrics.length - 1;
+    const next = [...c.metrics];
+    next[lastIdx] = { ...next[lastIdx], arr: sheetArr };
+    return { ...c, metrics: next };
+  });
 
   const fundName = organization?.name ?? "Your fund";
   const fundSize = Number(organization?.size_usd ?? 0);
@@ -115,7 +130,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className="px-2 pb-2">
-              <PortfolioBarChart companies={companies} />
+              <PortfolioBarChart companies={companiesForArrChart} />
             </div>
           </div>
 
