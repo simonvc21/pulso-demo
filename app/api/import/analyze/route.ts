@@ -194,11 +194,16 @@ export async function POST(req: NextRequest) {
     required: ["mappings"],
   };
 
-  // L.8g + L.8h — Run each chunk through Claude (preferred) or Gemini.
-  // Merge mappings as we go.
+  // L.8g + L.8h + L.8i — Run each chunk through Claude (preferred) or Gemini.
+  // Treat "succeeded but empty mappings" as a failure so we fall through to
+  // the next provider, and always heuristic-fallback any sheet not classified.
   const allMappings: AnalyzeResponse["mappings"] = [];
   const summaries: string[] = [];
   const chunkErrors: string[] = [];
+
+  function isUseful(r: AnalyzeResponse | null): boolean {
+    return !!r && Array.isArray(r.mappings) && r.mappings.length > 0;
+  }
 
   for (let i = 0; i < chunks.length; i++) {
     const chunkPrompt = buildPromptForChunk(chunks[i]);
@@ -206,59 +211,71 @@ export async function POST(req: NextRequest) {
 
     if (isClaudeEnabled()) {
       try {
-        chunkResult = await claude.generateJSON<AnalyzeResponse>(chunkPrompt, {
+        const r = await claude.generateJSON<AnalyzeResponse>(chunkPrompt, {
           model: "sonnet",
           systemInstruction: SYSTEM,
           temperature: 0.1,
           maxOutputTokens: 4000,
         });
+        console.log(`[import/analyze] claude chunk ${i + 1}/${chunks.length} → ${r?.mappings?.length ?? 0} mappings`);
+        if (isUseful(r)) chunkResult = r;
       } catch (err: any) {
-        console.error(`[import/analyze] claude chunk ${i + 1}/${chunks.length} failed`, err?.message ?? err);
-        // Fall through to Gemini.
+        console.error(`[import/analyze] claude chunk ${i + 1}/${chunks.length} threw`, err?.message ?? err);
       }
     }
 
-    if (!chunkResult) {
+    if (!isUseful(chunkResult)) {
       try {
-        chunkResult = await gemini.generateJSON<AnalyzeResponse>(chunkPrompt, {
+        const r = await gemini.generateJSON<AnalyzeResponse>(chunkPrompt, {
           systemInstruction: SYSTEM,
           temperature: 0.1,
           maxOutputTokens: 4000,
           responseSchema: responseSchema as any,
         });
+        console.log(`[import/analyze] gemini chunk ${i + 1}/${chunks.length} → ${r?.mappings?.length ?? 0} mappings`);
+        if (isUseful(r)) chunkResult = r;
       } catch (err: any) {
-        console.error(`[import/analyze] gemini chunk ${i + 1}/${chunks.length} failed`, err?.message ?? err);
+        console.error(`[import/analyze] gemini chunk ${i + 1}/${chunks.length} threw`, err?.message ?? err);
         chunkErrors.push(`Chunk ${i + 1}: ${err?.message ?? "unknown"}`);
-        // For sheets the AI couldn't classify, fall back to a heuristic:
-        // metrics_only with sheet name as company name. Better than nothing.
-        for (const s of chunks[i]) {
-          allMappings.push({
-            sheetName: s.name,
-            shape: "metrics_only",
-            companyNameOverride: s.name,
-            columns: {},
-            notes: "Fallback: AI classification failed for this sheet; defaulting to metrics_only with sheet name as company.",
-          });
-        }
-        continue;
       }
     }
 
-    if (chunkResult.mappings && Array.isArray(chunkResult.mappings)) {
+    // L.8i — heuristic fallback per missing sheet so we ALWAYS produce a
+    // mapping for every sheet the user uploaded. Better an empty column
+    // map (sheet name → company) than nothing.
+    const classifiedNames = new Set((chunkResult?.mappings ?? []).map((m) => m.sheetName));
+    if (chunkResult && Array.isArray(chunkResult.mappings)) {
       allMappings.push(...chunkResult.mappings);
     }
-    if (chunkResult.summary) summaries.push(chunkResult.summary);
+    for (const s of chunks[i]) {
+      if (!classifiedNames.has(s.name)) {
+        allMappings.push({
+          sheetName: s.name,
+          shape: s.rowCount > 0 ? "metrics_only" : "ignored",
+          companyNameOverride: s.name,
+          columns: {},
+          notes: "Heuristic fallback: AI didn't classify this sheet. Defaulted to metrics_only using the sheet name as the company.",
+        });
+      }
+    }
+    if (chunkResult?.summary) summaries.push(chunkResult.summary);
   }
 
   if (allMappings.length === 0) {
     return NextResponse.json({
-      error: chunkErrors.join("; ") || "AI returned no mappings",
+      error: chunkErrors.join("; ") || "Could not produce any mappings — workbook may be empty.",
     }, { status: 500 });
   }
 
+  const aiCount = allMappings.filter((m) => !m.notes?.startsWith("Heuristic fallback")).length;
+  const heuristicCount = allMappings.length - aiCount;
+
   const merged: AnalyzeResponse = {
     mappings: allMappings,
-    summary: summaries.length > 0 ? summaries.join(" ") : `Analyzed ${body.sheets.length} sheets in ${chunks.length} batch${chunks.length === 1 ? "" : "es"}.${chunkErrors.length > 0 ? ` ${chunkErrors.length} batch(es) used heuristic fallback.` : ""}`,
+    summary: summaries.length > 0
+      ? summaries.join(" ")
+      : `Analyzed ${body.sheets.length} sheets in ${chunks.length} batch${chunks.length === 1 ? "" : "es"}.` +
+        (heuristicCount > 0 ? ` ${heuristicCount} sheet${heuristicCount === 1 ? "" : "s"} used heuristic fallback (sheet name = company name).` : ""),
   };
 
   return NextResponse.json(merged);
