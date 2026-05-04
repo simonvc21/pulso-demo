@@ -1,7 +1,10 @@
-// L.10 / Fase 1.A — Company detail = the company's single editable sheet.
-// One sheet per company is enforced by the sheets_one_per_company DB
-// constraint. If the company doesn't have a sheet yet (e.g. created after
-// the data migration), we lazily create an empty one named "KPIs".
+// L.10 / Fase 1.C — Company detail = sheet + activity sections.
+// Layout (top to bottom):
+//   1. Compact company header
+//   2. Active form widget (status + send-extra button)
+//   3. Sheet: KPI strip + 2 charts + grid
+//   4. Activity: updates feed + comments thread
+//   5. Portfolio newsletter feed (narrative cross-company updates)
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -16,12 +19,19 @@ import { SheetGrid } from "@/components/sheets/SheetGrid";
 import { KpiStrip } from "@/components/sheets/KpiStrip";
 import { SheetChart } from "@/components/sheets/SheetChart";
 import {
-  type Sheet,
   type SheetColumn,
   type SheetRow,
   type ColumnConfig,
   type ColumnType,
 } from "@/components/sheets/types";
+import { ActiveFormWidget } from "./active-form-widget";
+import { UpdatesFeed } from "./updates-feed";
+import { CommentsThread } from "@/components/lp-engagement";
+import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
+import { getCompanyUpdates, getNewsletterUpdates } from "@/lib/dashboard-data";
+import { getCompanyComments } from "@/lib/lp-engagement";
+import { getActiveFormForCompany } from "@/lib/active-form";
+import { listCompanyFillTokens } from "@/lib/fill-tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -56,17 +66,25 @@ export default async function CompanyPage({ params }: { params: { slug: string }
   }
   if (!sheet) return notFound();
 
-  const [columnsRes, rowsRes] = await Promise.all([
-    supabase
-      .from("sheet_columns")
-      .select("id, sheet_id, name, type, config, position")
-      .eq("sheet_id", sheet.id)
-      .order("position"),
-    supabase
-      .from("sheet_rows")
-      .select("id, sheet_id, data, position")
-      .eq("sheet_id", sheet.id)
-      .order("position"),
+  // Sheet content + sidecar features fetched in parallel.
+  const [
+    columnsRes,
+    rowsRes,
+    activeForm,
+    fillTokens,
+    teamUpdates,
+    comments,
+    newsletterUpdates,
+    formOptionsRes,
+  ] = await Promise.all([
+    supabase.from("sheet_columns").select("id, sheet_id, name, type, config, position").eq("sheet_id", sheet.id).order("position"),
+    supabase.from("sheet_rows").select("id, sheet_id, data, position").eq("sheet_id", sheet.id).order("position"),
+    getActiveFormForCompany(company.id),
+    listCompanyFillTokens(company.id),
+    getCompanyUpdates(company.id, 50),
+    getCompanyComments(company.id),
+    getNewsletterUpdates(20, { companySlug: company.slug }),
+    supabase.from("forms").select("slug, name").eq("active", true).order("name"),
   ]);
 
   const columns: SheetColumn[] = (columnsRes.data ?? []).map((c) => ({
@@ -83,6 +101,21 @@ export default async function CompanyPage({ params }: { params: { slug: string }
     data: (r.data ?? {}) as Record<string, any>,
     position: r.position,
   }));
+
+  // Resolve current user (for delete-own-comment + canModerate logic).
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  let currentUserId: string | null = null;
+  let currentUserRole: string | null = null;
+  if (authUser) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("auth_user_id", authUser.id)
+      .maybeSingle();
+    currentUserId = profile?.id ?? null;
+    currentUserRole = profile?.role ?? null;
+  }
+  const canModerate = ["gp", "managing_partner", "partner"].includes(currentUserRole ?? "");
 
   return (
     <>
@@ -132,22 +165,12 @@ export default async function CompanyPage({ params }: { params: { slug: string }
                 {company.sector && <Badge>{company.sector}</Badge>}
                 {company.stage && <Badge>{company.stage}</Badge>}
                 {company.website && (
-                  <a
-                    href={company.website}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-teal"
-                  >
+                  <a href={company.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-teal">
                     <Globe className="h-3 w-3" /> Website
                   </a>
                 )}
                 {company.linkedin_url && (
-                  <a
-                    href={company.linkedin_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-teal"
-                  >
+                  <a href={company.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-teal">
                     <Linkedin className="h-3 w-3" /> LinkedIn
                   </a>
                 )}
@@ -156,6 +179,16 @@ export default async function CompanyPage({ params }: { params: { slug: string }
           </div>
         </div>
 
+        {/* Active form status */}
+        <ActiveFormWidget
+          companyId={company.id}
+          companySlug={company.slug}
+          initial={activeForm}
+          formOptions={(formOptionsRes.data ?? []) as { slug: string; name: string }[]}
+          fillTokens={fillTokens}
+        />
+
+        {/* Sheet — KPI strip + charts + grid */}
         <KpiStrip columns={columns} rows={rows} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -164,6 +197,19 @@ export default async function CompanyPage({ params }: { params: { slug: string }
         </div>
 
         <SheetGrid sheetId={sheet.id} columns={columns} rows={rows} />
+
+        {/* Activity */}
+        <UpdatesFeed companyId={company.id} initial={teamUpdates} />
+
+        <CommentsThread
+          companyId={company.id}
+          initial={comments}
+          canModerate={canModerate}
+          currentUserId={currentUserId}
+        />
+
+        {/* Cross-portfolio narrative updates */}
+        <PortfolioNewsletter updates={newsletterUpdates} />
       </div>
     </>
   );
