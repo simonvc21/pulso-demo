@@ -73,60 +73,29 @@ interface AnalyzeResponse {
   summary: string;
 }
 
-const SYSTEM = `You are a data import analyst for a venture capital portfolio app.
+const SYSTEM = `You are a data import analyst for a VC portfolio app.
 
-The user just uploaded a spreadsheet (CSV or Excel). You will see the headers + first few data rows from each sheet. Your job: figure out what shape the data is in and produce a structured JSON mapping.
+The user uploaded a spreadsheet. For each sheet you see headers + sample rows. Classify each sheet's shape and map its columns.
 
-The target schema is a VC portfolio with two tables:
-1. companies — name, sector, country, stage, invested_usd, ownership_pct, founder name + email
-2. metrics — per-company historical data: ARR, burn, cash, revenue, headcount, plus a period (month or quarter)
+Shapes:
+- "companies_long": one row per company × period (Airtable export). The same company appears N times.
+- "companies_simple": one row per company, no historicals.
+- "metrics_only": SHEET NAME = company name. Each row is one period for that company. Common pattern: workbook with one tab per company (Avanzo, Beeok, Velocity, etc).
+- "ignored": empty, summary, README, "table of contents".
 
-Common spreadsheet shapes you must recognize:
+Column mapping — recognize multilingual headers:
+- arr: "ARR" / "MRR" / "Revenue Mensual" / "Recurring Revenue" / "Ingresos recurrentes"
+- burn: "Burn" / "Quema" / "Cash burn" / "Gasto mensual"
+- cash: "Cash" / "Caja" / "Tesorería" / "Efectivo"
+- revenue: "Revenue" (when distinct from MRR) / "Ingresos" / "Facturación"
+- headcount: "Headcount" / "FTE" / "Empleados" / "N° de empleados"
+- runway: "Runway" / "Meses de runway"
+- period: single column like "Mes" / "Month" / "Period" / "Fecha" / "Quarter".
+- period_year + period_month: when year and month are SEPARATE columns. Year header: "Año" / "Year". Month header: "Mes" / "Month" / "Indique el mes" — values like "ENERO" "FEBRERO" "JANUARY". Set BOTH period_year and period_month columns, leave "period" unset.
 
-A. "companies_long" (most common for Airtable exports): one row per company × period. Columns include the company name AND period AND all metrics. The same company appears N times (one row per month).
+For metrics_only: ALWAYS set companyNameOverride to the sheet name. Ignore any "Name" or "Nombre Startup" column inside the sheet — those are placeholders.
 
-B. "companies_simple": one row per company, no historical metrics. Columns are name + sector + country + stage + invested.
-
-C. "metrics_only": one sheet per company (sheet name = company name). Each row is a period; columns are the metrics for that period. The company name is NOT a column — it's the sheet name.
-
-D. "ignored": empty, summary, "Notes", "Read me", "Table of contents", etc. Mark these as ignored.
-
-For each sheet, return:
-{
-  sheetName: string,
-  shape: "companies_long" | "companies_simple" | "metrics_only" | "ignored",
-  companyNameOverride: string | null,  // set ONLY when shape="metrics_only" — copy the sheet name as the company name
-  columns: {
-    company_name?: { source: string },  // header text in the file that maps to this concept
-    period?: { source: string },
-    sector?: { source: string },
-    country?: { source: string },
-    stage?: { source: string },
-    invested?: { source: string },
-    ownership_pct?: { source: string },
-    founder?: { source: string },
-    founder_email?: { source: string },
-    arr?: { source: string },
-    burn?: { source: string },
-    cash?: { source: string },
-    revenue?: { source: string },
-    headcount?: { source: string },
-    runway?: { source: string }
-  },
-  notes: string  // anything ambiguous
-}
-
-Rules:
-- "ARR" might be called "MRR", "Revenue Mensual", "Recurring Revenue", "Ingresos recurrentes" — use your best guess.
-- "Burn" might be "Quema mensual", "Cash burn", "Gasto mensual".
-- "Cash" might be "Caja", "Tesorería", "Efectivo en banco".
-- "Period" might be "Mes", "Month", "Period", "Fecha", "Quarter" — even formatted like "Jul 2024".
-- If a column doesn't exist in the file, OMIT the key (don't return empty string).
-- If multiple sheets are clearly per-company metrics dumps, mark each as metrics_only.
-- If one sheet has all companies stacked, mark it companies_long.
-- Be honest in notes if something doesn't fit cleanly.
-
-Output ONLY valid JSON matching the AnalyzeResponse shape. No prose, no markdown fences.`;
+If a column doesn't exist, OMIT it from columns (don't return empty source string).`;
 
 export async function POST(req: NextRequest) {
   // Auth gate.
@@ -153,39 +122,75 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many sheets (max 50)" }, { status: 400 });
   }
 
-  // Build the user-side prompt: per-sheet samples + intent.
+  // L.8f — Build the user prompt. Aggressive truncation per-sheet so 20+
+  // sheet workbooks don't blow the model's context window.
   const lines: string[] = [];
   lines.push(`User intent: ${body.intent ?? "companies"}.`);
   lines.push(`Number of sheets: ${body.sheets.length}.`);
   lines.push("");
+  lines.push(`IMPORTANT: When a workbook has many sheets each named after a company (Avanzo, Beeok, Velocity, ...) and each sheet contains ~12-36 monthly data rows, treat each sheet as shape="metrics_only" and copy the sheet name to companyNameOverride. The cells inside the sheet often repeat the same name in a "Name" or "Nombre Startup" column — IGNORE those for naming.`);
+  lines.push("");
   for (const s of body.sheets) {
-    lines.push(`=== Sheet: "${s.name}" (${s.rowCount} data rows) ===`);
-    // Truncate aggressively so we don't blow token budget.
-    lines.push(s.sample.slice(0, 2000));
+    lines.push(`=== Sheet "${s.name}" (${s.rowCount} rows) ===`);
+    // Trim each sample to header + 4 sample rows, max 1200 chars.
+    const sampleLines = s.sample.split(/\r?\n/).slice(0, 5);
+    const trimmedSample = sampleLines.join("\n").slice(0, 1200);
+    lines.push(trimmedSample);
     lines.push("");
   }
-  lines.push("Return ONLY the JSON object — no prose.");
+
+  // Schema enforced by Gemini JSON mode. The model must produce exactly this
+  // shape — no markdown fences, no commentary, no truncation.
+  const responseSchema = {
+    type: "OBJECT",
+    properties: {
+      summary: { type: "STRING" },
+      mappings: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            sheetName: { type: "STRING" },
+            shape: { type: "STRING", enum: ["companies_long", "companies_simple", "metrics_only", "ignored"] },
+            companyNameOverride: { type: "STRING" },
+            columns: {
+              type: "OBJECT",
+              properties: {
+                company_name: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                period: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                period_year: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                period_month: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                sector: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                country: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                stage: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                invested: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                ownership_pct: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                founder: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                founder_email: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                arr: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                burn: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                cash: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                revenue: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                headcount: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+                runway: { type: "OBJECT", properties: { source: { type: "STRING" } } },
+              },
+            },
+            notes: { type: "STRING" },
+          },
+          required: ["sheetName", "shape"],
+        },
+      },
+    },
+    required: ["mappings"],
+  };
 
   try {
-    const text = await gemini.generate(lines.join("\n"), {
+    const parsed = await gemini.generateJSON<AnalyzeResponse>(lines.join("\n"), {
       systemInstruction: SYSTEM,
-      temperature: 0.2,
-      maxOutputTokens: 4000,
+      temperature: 0.1,
+      maxOutputTokens: 8000,
+      responseSchema: responseSchema as any,
     });
-
-    const cleaned = text.trim()
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/, "")
-      .replace(/```\s*$/, "")
-      .trim();
-
-    let parsed: AnalyzeResponse;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (e: any) {
-      console.error("[import/analyze] JSON parse failed", e?.message, cleaned.slice(0, 500));
-      return NextResponse.json({ error: "AI returned invalid JSON. Try again or import manually." }, { status: 500 });
-    }
 
     if (!parsed.mappings || !Array.isArray(parsed.mappings)) {
       return NextResponse.json({ error: "AI response missing mappings array" }, { status: 500 });
@@ -194,6 +199,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(parsed);
   } catch (err: any) {
     console.error("[import/analyze] gemini failed", err?.message ?? err);
-    return NextResponse.json({ error: err?.message ?? "Analysis failed" }, { status: 500 });
+    return NextResponse.json({
+      error: err?.message ?? "Analysis failed",
+    }, { status: 500 });
   }
 }

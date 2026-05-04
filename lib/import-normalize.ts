@@ -17,6 +17,9 @@ export interface SheetMapping {
   columns: Partial<{
     company_name: ColumnMapping;
     period: ColumnMapping;
+    /** L.8f — when period is split across year + month columns. */
+    period_year: ColumnMapping;
+    period_month: ColumnMapping;
     sector: ColumnMapping;
     country: ColumnMapping;
     stage: ColumnMapping;
@@ -139,6 +142,8 @@ export function applyMappings(sheets: ParsedSheet[], mappings: SheetMapping[]): 
     const idx = {
       name: findColumnIdx(headers, m.columns.company_name?.source),
       period: findColumnIdx(headers, m.columns.period?.source),
+      periodYear: findColumnIdx(headers, m.columns.period_year?.source),
+      periodMonth: findColumnIdx(headers, m.columns.period_month?.source),
       sector: findColumnIdx(headers, m.columns.sector?.source),
       country: findColumnIdx(headers, m.columns.country?.source),
       stage: findColumnIdx(headers, m.columns.stage?.source),
@@ -182,7 +187,15 @@ export function applyMappings(sheets: ParsedSheet[], mappings: SheetMapping[]): 
 
       // Extract metric row when this sheet is companies_long or metrics_only.
       if (m.shape === "companies_long" || m.shape === "metrics_only") {
-        const period = idx.period >= 0 ? get(idx.period) : "";
+        // Period resolution: prefer single column; fall back to year+month split.
+        let period = idx.period >= 0 ? get(idx.period) : "";
+        if (!period && idx.periodYear >= 0 && idx.periodMonth >= 0) {
+          const y = get(idx.periodYear).trim();
+          const mo = get(idx.periodMonth).trim();
+          if (y && mo) period = `${mo} ${y}`;
+        } else if (!period && idx.periodMonth >= 0) {
+          period = get(idx.periodMonth).trim();
+        }
         if (!period) continue;
         const mr: NormalizedMetric = {
           companyName,

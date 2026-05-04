@@ -109,9 +109,18 @@ function normalizeQuarter(raw: string): string | null {
   // "Jan 2026" / "January 2026"
   const monthShort = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
   const monthLong = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  // L.8f — Spanish month names (LATAM exports)
+  const monthEsLong = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  // Portuguese (BR funds)
+  const monthPtLong = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
   const lower = t.toLowerCase();
   for (let i = 0; i < 12; i++) {
-    if (lower.startsWith(monthShort[i]) || lower.startsWith(monthLong[i])) {
+    if (
+      lower.startsWith(monthShort[i]) ||
+      lower.startsWith(monthLong[i]) ||
+      lower.startsWith(monthEsLong[i]) ||
+      lower.startsWith(monthPtLong[i])
+    ) {
       const yMatch = /(\d{4})/.exec(lower);
       if (yMatch) return `M${String(i + 1).padStart(2, "0")} ${yMatch[1]}`;
     }
