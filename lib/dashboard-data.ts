@@ -3,7 +3,6 @@ import type { Database } from "@/lib/database.types";
 import { formatPeriod, periodKey, type PeriodKind } from "@/lib/period";
 
 type CompanyRow = Database["public"]["Tables"]["companies"]["Row"];
-type MetricRow = Database["public"]["Tables"]["metrics"]["Row"];
 type OrganizationRow = Database["public"]["Tables"]["organizations"]["Row"];
 type LpRow = Database["public"]["Tables"]["lps"]["Row"];
 
@@ -135,46 +134,97 @@ function num(n: number | null | undefined): number {
   return n == null ? 0 : Number(n);
 }
 
+// L.10/Fase 1.G — name-convention map from sheet column to canonical metric.
+// Each company's sheet may have arbitrary columns (the GP and forms create
+// them freely). For the fund-level rollups we look at columns whose name,
+// case-insensitive, matches one of these keys. Companies that don't expose
+// the column simply contribute 0 to that metric for that period.
+const METRIC_NAME_MAP: Record<string, "arr" | "burn" | "cash" | "headcount" | "revenue"> = {
+  arr: "arr",
+  mrr: "arr",
+  burn: "burn",
+  "monthly burn": "burn",
+  cash: "cash",
+  "cash on hand": "cash",
+  headcount: "headcount",
+  "head count": "headcount",
+  fte: "headcount",
+  revenue: "revenue",
+};
+
+/** Convert a single sheet's columns + rows into the legacy DashboardMetric[]
+ *  shape. Looks for a "Period" column for the time axis and matches the rest
+ *  by METRIC_NAME_MAP. Used by every dashboard / company-detail loader so
+ *  there's exactly one place that knows the convention. */
+function sheetRowsToMetrics(
+  cols: { id: string; name: string }[],
+  rows: { data: any }[],
+): DashboardMetric[] {
+  const periodCol = cols.find((c) => c.name.toLowerCase().trim() === "period");
+  const colByMetric: Record<string, string> = {};
+  for (const c of cols) {
+    const key = METRIC_NAME_MAP[c.name.toLowerCase().trim()];
+    if (key && !(key in colByMetric)) colByMetric[key] = c.id;
+  }
+  const periodId = periodCol?.id;
+  return rows
+    .map((r) => {
+      const data = (r.data ?? {}) as Record<string, any>;
+      const periodLabel = periodId ? String(data[periodId] ?? "").trim() : "";
+      if (!periodLabel) return null;
+      return {
+        quarter: periodLabel,
+        arr: num(colByMetric.arr ? data[colByMetric.arr] : null),
+        burn: num(colByMetric.burn ? data[colByMetric.burn] : null),
+        cash: num(colByMetric.cash ? data[colByMetric.cash] : null),
+        headcount: num(colByMetric.headcount ? data[colByMetric.headcount] : null),
+        revenue: num(colByMetric.revenue ? data[colByMetric.revenue] : null),
+      } as DashboardMetric;
+    })
+    .filter((m): m is DashboardMetric => m !== null)
+    .sort((a, b) => quarterSortKey(a.quarter) - quarterSortKey(b.quarter));
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = createClient();
 
-  // RLS scopes both queries to the caller's organization.
-  const [{ data: orgs }, { data: companyRows }] = await Promise.all([
+  // RLS scopes everything to the caller's organization.
+  const [
+    { data: orgs },
+    { data: companyRows },
+    { data: sheetRows },
+  ] = await Promise.all([
     supabase.from("organizations").select("id, name, size_usd, deployed_usd, vintage, currency").limit(1),
     supabase
       .from("companies")
-      .select("id, slug, name, status, flag, metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_kind)")
+      .select("id, slug, name, status, flag")
       .is("archived_at", null)
       .order("name", { ascending: true }),
+    supabase
+      .from("sheets")
+      .select("id, company_id, sheet_columns(id, name), sheet_rows(data, position)")
+      .order("position", { foreignTable: "sheet_rows", ascending: true }),
   ]);
 
   const organization = orgs?.[0] ?? null;
 
-  const companies: DashboardCompany[] = (companyRows ?? []).map((c: any) => {
-    // L.12 — keep filtering to quarter rows in the dashboard for now so KPI
-    // rollups don't double-count after the monthly backfill. Refactor to
-    // cadence-aware aggregation lands in L.12b.
-    const metrics: DashboardMetric[] = ((c.metrics ?? []) as any[])
-      
-      .map((m) => ({
-        quarter: metricRowToLabel(m),
-        arr: num(m.arr_usd),
-        burn: num(m.burn_usd),
-        cash: num(m.cash_usd),
-        headcount: num(m.headcount),
-        revenue: num(m.revenue_usd),
-      }))
-      .sort((a: DashboardMetric, b: DashboardMetric) => quarterSortKey(a.quarter) - quarterSortKey(b.quarter));
+  // Build a map: company_id → DashboardMetric[] derived from its sheet.
+  const metricsByCompany = new Map<string, DashboardMetric[]>();
+  for (const s of (sheetRows ?? []) as any[]) {
+    metricsByCompany.set(
+      s.company_id,
+      sheetRowsToMetrics(s.sheet_columns ?? [], s.sheet_rows ?? []),
+    );
+  }
 
-    return {
-      id: c.id,
-      slug: c.slug,
-      name: c.name,
-      status: normalizeStatus(c.status),
-      flag: c.flag,
-      metrics,
-    };
-  });
+  const companies: DashboardCompany[] = (companyRows ?? []).map((c: any) => ({
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    status: normalizeStatus(c.status),
+    flag: c.flag,
+    metrics: metricsByCompany.get(c.id) ?? [],
+  }));
 
   const kpis = computeKpis(companies);
   const arrTrend = computeArrTrend(companies);
@@ -262,19 +312,33 @@ export interface CompanyListItem {
 
 export async function getCompanyList(opts?: { archived?: boolean }): Promise<CompanyListItem[]> {
   const supabase = createClient();
-  let query = supabase
+  let companyQ = supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, investment_instrument, tracking_cadence, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month, period_kind)"
+      "id, slug, name, sector, country, stage, status, invested_usd, description, last_update_at, logo_url, investment_instrument, tracking_cadence"
     )
     .order("name", { ascending: true });
-  query = opts?.archived
-    ? query.not("archived_at", "is", null)
-    : query.is("archived_at", null);
-  const { data } = await query;
+  companyQ = opts?.archived
+    ? companyQ.not("archived_at", "is", null)
+    : companyQ.is("archived_at", null);
 
-  return (data ?? []).map((c: any) => ({
+  const [{ data: companies }, { data: sheets }] = await Promise.all([
+    companyQ,
+    supabase
+      .from("sheets")
+      .select("id, company_id, sheet_columns(id, name), sheet_rows(data, position)")
+      .order("position", { foreignTable: "sheet_rows", ascending: true }),
+  ]);
+
+  const metricsByCompany = new Map<string, DashboardMetric[]>();
+  for (const s of (sheets ?? []) as any[]) {
+    metricsByCompany.set(
+      s.company_id,
+      sheetRowsToMetrics(s.sheet_columns ?? [], s.sheet_rows ?? []),
+    );
+  }
+
+  return (companies ?? []).map((c: any) => ({
     slug: c.slug,
     name: c.name,
     sector: c.sector,
@@ -287,17 +351,7 @@ export async function getCompanyList(opts?: { archived?: boolean }): Promise<Com
     logoUrl: c.logo_url ?? null,
     investmentInstrument: c.investment_instrument ?? null,
     trackingCadence: c.tracking_cadence ?? "monthly",
-    metrics: ((c.metrics ?? []) as any[])
-      
-      .map((m) => ({
-        quarter: metricRowToLabel(m),
-        arr: num(m.arr_usd),
-        burn: num(m.burn_usd),
-        cash: num(m.cash_usd),
-        headcount: num(m.headcount),
-        revenue: num(m.revenue_usd),
-      }))
-      .sort((a, b) => quarterSortKey(a.quarter) - quarterSortKey(b.quarter)),
+    metrics: metricsByCompany.get(c.id) ?? [],
   }));
 }
 
@@ -332,14 +386,26 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
   const { data } = await supabase
     .from("companies")
     .select(
-      "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_emails, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, archived_at, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month, period_kind)"
+      "id, slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, last_update_at, logo_url, founder_name, founder_email, founder_emails, founder_role, investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, tracking_cadence, archived_at"
     )
     .eq("slug", slug)
     .maybeSingle();
-
   if (!data) return null;
   const c = data as any;
+
+  // Pull this company's sheet (one-per-company). Two queries are simpler than
+  // a deep nested select and let RLS filter naturally.
+  const { data: sheet } = await supabase
+    .from("sheets")
+    .select("id, sheet_columns(id, name), sheet_rows(data, position)")
+    .eq("company_id", c.id)
+    .order("position", { foreignTable: "sheet_rows", ascending: true })
+    .maybeSingle();
+
+  const metrics = sheet
+    ? sheetRowsToMetrics(((sheet as any).sheet_columns ?? []), ((sheet as any).sheet_rows ?? []))
+    : [];
+
   return {
     slug: c.slug,
     name: c.name,
@@ -366,20 +432,7 @@ export async function getCompanyBySlug(slug: string): Promise<CompanyDetail | nu
     linkedinUrl: c.linkedin_url ?? null,
     trackingCadence: c.tracking_cadence ?? "monthly",
     archivedAt: c.archived_at ?? null,
-    // For now we keep filtering to quarter rows so the existing chart code
-    // (which expects 8 quarters) keeps working. Refactor to consume monthly
-    // rows is L.12b.
-    metrics: ((c.metrics ?? []) as any[])
-      
-      .map((m) => ({
-        quarter: metricRowToLabel(m),
-        arr: num(m.arr_usd),
-        burn: num(m.burn_usd),
-        cash: num(m.cash_usd),
-        headcount: num(m.headcount),
-        revenue: num(m.revenue_usd),
-      }))
-      .sort((a, b) => quarterSortKey(a.quarter) - quarterSortKey(b.quarter)),
+    metrics,
   };
 }
 
@@ -992,10 +1045,7 @@ export async function getDataMatrix(): Promise<DataMatrix> {
   ] = await Promise.all([
     supabase
       .from("companies")
-      .select(
-        "id, slug, name, sector, country, stage, status, logo_url, " +
-          "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_year, period_month, period_kind)"
-      )
+      .select("id, slug, name, sector, country, stage, status, logo_url")
       .is("archived_at", null)
       .order("name", { ascending: true }),
     supabase.from("organizations").select("data_columns_json").limit(1),
@@ -1006,18 +1056,10 @@ export async function getDataMatrix(): Promise<DataMatrix> {
   const companies: DataMatrixCompany[] = [];
 
   for (const c of (rows ?? []) as any[]) {
+    // /data page is gone; this matrix is now only used by the metrics CSV
+    // export endpoint. We hand back empty per-company matrices for now —
+    // wiring this to read sheets is a follow-up.
     const matrix: Record<string, Record<DataMetricKey, number | null>> = {};
-    for (const m of ((c.metrics ?? []) as any[])) {
-      const label = metricRowToLabel(m);
-      quartersSet.add(label);
-      matrix[label] = {
-        arr_usd:     m.arr_usd     != null ? Number(m.arr_usd)     : null,
-        burn_usd:    m.burn_usd    != null ? Number(m.burn_usd)    : null,
-        cash_usd:    m.cash_usd    != null ? Number(m.cash_usd)    : null,
-        revenue_usd: m.revenue_usd != null ? Number(m.revenue_usd) : null,
-        headcount:   m.headcount   != null ? Number(m.headcount)   : null,
-      };
-    }
     companies.push({
       id: c.id, slug: c.slug, name: c.name,
       sector: c.sector, country: c.country, stage: c.stage,

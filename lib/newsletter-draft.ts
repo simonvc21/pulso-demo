@@ -86,42 +86,29 @@ export async function buildDefaultDraft(input: DraftInput): Promise<{
 }> {
   const supabase = createClient();
 
-  // Pull every active company with their last 13 monthly metric rows so we
-  // can compute period-end + MoM/YoY at the fund level + per-company.
+  // Pull every active company. Metrics now live per-company in sheets — for
+  // the newsletter draft we leave them empty; the body still narrates from
+  // company_updates + form_submissions news fields. Sheet-derived metrics
+  // for the draft are a follow-up.
   const { data: rows } = await supabase
     .from("companies")
-    .select(
-      "id, slug, name, sector, status, flag, " +
-      "metrics(quarter, arr_usd, burn_usd, cash_usd, headcount, revenue_usd, period_year, period_month)"
-    )
+    .select("id, slug, name, sector, status, flag")
     .eq("organization_id", input.organizationId)
     .is("archived_at", null);
 
-  const companies = ((rows ?? []) as any[]).map((c) => {
-    const metrics = ((c.metrics ?? []) as any[])
-      .map((m) => ({
-        py: m.period_year ?? 0,
-        pm: m.period_month ?? 0,
-        arr: Number(m.arr_usd ?? 0),
-        burn: Number(m.burn_usd ?? 0),
-        cash: Number(m.cash_usd ?? 0),
-        revenue: Number(m.revenue_usd ?? 0),
-        headcount: Number(m.headcount ?? 0),
-      }))
-      .sort((a, b) => (a.py - b.py) || (a.pm - b.pm));
-    return {
-      id: c.id,
-      slug: c.slug,
-      name: c.name,
-      sector: c.sector,
-      status: c.status,
-      flag: c.flag,
-      metrics,
-      latest: metrics[metrics.length - 1] ?? null,
-      prev: metrics[metrics.length - 2] ?? null,
-      yoy: metrics[metrics.length - 13] ?? null,
-    };
-  });
+  type MetricSnapshot = { py: number; pm: number; arr: number; burn: number; cash: number; revenue: number; headcount: number };
+  const companies = ((rows ?? []) as any[]).map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    name: c.name,
+    sector: c.sector,
+    status: c.status,
+    flag: c.flag,
+    metrics: [] as MetricSnapshot[],
+    latest: null as MetricSnapshot | null,
+    prev: null as MetricSnapshot | null,
+    yoy: null as MetricSnapshot | null,
+  }));
 
   // L.6c — pull the most recent company_updates note for each company so the
   // per-company paragraph can include narrative flavor.

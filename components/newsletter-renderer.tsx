@@ -70,24 +70,14 @@ async function resolve(blocks: Block[]): Promise<RenderedData> {
   if (companySlugs.size > 0) {
     const { data } = await supabase
       .from("companies")
-      .select("id, slug, name, logo_url, metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_year, period_month, period_kind)")
+      .select("id, slug, name, logo_url")
       .in("slug", Array.from(companySlugs));
     for (const c of (data ?? []) as any[]) {
-      const metrics = ((c.metrics ?? []) as any[])
-        .map((m) => ({
-          quarter: metricRowToLabel(m),
-          arr: Number(m.arr_usd ?? 0),
-          burn: Number(m.burn_usd ?? 0),
-          cash: Number(m.cash_usd ?? 0),
-          revenue: Number(m.revenue_usd ?? 0),
-          headcount: Number(m.headcount ?? 0),
-          py: m.period_year ?? 0,
-          pm: m.period_month ?? 0,
-        }))
-        .sort((a, b) => (a.py - b.py) || (a.pm - b.pm))
-        .map(({ py, pm, ...rest }) => rest);
+      // Metrics now live in sheets per company. Newsletter chart blocks that
+      // depend on metrics will render empty until we wire the sheet reader
+      // here — text blocks (the bulk of letters) keep working.
       const resolved: ResolvedCompany = {
-        id: c.id, slug: c.slug, name: c.name, logoUrl: c.logo_url ?? null, metrics,
+        id: c.id, slug: c.slug, name: c.name, logoUrl: c.logo_url ?? null, metrics: [],
       };
       companies.set(c.slug, resolved);
       companiesByName.set(c.name.toLowerCase(), resolved);

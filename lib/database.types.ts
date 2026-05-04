@@ -1027,59 +1027,6 @@ export type Database = {
           },
         ]
       }
-      metrics: {
-        Row: {
-          arr_usd: number | null
-          burn_usd: number | null
-          cash_usd: number | null
-          company_id: string
-          created_at: string
-          headcount: number | null
-          id: string
-          period_kind: Database["public"]["Enums"]["period_kind"]
-          period_month: number | null
-          period_year: number | null
-          quarter: string
-          revenue_usd: number | null
-        }
-        Insert: {
-          arr_usd?: number | null
-          burn_usd?: number | null
-          cash_usd?: number | null
-          company_id: string
-          created_at?: string
-          headcount?: number | null
-          id?: string
-          period_kind?: Database["public"]["Enums"]["period_kind"]
-          period_month?: number | null
-          period_year?: number | null
-          quarter: string
-          revenue_usd?: number | null
-        }
-        Update: {
-          arr_usd?: number | null
-          burn_usd?: number | null
-          cash_usd?: number | null
-          company_id?: string
-          created_at?: string
-          headcount?: number | null
-          id?: string
-          period_kind?: Database["public"]["Enums"]["period_kind"]
-          period_month?: number | null
-          period_year?: number | null
-          quarter?: string
-          revenue_usd?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "metrics_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       newsletters: {
         Row: {
           cadence: Database["public"]["Enums"]["newsletter_cadence"]
@@ -1695,26 +1642,16 @@ export type Database = {
         }[]
       }
       run_metric_alerts: { Args: never; Returns: Json }
-      submit_public_form:
-        | {
-            Args: {
-              p_ai_extracted?: boolean
-              p_company_slug: string
-              p_data: Json
-              p_form_slug: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_ai_extracted?: boolean
-              p_company_slug: string
-              p_data: Json
-              p_fill_token?: string
-              p_form_slug: string
-            }
-            Returns: string
-          }
+      submit_public_form: {
+        Args: {
+          p_ai_extracted?: boolean
+          p_company_slug: string
+          p_data: Json
+          p_fill_token?: string
+          p_form_slug: string
+        }
+        Returns: string
+      }
       user_org_id: { Args: never; Returns: string }
       value_summary: { Args: { p_days?: number }; Returns: Json }
     }

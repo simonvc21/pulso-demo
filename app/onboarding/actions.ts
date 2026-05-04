@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
-import { periodColumnsFromQuarterString } from "@/lib/period";
 
 type Stage = Database["public"]["Enums"]["company_stage"];
 type Status = Database["public"]["Enums"]["company_status"];
@@ -222,6 +221,10 @@ export type ImportMetricsResult = { ok: true; inserted: number } | { ok: false; 
 const QUARTER_RE = /^Q[1-4]\s+\d{4}$/;
 
 export async function importMetrics(rows: MetricDraft[]): Promise<ImportMetricsResult> {
+  // L.10/Fase 1.G — onboarding step 5 writes to the company's sheet, not to
+  // the legacy metrics table. Each MetricDraft becomes (or updates) a row
+  // keyed by the period label, with canonical columns ARR / Burn / Cash /
+  // Revenue / Headcount. Re-running the wizard is idempotent.
   if (!rows || rows.length === 0) return { ok: true, inserted: 0 };
 
   const supabase = createClient();
@@ -236,7 +239,6 @@ export async function importMetrics(rows: MetricDraft[]): Promise<ImportMetricsR
   if (!profile?.organization_id) return { ok: false, error: "Create your fund first." };
   const orgId = profile.organization_id;
 
-  // Resolve company slugs → ids in one query (RLS scopes to org).
   const slugs = Array.from(new Set(rows.map((r) => r.companySlug).filter(Boolean)));
   if (slugs.length === 0) return { ok: true, inserted: 0 };
 
@@ -245,42 +247,135 @@ export async function importMetrics(rows: MetricDraft[]): Promise<ImportMetricsR
     .select("id, slug")
     .eq("organization_id", orgId)
     .in("slug", slugs);
+  const companyIdBySlug = new Map<string, string>();
+  for (const c of companies ?? []) companyIdBySlug.set(c.slug, c.id);
 
-  const slugToId = new Map<string, string>();
-  for (const c of companies ?? []) slugToId.set(c.slug, c.id);
+  // Group drafts by company to write each company's sheet in one go.
+  const byCompany = new Map<string, MetricDraft[]>();
+  for (const r of rows) {
+    const cid = companyIdBySlug.get(r.companySlug);
+    if (!cid) continue;
+    const arr = byCompany.get(cid) ?? [];
+    arr.push(r);
+    byCompany.set(cid, arr);
+  }
 
-  const inserts = rows
-    .filter((r) => slugToId.has(r.companySlug))
-    .filter((r) =>
-      r.arrUsd != null || r.burnUsd != null || r.cashUsd != null ||
-      r.revenueUsd != null || r.headcount != null
-    )
-    .map((r) => {
-      const period = periodColumnsFromQuarterString(r.quarter.trim());
-      return {
-        company_id: slugToId.get(r.companySlug)!,
-        quarter: r.quarter.trim(),
-        period_year: period.period_year,
-        period_month: period.period_month,
-        period_kind: period.period_kind,
-        arr_usd: r.arrUsd,
-        burn_usd: r.burnUsd,
-        cash_usd: r.cashUsd,
-        revenue_usd: r.revenueUsd,
-        headcount: r.headcount,
+  let writtenRows = 0;
+  for (const [companyId, drafts] of byCompany.entries()) {
+    // Resolve or create the sheet (one-per-company).
+    let { data: sheet } = await supabase
+      .from("sheets")
+      .select("id")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (!sheet) {
+      const { data: created } = await supabase
+        .from("sheets")
+        .insert({ company_id: companyId, name: "KPIs", position: 0 })
+        .select("id")
+        .single();
+      sheet = created;
+    }
+    if (!sheet) continue;
+    const sheetId = sheet.id;
+
+    // Ensure the canonical columns exist. Create only the ones we have data for.
+    const columnSpecs: Array<{ name: string; type: string; key: keyof MetricDraft }> = [
+      { name: "Period",    type: "text",     key: "quarter"   },
+      { name: "ARR",       type: "currency", key: "arrUsd"    },
+      { name: "Burn",      type: "currency", key: "burnUsd"   },
+      { name: "Cash",      type: "currency", key: "cashUsd"   },
+      { name: "Revenue",   type: "currency", key: "revenueUsd"},
+      { name: "Headcount", type: "number",   key: "headcount" },
+    ];
+
+    const { data: existingCols } = await supabase
+      .from("sheet_columns")
+      .select("id, name, position")
+      .eq("sheet_id", sheetId);
+    const colByLabel = new Map<string, string>();
+    let nextPosition = -1;
+    for (const c of existingCols ?? []) {
+      colByLabel.set(c.name.toLowerCase().trim(), c.id);
+      if (c.position > nextPosition) nextPosition = c.position;
+    }
+
+    for (const spec of columnSpecs) {
+      const lower = spec.name.toLowerCase();
+      if (colByLabel.has(lower)) continue;
+      nextPosition += 1;
+      const { data: created } = await supabase
+        .from("sheet_columns")
+        .insert({
+          sheet_id: sheetId,
+          name: spec.name,
+          type: spec.type,
+          config: spec.type === "currency" ? { currency: "USD" } : {},
+          position: nextPosition,
+        } as any)
+        .select("id")
+        .single();
+      if (created) colByLabel.set(lower, created.id);
+    }
+
+    const periodColId = colByLabel.get("period")!;
+    const colId = (label: string) => colByLabel.get(label.toLowerCase()) ?? null;
+
+    // Existing rows for this sheet so we can upsert by period.
+    const { data: existingRows } = await supabase
+      .from("sheet_rows")
+      .select("id, data, position")
+      .eq("sheet_id", sheetId);
+    const rowsByPeriod = new Map<string, { id: string; data: any; position: number }>();
+    let nextRowPosition = -1;
+    for (const r of existingRows ?? []) {
+      const data = (r.data ?? {}) as Record<string, any>;
+      const periodLabel = String(data[periodColId] ?? "").trim();
+      if (periodLabel) rowsByPeriod.set(periodLabel.toLowerCase(), r as any);
+      if (r.position > nextRowPosition) nextRowPosition = r.position;
+    }
+
+    for (const draft of drafts) {
+      const periodLabel = draft.quarter.trim();
+      if (!periodLabel) continue;
+
+      // Build the patch. Only set keys for which we have a non-null value.
+      const patch: Record<string, any> = { [periodColId]: periodLabel };
+      const setIf = (label: string, val: number | null) => {
+        if (val == null) return;
+        const cid = colId(label);
+        if (cid) patch[cid] = val;
       };
-    })
-    .filter((r) => r.period_year != null && r.period_month != null);
+      setIf("ARR", draft.arrUsd);
+      setIf("Burn", draft.burnUsd);
+      setIf("Cash", draft.cashUsd);
+      setIf("Revenue", draft.revenueUsd);
+      setIf("Headcount", draft.headcount);
 
-  if (inserts.length === 0) return { ok: true, inserted: 0 };
+      // Skip rows where we'd write nothing besides the period label.
+      if (Object.keys(patch).length <= 1) continue;
 
-  const { error } = await supabase
-    .from("metrics")
-    .upsert(inserts, { onConflict: "company_id,quarter" });
-  if (error) return { ok: false, error: error.message };
+      const existing = rowsByPeriod.get(periodLabel.toLowerCase());
+      if (existing) {
+        const merged = { ...((existing.data ?? {}) as Record<string, any>), ...patch };
+        const { error } = await supabase
+          .from("sheet_rows")
+          .update({ data: merged, updated_at: new Date().toISOString() } as any)
+          .eq("id", existing.id);
+        if (error) return { ok: false, error: error.message };
+      } else {
+        nextRowPosition += 1;
+        const { error } = await supabase
+          .from("sheet_rows")
+          .insert({ sheet_id: sheetId, data: patch, position: nextRowPosition } as any);
+        if (error) return { ok: false, error: error.message };
+      }
+      writtenRows += 1;
+    }
+  }
 
   revalidatePath("/", "layout");
-  return { ok: true, inserted: inserts.length };
+  return { ok: true, inserted: writtenRows };
 }
 
 // Helper for the wizard: list companies in org so Step5 can show them.

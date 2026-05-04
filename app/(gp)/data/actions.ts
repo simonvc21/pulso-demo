@@ -1,82 +1,14 @@
 "use server";
 
+// L.10/Fase 1.G — only bulkImportMetrics survives here. The /data page is
+// gone (sheets per company replaced it) and the cell-edit / per-cell-note
+// surface area went with it. The bulk-import action is still wired into the
+// onboarding wizard's CSV/xlsx upload step, so we kept it — but its body now
+// writes into per-company sheets, not the legacy metrics table.
+
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { DATA_METRICS, type DataMetricKey } from "@/lib/data-metrics";
 import { logUsageEvent } from "@/lib/value-analytics";
-import { periodColumnsFromQuarterString, type PeriodKind } from "@/lib/period";
-
-const KEYS = new Set<string>(DATA_METRICS.map((m) => m.key));
-
-export type UpdateMetricInput = {
-  companyId: string;
-  quarter: string;             // e.g. "Q1 2026"
-  key: DataMetricKey;
-  value: number | null;        // null clears the cell
-};
-
-export type UpdateMetricResult = { ok: true } | { ok: false; error: string };
-
-export async function updateMetricCell(input: UpdateMetricInput): Promise<UpdateMetricResult> {
-  if (!input.companyId) return { ok: false, error: "Company id is required" };
-  // L.12 — accept Q1 2026, M03 2026, Mar 2026, FY 2026
-  if (!periodColumnsFromQuarterString(input.quarter).period_year) {
-    return { ok: false, error: "Invalid period format" };
-  }
-  if (!KEYS.has(input.key)) return { ok: false, error: "Invalid metric key" };
-  if (input.value != null && !Number.isFinite(input.value)) {
-    return { ok: false, error: "Value must be a number" };
-  }
-
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not authenticated" };
-
-  // Confirm the company belongs to the caller's org via RLS — the select
-  // will return null if it doesn't.
-  const { data: company } = await supabase
-    .from("companies")
-    .select("id")
-    .eq("id", input.companyId)
-    .maybeSingle();
-  if (!company) return { ok: false, error: "Company not found" };
-
-  // Upsert by (company_id, quarter)
-  const { data: existing } = await supabase
-    .from("metrics")
-    .select("id")
-    .eq("company_id", input.companyId)
-    .eq("quarter", input.quarter)
-    .maybeSingle();
-
-  // Postgrest's typed clients want a static shape; we know the column is
-  // valid (validated above), so cast through any for the dynamic key.
-  if (existing) {
-    const { error } = await supabase
-      .from("metrics")
-      .update({ [input.key]: input.value } as any)
-      .eq("id", existing.id);
-    if (error) return { ok: false, error: error.message };
-  } else {
-    const period = periodColumnsFromQuarterString(input.quarter);
-    const { error } = await supabase
-      .from("metrics")
-      .insert({
-        company_id: input.companyId,
-        quarter: input.quarter,
-        period_year: period.period_year,
-        period_month: period.period_month,
-        period_kind: period.period_kind,
-        [input.key]: input.value,
-      } as any);
-    if (error) return { ok: false, error: error.message };
-  }
-
-  revalidatePath("/data");
-  revalidatePath("/dashboard");
-  revalidatePath(`/companies`);
-  return { ok: true };
-}
 
 // ---------------------------------------------------------------------------
 // B.4 — Bulk CSV import of historical metrics
@@ -98,6 +30,11 @@ export type BulkImportResult =
   | { ok: false; error: string };
 
 export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkImportResult> {
+  // L.10/Fase 1.G — bulk import now writes into per-company sheets. Each
+  // BulkMetricInput row becomes (or updates) a row in that company's sheet,
+  // keyed by the period label, with canonical ARR / Burn / Cash / Revenue /
+  // Headcount columns. Reusing the same convention as submit_public_form so
+  // founders + onboarding + CSV import all converge on identical data shape.
   if (!rows || rows.length === 0) return { ok: false, error: "Nothing to import" };
 
   const supabase = createClient();
@@ -113,7 +50,6 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
   const orgId = profile.organization_id;
   const userId = profile.id;
 
-  // Pull every active company once so we can resolve by either slug or name.
   const { data: companies } = await supabase
     .from("companies")
     .select("id, slug, name")
@@ -128,21 +64,12 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
   }
 
   const errors: string[] = [];
-  type Insert = {
-    company_id: string;
-    quarter: string;
-    period_year: number | null;
-    period_month: number | null;
-    period_kind: PeriodKind;
-    arr_usd: number | null;
-    burn_usd: number | null;
-    cash_usd: number | null;
-    revenue_usd: number | null;
-    headcount: number | null;
-  };
-  const toUpsert: Insert[] = [];
   let skipped = 0;
+  let inserted = 0;
+  let updated = 0;
 
+  // Group by company so each sheet is touched once.
+  const byCompany = new Map<string, BulkMetricInput[]>();
   for (const r of rows) {
     const key = r.companyKey.trim().toLowerCase();
     const companyId = bySlug.get(key) ?? byName.get(key);
@@ -151,50 +78,134 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
       skipped++;
       continue;
     }
-    const period = periodColumnsFromQuarterString(r.quarter);
-    toUpsert.push({
-      company_id: companyId,
-      quarter: r.quarter,
-      period_year: period.period_year,
-      period_month: period.period_month,
-      period_kind: period.period_kind,
-      arr_usd: r.arrUsd,
-      burn_usd: r.burnUsd,
-      cash_usd: r.cashUsd,
-      revenue_usd: r.revenueUsd,
-      headcount: r.headcount,
-    });
+    const arr = byCompany.get(companyId) ?? [];
+    arr.push(r);
+    byCompany.set(companyId, arr);
   }
 
-  if (toUpsert.length === 0) {
-    return { ok: true, inserted: 0, updated: 0, skipped, errors };
+  for (const [companyId, drafts] of byCompany.entries()) {
+    let { data: sheet } = await supabase
+      .from("sheets")
+      .select("id")
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (!sheet) {
+      const { data: created } = await supabase
+        .from("sheets")
+        .insert({ company_id: companyId, name: "KPIs", position: 0 })
+        .select("id")
+        .single();
+      sheet = created;
+    }
+    if (!sheet) continue;
+    const sheetId = sheet.id;
+
+    const columnSpecs: Array<{ name: string; type: string; key: keyof BulkMetricInput }> = [
+      { name: "Period",    type: "text",     key: "quarter"    },
+      { name: "ARR",       type: "currency", key: "arrUsd"     },
+      { name: "Burn",      type: "currency", key: "burnUsd"    },
+      { name: "Cash",      type: "currency", key: "cashUsd"    },
+      { name: "Revenue",   type: "currency", key: "revenueUsd" },
+      { name: "Headcount", type: "number",   key: "headcount"  },
+    ];
+
+    const { data: existingCols } = await supabase
+      .from("sheet_columns")
+      .select("id, name, position")
+      .eq("sheet_id", sheetId);
+    const colByLabel = new Map<string, string>();
+    let nextPosition = -1;
+    for (const c of existingCols ?? []) {
+      colByLabel.set(c.name.toLowerCase().trim(), c.id);
+      if (c.position > nextPosition) nextPosition = c.position;
+    }
+    for (const spec of columnSpecs) {
+      const lower = spec.name.toLowerCase();
+      if (colByLabel.has(lower)) continue;
+      nextPosition += 1;
+      const { data: created } = await supabase
+        .from("sheet_columns")
+        .insert({
+          sheet_id: sheetId,
+          name: spec.name,
+          type: spec.type,
+          config: spec.type === "currency" ? { currency: "USD" } : {},
+          position: nextPosition,
+        } as any)
+        .select("id")
+        .single();
+      if (created) colByLabel.set(lower, created.id);
+    }
+
+    const periodColId = colByLabel.get("period")!;
+    const colId = (label: string) => colByLabel.get(label.toLowerCase()) ?? null;
+
+    const { data: existingRows } = await supabase
+      .from("sheet_rows")
+      .select("id, data, position")
+      .eq("sheet_id", sheetId);
+    const rowsByPeriod = new Map<string, { id: string; data: any; position: number }>();
+    let nextRowPosition = -1;
+    for (const r of existingRows ?? []) {
+      const data = (r.data ?? {}) as Record<string, any>;
+      const periodLabel = String(data[periodColId] ?? "").trim();
+      if (periodLabel) rowsByPeriod.set(periodLabel.toLowerCase(), r as any);
+      if (r.position > nextRowPosition) nextRowPosition = r.position;
+    }
+
+    for (const draft of drafts) {
+      const periodLabel = draft.quarter.trim();
+      if (!periodLabel) continue;
+
+      const patch: Record<string, any> = { [periodColId]: periodLabel };
+      const setIf = (label: string, val: number | null) => {
+        if (val == null) return;
+        const cid = colId(label);
+        if (cid) patch[cid] = val;
+      };
+      setIf("ARR", draft.arrUsd);
+      setIf("Burn", draft.burnUsd);
+      setIf("Cash", draft.cashUsd);
+      setIf("Revenue", draft.revenueUsd);
+      setIf("Headcount", draft.headcount);
+
+      if (Object.keys(patch).length <= 1) {
+        skipped++;
+        continue;
+      }
+
+      const existing = rowsByPeriod.get(periodLabel.toLowerCase());
+      if (existing) {
+        const merged = { ...((existing.data ?? {}) as Record<string, any>), ...patch };
+        const { error } = await supabase
+          .from("sheet_rows")
+          .update({ data: merged, updated_at: new Date().toISOString() } as any)
+          .eq("id", existing.id);
+        if (error) {
+          errors.push(`Line ${draft.lineNumber}: ${error.message}`);
+          skipped++;
+          continue;
+        }
+        updated++;
+      } else {
+        nextRowPosition += 1;
+        const { error } = await supabase
+          .from("sheet_rows")
+          .insert({ sheet_id: sheetId, data: patch, position: nextRowPosition } as any);
+        if (error) {
+          errors.push(`Line ${draft.lineNumber}: ${error.message}`);
+          skipped++;
+          continue;
+        }
+        inserted++;
+      }
+    }
   }
 
-  // Find which (company_id, quarter) rows already exist so we can report
-  // accurate inserted/updated counts.
-  const keys = toUpsert.map((u) => ({ c: u.company_id, q: u.quarter }));
-  const companyIds = Array.from(new Set(keys.map((k) => k.c)));
-  const quarters = Array.from(new Set(keys.map((k) => k.q)));
-  const { data: existing } = await supabase
-    .from("metrics")
-    .select("company_id, quarter")
-    .in("company_id", companyIds)
-    .in("quarter", quarters);
-  const existingSet = new Set((existing ?? []).map((m) => `${m.company_id}|${m.quarter}`));
-  const updated = toUpsert.filter((u) => existingSet.has(`${u.company_id}|${u.quarter}`)).length;
-  const inserted = toUpsert.length - updated;
-
-  const { error } = await supabase
-    .from("metrics")
-    .upsert(toUpsert as any, { onConflict: "company_id,quarter" });
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath("/data");
   revalidatePath("/dashboard");
   revalidatePath("/companies");
+  revalidatePath("/dashboards");
 
-  // L.20 — emit one value event per imported metric row so the "hours saved"
-  // estimate scales with import size (1 min/row manual is the heuristic).
   if (inserted + updated > 0) {
     await logUsageEvent({
       organizationId: orgId,
@@ -208,108 +219,3 @@ export async function bulkImportMetrics(rows: BulkMetricInput[]): Promise<BulkIm
   return { ok: true, inserted, updated, skipped, errors };
 }
 
-// ---------------------------------------------------------------------------
-// L.3 — Per-org column config + per-cell metric notes
-// ---------------------------------------------------------------------------
-
-import { parseDataColumnsConfig, type DataColumnsConfig } from "@/lib/data-columns-config";
-
-async function requireOrg() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not authenticated" };
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, organization_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  if (!profile?.organization_id) return { ok: false as const, error: "No fund assigned" };
-  return {
-    ok: true as const,
-    supabase,
-    organizationId: profile.organization_id,
-    userId: profile.id,
-  };
-}
-
-export type SaveColumnsResult = { ok: true } | { ok: false; error: string };
-
-export async function saveDataColumnsConfig(input: DataColumnsConfig): Promise<SaveColumnsResult> {
-  const ctx = await requireOrg();
-  if (!ctx.ok) return { ok: false, error: ctx.error };
-  const clean = parseDataColumnsConfig(input);
-
-  const { error } = await ctx.supabase
-    .from("organizations")
-    .update({ data_columns_json: clean as any })
-    .eq("id", ctx.organizationId);
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath("/data");
-  return { ok: true };
-}
-
-export type NoteResult = { ok: true } | { ok: false; error: string };
-
-export async function upsertMetricNote(input: {
-  companyId: string;
-  quarter: string;
-  metricKey: DataMetricKey;
-  note: string;
-}): Promise<NoteResult> {
-  if (!input.companyId) return { ok: false, error: "Company id is required" };
-  if (!periodColumnsFromQuarterString(input.quarter).period_year) {
-    return { ok: false, error: "Invalid period format" };
-  }
-  if (!KEYS.has(input.metricKey)) return { ok: false, error: "Invalid metric key" };
-  const trimmed = input.note.trim();
-  if (!trimmed) return { ok: false, error: "Note is empty" };
-  if (trimmed.length > 2000) return { ok: false, error: "Note must be ≤ 2000 chars" };
-
-  const ctx = await requireOrg();
-  if (!ctx.ok) return { ok: false, error: ctx.error };
-
-  // RLS will block if the company isn't in the caller's org.
-  const { error } = await ctx.supabase
-    .from("metric_notes")
-    .upsert(
-      {
-        company_id: input.companyId,
-        quarter: input.quarter,
-        metric_key: input.metricKey,
-        note: trimmed,
-        author_user_id: ctx.userId,
-      },
-      { onConflict: "company_id,quarter,metric_key" },
-    );
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath("/data");
-  return { ok: true };
-}
-
-export async function deleteMetricNote(input: {
-  companyId: string;
-  quarter: string;
-  metricKey: DataMetricKey;
-}): Promise<NoteResult> {
-  if (!input.companyId) return { ok: false, error: "Company id is required" };
-  if (!periodColumnsFromQuarterString(input.quarter).period_year) {
-    return { ok: false, error: "Invalid period format" };
-  }
-  if (!KEYS.has(input.metricKey)) return { ok: false, error: "Invalid metric key" };
-
-  const ctx = await requireOrg();
-  if (!ctx.ok) return { ok: false, error: ctx.error };
-
-  const { error } = await ctx.supabase
-    .from("metric_notes")
-    .delete()
-    .eq("company_id", input.companyId)
-    .eq("quarter", input.quarter)
-    .eq("metric_key", input.metricKey);
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath("/data");
-  return { ok: true };
-}

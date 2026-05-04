@@ -58,6 +58,23 @@ export async function addLp(input: AddLpInput): Promise<AddLpResult> {
 }
 
 // ---------------------------------------------------------------------------
+// Delete
+// ---------------------------------------------------------------------------
+
+export type DeleteLpResult = { ok: true } | { ok: false; error: string };
+
+export async function deleteLp(lpId: string): Promise<DeleteLpResult> {
+  if (!lpId) return { ok: false, error: "Missing id" };
+  const supabase = createClient();
+  // RLS gates by organization_id, so the delete is a no-op if the LP belongs
+  // to someone else's org. We don't need to manually check membership here.
+  const { error } = await supabase.from("lps").delete().eq("id", lpId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/lps");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Bulk import — CSV / Excel
 // ---------------------------------------------------------------------------
 

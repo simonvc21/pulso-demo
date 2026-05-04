@@ -8,6 +8,7 @@ import { fmtUSD } from "@/lib/utils";
 import { Share2, Mail, MessageSquare } from "lucide-react";
 import { listLpThreads } from "@/lib/lp-chat";
 import { AddLpButton } from "./add-lp-button";
+import { DeleteLpButton } from "./delete-lp-button";
 import { LpsCsvImport } from "@/components/lps-csv-import";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +90,7 @@ export default async function LpsPage() {
                       ) : (
                         <button className="text-muted hover:text-ink p-1.5" title="No email on file"><Mail className="h-4 w-4" /></button>
                       )}
+                      <DeleteLpButton lpId={l.id} name={l.name} />
                     </div>
                   </td>
                 </tr>

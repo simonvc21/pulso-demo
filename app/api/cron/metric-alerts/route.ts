@@ -121,14 +121,16 @@ export async function GET(request: NextRequest) {
     if (companyIds.length > 0) {
       const { data: companies } = await supabase
         .from("companies")
-        .select("id, name, metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount)")
+        .select("id, name")
         .in("id", companyIds)
         .is("archived_at", null);
 
+      // Metrics now live in sheets per company. Alert enrichment with sheet
+      // data is a follow-up — for now we pass empty metrics arrays and the
+      // LLM still produces a useful summary from the alert title alone.
       const byCompany = new Map<string, { name: string; metrics: AlertContext["metrics"] }>();
       for (const c of (companies ?? []) as any[]) {
-        const sorted = ((c.metrics ?? []) as any[]).sort((a, b) => a.quarter.localeCompare(b.quarter));
-        byCompany.set(c.id, { name: c.name, metrics: sorted });
+        byCompany.set(c.id, { name: c.name, metrics: [] });
       }
 
       for (const n of fresh as any[]) {

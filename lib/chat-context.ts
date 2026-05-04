@@ -94,8 +94,7 @@ export async function buildChatContext(): Promise<ChatContext | null> {
       .select(
         "slug, name, sector, country, stage, status, invested_usd, ownership_pct, flag, description, " +
         "founder_name, founder_email, founder_role, " +
-        "investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url, " +
-        "metrics(quarter, arr_usd, burn_usd, cash_usd, revenue_usd, headcount, period_kind)"
+        "investment_instrument, safe_cap_usd, safe_discount_pct, website, linkedin_url"
       ),
     scope === "lp" ? Promise.resolve({ data: [] }) : supabase
       .from("lps")
@@ -116,16 +115,10 @@ export async function buildChatContext(): Promise<ChatContext | null> {
   const companiesArr: ChatContext["companies"] = [];
 
   for (const c of (companies ?? []) as any[]) {
-    // L.12 — only quarterly rows for the chat context dump (avoids
-    // duplicating numbers after monthly backfill).
-    const sortedMetrics = ((c.metrics ?? []) as any[])
-      
-      .sort((a, b) => a.quarter.localeCompare(b.quarter))
-      .map((m) => ({
-        quarter: m.quarter,
-        arr_usd: m.arr_usd, burn_usd: m.burn_usd, cash_usd: m.cash_usd,
-        revenue_usd: m.revenue_usd, headcount: m.headcount,
-      }));
+    // Metrics now live in sheets per company. Pulling them into the chat
+    // context is a follow-up — for now the LLM gets company shells + news
+    // and can ask for specific numbers via tools later.
+    const sortedMetrics: ChatContext["companies"][number]["metrics"] = [];
     const entry: ChatContext["companies"][number] = {
       slug: c.slug, name: c.name, sector: c.sector, country: c.country,
       stage: c.stage, status: c.status,
