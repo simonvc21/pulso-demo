@@ -61,6 +61,29 @@ function ImportModal({
   const [aiResult, setAiResult] = useState<AiState | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // L.9e — Pre-upload questionnaire. Optional answers feed Claude/Gemini
+  // as extra context so it classifies tricky workbooks correctly.
+  const [shape, setShape] = useState<"" | "one_per_company" | "all_in_one_sheet" | "one_sheet_per_company" | "unsure">("");
+  const [hasMetrics, setHasMetrics] = useState<"" | "yes" | "no" | "unsure">("");
+  const [periodFmt, setPeriodFmt] = useState<"" | "monthly" | "quarterly" | "annual" | "mixed">("");
+  const [extraNotes, setExtraNotes] = useState("");
+
+  function buildHints(): string {
+    const parts: string[] = [];
+    if (shape === "one_per_company") parts.push("File shape: ONE row per company, no historicals.");
+    if (shape === "all_in_one_sheet") parts.push("File shape: a single sheet with one row per company × period (long format).");
+    if (shape === "one_sheet_per_company") parts.push("File shape: ONE TAB PER COMPANY. Sheet name = company name. Treat each as metrics_only.");
+    if (shape === "unsure") parts.push("File shape: user is unsure — analyze each sheet independently.");
+    if (hasMetrics === "yes") parts.push("Historical metric values are present (ARR, burn, cash, etc).");
+    if (hasMetrics === "no") parts.push("No historical metrics — companies-only.");
+    if (periodFmt === "monthly") parts.push("Periods are monthly.");
+    if (periodFmt === "quarterly") parts.push("Periods are quarterly.");
+    if (periodFmt === "annual") parts.push("Periods are annual.");
+    if (periodFmt === "mixed") parts.push("Periods may be mixed cadences across sheets.");
+    if (extraNotes.trim()) parts.push(`User note: "${extraNotes.trim()}"`);
+    return parts.join(" ");
+  }
+
   const handleText = (val: string) => {
     setText(val);
     setFileError(null);
@@ -129,10 +152,11 @@ function ImportModal({
           sample: csvSample(s.csv, 8),
         }));
 
+      const userHints = buildHints();
       const res = await fetch("/api/import/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheets: samples, intent: "both" }),
+        body: JSON.stringify({ sheets: samples, intent: "both", userHints }),
       });
 
       // L.8j — Vercel Hobby caps function duration at 10s. If the AI route
@@ -287,6 +311,73 @@ function ImportModal({
         </header>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+          {/* L.9e — Optional pre-upload questions. Filling these makes the AI
+              import dramatically more accurate on weird files (multi-tab,
+              non-English headers, mixed sheet shapes). */}
+          <details className="rounded-xl border border-line bg-paper2/40 px-4 py-3" open>
+            <summary className="cursor-pointer text-[12px] font-semibold text-ink inline-flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-gold-600" />
+              Tell us about your file (optional, helps the AI)
+            </summary>
+            <div className="mt-3 space-y-3 text-[12px]">
+              <label className="block">
+                <span className="block text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">How is your data structured?</span>
+                <select
+                  value={shape}
+                  onChange={(e) => setShape(e.target.value as any)}
+                  className="w-full h-9 px-2.5 rounded-md border border-line text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
+                >
+                  <option value="">— Select —</option>
+                  <option value="one_per_company">One row per company (no history)</option>
+                  <option value="all_in_one_sheet">One sheet, many rows (company × period stacked)</option>
+                  <option value="one_sheet_per_company">One TAB per company (Airtable-style)</option>
+                  <option value="unsure">Not sure</option>
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="block text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Historical metrics?</span>
+                  <select
+                    value={hasMetrics}
+                    onChange={(e) => setHasMetrics(e.target.value as any)}
+                    className="w-full h-9 px-2.5 rounded-md border border-line text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
+                  >
+                    <option value="">— Select —</option>
+                    <option value="yes">Yes (ARR, burn, cash, etc)</option>
+                    <option value="no">No, just company list</option>
+                    <option value="unsure">Not sure</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="block text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Period cadence</span>
+                  <select
+                    value={periodFmt}
+                    onChange={(e) => setPeriodFmt(e.target.value as any)}
+                    className="w-full h-9 px-2.5 rounded-md border border-line text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal/30"
+                  >
+                    <option value="">— Select —</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="annual">Annual</option>
+                    <option value="mixed">Mixed</option>
+                  </select>
+                </label>
+              </div>
+              <label className="block">
+                <span className="block text-[10px] font-semibold text-muted tracking-[0.14em] uppercase mb-1">Anything else? (free-form)</span>
+                <textarea
+                  value={extraNotes}
+                  onChange={(e) => setExtraNotes(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                  placeholder={`e.g. "Ignore the Seguimientos and Resumen tabs, those are notes." or "Avanzo: Revenue Mensual is the company's monthly ARR."`}
+                  className="w-full px-2.5 py-2 rounded-md border border-line text-[12px] bg-white focus:outline-none focus:ring-2 focus:ring-teal/30 resize-none"
+                />
+              </label>
+            </div>
+          </details>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
               type="button"

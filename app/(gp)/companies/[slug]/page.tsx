@@ -266,11 +266,44 @@ export default async function CompanyDetailPage({ params }: { params: { slug: st
               id: "financials",
               label: "Financials",
               content: (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <ChartCard title="ARR" subtitle="Last 8 quarters · USD millions" metrics={company.metrics} metric="arr" color="#14B8A6" />
-                  <ChartCard title="Cash on hand" subtitle="Trailing balance" metrics={company.metrics} metric="cash" color="#0A1F44" />
-                  <ChartCard title="Quarterly revenue" subtitle="Recognized" metrics={company.metrics} metric="revenue" color="#F4B740" />
-                  <ChartCard title="Headcount" subtitle="Full-time equivalents" metrics={company.metrics} metric="headcount" color="#1B3A6F" />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <ChartCard title="ARR" subtitle="Trailing periods · USD millions" metrics={company.metrics} metric="arr" color="#14B8A6" />
+                    <ChartCard title="Cash on hand" subtitle="Trailing balance" metrics={company.metrics} metric="cash" color="#0A1F44" />
+                    <ChartCard title="Monthly burn" subtitle="USD per month" metrics={company.metrics} metric="burn" color="#E1654B" />
+                    <ChartCard title="Revenue" subtitle="Recognized" metrics={company.metrics} metric="revenue" color="#F4B740" />
+                    <ChartCard title="Headcount" subtitle="Full-time equivalents" metrics={company.metrics} metric="headcount" color="#1B3A6F" />
+                    <DerivedChartCard
+                      title="Runway"
+                      subtitle="Months · cash ÷ burn"
+                      data={company.metrics.map((m) => ({
+                        quarter: m.quarter,
+                        value: m.burn > 0 ? Math.round((m.cash / m.burn) * 10) / 10 : null,
+                      }))}
+                      color="#0D9488"
+                      unit="mo"
+                    />
+                    <DerivedChartCard
+                      title="ARR growth (MoM %)"
+                      subtitle="Period-over-period change"
+                      data={company.metrics.map((m, i, arr) => {
+                        const prev = arr[i - 1];
+                        if (!prev || prev.arr <= 0) return { quarter: m.quarter, value: null };
+                        return { quarter: m.quarter, value: Math.round(((m.arr - prev.arr) / prev.arr) * 1000) / 10 };
+                      })}
+                      color="#14B8A6"
+                      unit="%"
+                    />
+                    <DerivedChartCard
+                      title="ARR per FTE"
+                      subtitle="Capital efficiency · USD"
+                      data={company.metrics.map((m) => ({
+                        quarter: m.quarter,
+                        value: m.headcount > 0 ? Math.round(m.arr / m.headcount) : null,
+                      }))}
+                      color="#8B5CF6"
+                    />
+                  </div>
                 </div>
               ),
             },
@@ -369,6 +402,23 @@ function ChartCard(props: { title: string; subtitle: string; metrics: DashboardM
       </div>
       <div className="px-2 pb-3">
         <CompanyHistoryChart metrics={props.metrics as any} metric={props.metric} color={props.color} />
+      </div>
+    </div>
+  );
+}
+
+// L.9d — derived series (runway, MoM growth %, ARR per FTE) reuse the
+// CustomMetricChart component since it already handles {quarter, value} arrays
+// with null gaps. Keeps the layout consistent with the standard ChartCards.
+function DerivedChartCard(props: { title: string; subtitle: string; data: Array<{ quarter: string; value: number | null }>; color?: string; unit?: string | null }) {
+  return (
+    <div className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
+      <div className="px-5 pt-4 pb-2">
+        <h3 className="text-sm font-semibold text-ink">{props.title}</h3>
+        <p className="text-[11px] text-muted mt-0.5">{props.subtitle}</p>
+      </div>
+      <div className="px-2 pb-3">
+        <CustomMetricChart data={props.data} color={props.color} unit={props.unit ?? null} />
       </div>
     </div>
   );

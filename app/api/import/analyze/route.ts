@@ -27,6 +27,8 @@ interface AnalyzeRequest {
   sheets: SheetSample[];
   /** Hint about what the user is importing — defaults to "companies". */
   intent?: "companies" | "metrics" | "both";
+  /** L.9e — user-provided guidance from the pre-upload questionnaire. */
+  userHints?: string;
 }
 
 interface ColumnMapping {
@@ -145,6 +147,11 @@ export async function POST(req: NextRequest) {
     lines.push(`User intent: ${body.intent ?? "companies"}.`);
     lines.push(`Workbook total sheets: ${body.sheets.length}. This batch: ${chunk.length}.`);
     lines.push("");
+    // L.9e — user-provided hints take precedence over the model's guesses.
+    if (body.userHints && body.userHints.trim()) {
+      lines.push(`USER-PROVIDED CONTEXT (treat as authoritative): ${body.userHints.trim()}`);
+      lines.push("");
+    }
     lines.push(`IMPORTANT: When a workbook has many sheets each named after a company (Avanzo, Beeok, Velocity, ...) and each sheet contains ~12-36 monthly data rows, treat each sheet as shape="metrics_only" and copy the sheet name to companyNameOverride. The cells inside the sheet often repeat the same name in a "Name" or "Nombre Startup" column — IGNORE those for naming.`);
     lines.push("");
     for (const s of chunk) {
