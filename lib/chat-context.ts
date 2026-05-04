@@ -47,13 +47,6 @@ export interface ChatContext {
       headcount: number | null;
     }>;
     latest_news: Array<{ submitted_at: string; field: string; text: string }>;
-    /** L.4 — per-company custom metrics, keyed by metric label. */
-    custom_metrics: Array<{
-      label: string;
-      type: string;
-      unit: string | null;
-      values: Array<{ quarter: string; value: number | null }>;
-    }>;
   }>;
   lps: Array<{ name: string; type: string; commitment_usd: number; country: string | null }>;
   forms: Array<{ slug: string; name: string; cadence: string; field_count: number; response_rate: number; last_sent_at: string | null }>;
@@ -94,7 +87,6 @@ export async function buildChatContext(): Promise<ChatContext | null> {
     { data: lps },
     { data: forms },
     { data: alerts },
-    { data: customMetricRows },
   ] = await Promise.all([
     supabase.from("organizations").select("id, name, vintage, size_usd, deployed_usd, currency, description, thesis, website, founded_year").eq("id", orgId).maybeSingle(),
     supabase
@@ -117,9 +109,6 @@ export async function buildChatContext(): Promise<ChatContext | null> {
       .select("kind, title, body, created_at")
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase
-      .from("custom_metric_values")
-      .select("quarter, value, period_kind, companies(slug), metric_definitions(label, type, unit)"),
   ]);
 
   // Pull recent news submissions to attach to each company
@@ -151,40 +140,9 @@ export async function buildChatContext(): Promise<ChatContext | null> {
       linkedin_url: c.linkedin_url ?? null,
       metrics: sortedMetrics,
       latest_news: [],
-      custom_metrics: [],
     };
     companiesArr.push(entry);
     companiesById.set(c.slug, entry);
-  }
-
-  // L.4 — fold custom metric values into each company entry, grouped by label.
-  // Group key = `${companySlug}|${label}` so we collapse all quarters per metric.
-  type CustomGroup = ChatContext["companies"][number]["custom_metrics"][number];
-  const customGroups = new Map<string, CustomGroup>();
-  // L.12 — quarter rows only here too
-  for (const r of ((customMetricRows ?? []) as any[])) {
-    const slug = r.companies?.slug;
-    const def = r.metric_definitions;
-    if (!slug || !def?.label) continue;
-    const key = `${slug}|${def.label}`;
-    const group: CustomGroup = customGroups.get(key) ?? {
-      label: def.label,
-      type: def.type ?? "number",
-      unit: def.unit ?? null,
-      values: [],
-    };
-    group.values.push({
-      quarter: r.quarter,
-      value: r.value != null ? Number(r.value) : null,
-    });
-    customGroups.set(key, group);
-  }
-  for (const [key, group] of customGroups.entries()) {
-    const slug = key.split("|")[0];
-    const target = companiesById.get(slug);
-    if (!target) continue;
-    group.values.sort((a, b) => a.quarter.localeCompare(b.quarter));
-    target.custom_metrics.push(group);
   }
 
   // Newsletter feed: limit to most recent 24 updates total (across companies)

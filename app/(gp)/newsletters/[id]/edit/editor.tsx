@@ -7,7 +7,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Type, BarChart3, Building2, AlertTriangle, Trophy, Minus, TrendingUp, Layers,
+  Type, BarChart3, Building2, AlertTriangle, Minus, TrendingUp, Layers,
   Plus, Trash2, ArrowUp, ArrowDown, Loader2, Check, Eye, Send, X, FileX, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,18 +18,16 @@ import {
 import { newId, type Block, type Newsletter, type NewsletterCadence } from "@/lib/newsletter-types";
 
 interface CompanyOption { id: string; slug: string; name: string }
-interface MetricDef { id: string; label: string; unit: string | null }
 
 interface Props {
   newsletter: Newsletter;
   companies: CompanyOption[];
-  metricDefinitions: MetricDef[];
   fundName: string;
 }
 
 const CADENCES: NewsletterCadence[] = ["monthly", "quarterly", "annual", "ad_hoc"];
 
-export function NewsletterEditor({ newsletter, companies, metricDefinitions, fundName }: Props) {
+export function NewsletterEditor({ newsletter, companies, fundName }: Props) {
   const router = useRouter();
   const [coverTitle, setCoverTitle] = useState(newsletter.coverTitle);
   const [coverSubtitle, setCoverSubtitle] = useState(newsletter.coverSubtitle ?? "");
@@ -78,7 +76,7 @@ export function NewsletterEditor({ newsletter, companies, metricDefinitions, fun
     setBlocks((prev) => prev.map((b, i) => (i === idx ? ({ ...b, ...patch } as Block) : b)));
   }
   function addBlock(type: Block["type"]) {
-    setBlocks((prev) => [...prev, makeBlock(type, companies, metricDefinitions)]);
+    setBlocks((prev) => [...prev, makeBlock(type, companies)]);
   }
 
   async function publish() {
@@ -179,7 +177,6 @@ export function NewsletterEditor({ newsletter, companies, metricDefinitions, fun
             index={i}
             total={blocks.length}
             companies={companies}
-            metricDefinitions={metricDefinitions}
             fundName={fundName}
             periodLabel={periodLabel}
             coverTitle={coverTitle}
@@ -203,7 +200,6 @@ export function NewsletterEditor({ newsletter, companies, metricDefinitions, fun
             { type: "company_highlight", label: "Company spotlight", icon: Building2 },
             { type: "metric_chart", label: "Company metric chart",  icon: BarChart3 },
             { type: "watch_list", label: "Watch list",      icon: AlertTriangle },
-            { type: "custom_metric_leaderboard", label: "Custom leaderboard", icon: Trophy },
             { type: "divider", label: "Divider",            icon: Minus },
           ] as const).map(({ type, label, icon: Icon }) => (
             <button
@@ -269,13 +265,12 @@ export function NewsletterEditor({ newsletter, companies, metricDefinitions, fun
 // ---------------------------------------------------------------------------
 
 function BlockCard({
-  block, index, total, companies, metricDefinitions, fundName, periodLabel, coverTitle, onMove, onRemove, onPatch,
+  block, index, total, companies, fundName, periodLabel, coverTitle, onMove, onRemove, onPatch,
 }: {
   block: Block;
   index: number;
   total: number;
   companies: CompanyOption[];
-  metricDefinitions: MetricDef[];
   fundName: string;
   periodLabel: string;
   coverTitle: string;
@@ -389,30 +384,6 @@ function BlockCard({
 
       {block.type === "watch_list" && (
         <WatchListEditor block={block} companies={companies} onPatch={onPatch} />
-      )}
-
-      {block.type === "custom_metric_leaderboard" && (
-        <div className="space-y-2">
-          {metricDefinitions.length === 0 ? (
-            <p className="text-[12px] text-muted italic">No custom metrics yet. Add some in Settings → Metrics first.</p>
-          ) : (
-            <select
-              value={block.metricDefinitionId}
-              onChange={(e) => onPatch({ metricDefinitionId: e.target.value })}
-              className="w-full h-9 px-2.5 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
-            >
-              {metricDefinitions.map((d) => (
-                <option key={d.id} value={d.id}>{d.label}{d.unit ? ` (${d.unit})` : ""}</option>
-              ))}
-            </select>
-          )}
-          <input
-            value={block.heading ?? ""}
-            onChange={(e) => onPatch({ heading: e.target.value || null })}
-            placeholder="Optional heading"
-            className="w-full h-9 px-2.5 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
-          />
-        </div>
       )}
 
       {(block.type === "fund_arr_by_company" || block.type === "fund_arr_trend") && (
@@ -681,7 +652,6 @@ function WatchListEditor({
 function makeBlock(
   type: Block["type"],
   companies: CompanyOption[],
-  metricDefs: MetricDef[],
 ): Block {
   const defaultCompany = companies[0]?.slug ?? "";
   switch (type) {
@@ -695,8 +665,6 @@ function makeBlock(
       return { id: newId(), type: "metric_chart", companySlug: defaultCompany, metric: "arr", caption: null };
     case "watch_list":
       return { id: newId(), type: "watch_list", heading: "Watch list", companies: [] };
-    case "custom_metric_leaderboard":
-      return { id: newId(), type: "custom_metric_leaderboard", metricDefinitionId: metricDefs[0]?.id ?? "", heading: null };
     case "fund_arr_by_company":
       return { id: newId(), type: "fund_arr_by_company", heading: null, caption: null };
     case "fund_arr_trend":
@@ -718,7 +686,6 @@ function labelFor(t: Block["type"]): string {
     company_highlight: "Company spotlight",
     metric_chart: "Company metric chart",
     watch_list: "Watch list",
-    custom_metric_leaderboard: "Custom metric leaderboard",
     divider: "Divider",
   }[t];
 }

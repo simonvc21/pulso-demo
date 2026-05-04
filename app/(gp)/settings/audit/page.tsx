@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
 
 const TABLE_LABEL: Record<string, string> = {
   metrics: "Metrics",
-  custom_metric_values: "Custom metric",
   companies: "Company",
   newsletters: "Newsletter",
   form_submissions: "Form submission",

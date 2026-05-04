@@ -4,11 +4,10 @@ import { ArrowLeft, ExternalLink, Sparkles, Globe, Linkedin } from "lucide-react
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { CompanyHistoryChart } from "@/components/company-history-chart";
 import { PortfolioNewsletter } from "@/components/portfolio-newsletter";
-import { getCompanyBySlug, getCompanyCustomMetrics, getNewsletterUpdates, type DashboardMetric, type CustomMetricSeries, type CustomMetricType } from "@/lib/dashboard-data";
+import { getCompanyBySlug, getNewsletterUpdates, type DashboardMetric } from "@/lib/dashboard-data";
 import { fmtUSD, fmtPct, fmtNum } from "@/lib/utils";
 import { ts } from "@/lib/i18n-server";
 import { createClient } from "@/lib/supabase/server";
-import { CustomMetricChart } from "@/components/custom-metric-chart";
 import { CommentsThread, ReactionsBar } from "@/components/lp-engagement";
 import { getCompanyComments, getCompanyReactions } from "@/lib/lp-engagement";
 
@@ -35,14 +34,13 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
   ]);
   if (!company) notFound();
 
-  // Custom metrics need the canonical company id (CompanyDetail exposes slug only).
+  // Resolve canonical company id (CompanyDetail exposes slug only).
   const supabase = createClient();
   const { data: companyRow } = await supabase
     .from("companies")
     .select("id")
     .eq("slug", params.slug)
     .maybeSingle();
-  const customMetrics = companyRow ? await getCompanyCustomMetrics(companyRow.id) : [];
   const [comments, reactions] = companyRow
     ? await Promise.all([getCompanyComments(companyRow.id), getCompanyReactions(companyRow.id)])
     : [[], []];
@@ -180,9 +178,6 @@ export default async function LpCompanyDetailPage({ params }: { params: { slug: 
         <ChartCard title="Headcount" subtitle="Full-time equivalents" metrics={company.metrics} metric="headcount" color="#1B3A6F" />
       </div>
 
-      {/* Custom metrics — same block as the GP detail page (read-only here) */}
-      {customMetrics.length > 0 && <CustomMetricsBlock series={customMetrics} />}
-
       {/* L.22 — Discussion */}
       {companyRow && (
         <CommentsThread
@@ -241,72 +236,3 @@ function ChartCard(props: { title: string; subtitle: string; metrics: DashboardM
   );
 }
 
-function formatCustomValue(v: number | null, type: CustomMetricType, unit: string | null): string {
-  if (v == null) return "—";
-  if (type === "currency") {
-    return v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` :
-           v >= 1000 ? `${(v / 1000).toFixed(0)}K` :
-           v.toLocaleString("en-US");
-  }
-  if (type === "percent") return `${v}%`;
-  return `${v.toLocaleString("en-US")}${unit ? ` ${unit}` : ""}`;
-}
-
-const LP_CUSTOM_COLORS = ["#14B8A6", "#F4B740", "#1B3A6F", "#0A1F44", "#E1654B", "#7c849a"];
-
-function CustomMetricsBlock({ series }: { series: CustomMetricSeries[] }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-baseline gap-2">
-        <h2 className="text-[10px] font-semibold text-muted tracking-[0.16em] uppercase">Custom metrics</h2>
-        <span className="text-[11px] text-muted">{series.length} tracked</span>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {series.map((s) => {
-          const delta = s.prev != null && s.prev !== 0
-            ? ((Number(s.latest ?? 0) - Number(s.prev)) / Number(s.prev)) * 100
-            : null;
-          return (
-            <div key={s.definition.id} className="bg-white rounded-xl border border-line p-3.5 shadow-card">
-              <div className="text-[10px] font-semibold text-muted tracking-[0.14em] uppercase truncate">
-                {s.definition.label}
-              </div>
-              <div className="mt-1 font-serif text-xl font-bold text-ink leading-none tabular-nums">
-                {formatCustomValue(s.latest, s.definition.type, s.definition.unit)}
-              </div>
-              {delta != null && (
-                <div className="mt-1.5 text-[11px]">
-                  <span className={delta >= 0 ? "text-teal-600 font-medium" : "text-coral font-medium"}>
-                    {delta >= 0 ? "+" : ""}{delta.toFixed(1)}%
-                  </span>
-                  <span className="text-muted"> MoM</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {series.map((s, i) => (
-          <div key={s.definition.id} className="bg-white rounded-xl border border-line shadow-card overflow-hidden">
-            <div className="px-5 pt-3 pb-1">
-              <h3 className="text-sm font-semibold text-ink">{s.definition.label}</h3>
-              <p className="text-[11px] text-muted mt-0.5">
-                {s.definition.type}{s.definition.unit ? ` · ${s.definition.unit}` : ""} · {s.values.length} quarter{s.values.length === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className="px-2 pb-3">
-              <CustomMetricChart
-                data={s.values}
-                color={LP_CUSTOM_COLORS[i % LP_CUSTOM_COLORS.length]}
-                unit={s.definition.unit}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}

@@ -4,7 +4,6 @@ import {
   getCompanyOptions,
   getFormRecipientIds,
   getFormSchedule,
-  listOrgMetricDefinitions,
   getFormReminders,
   getFormRecipientsWithEmails,
 } from "@/lib/dashboard-data";
@@ -23,11 +22,10 @@ export default async function EditFormPage({
   if (!form) notFound();
   const fromCreate = searchParams?.from === "create";
 
-  const [companies, recipientIds, schedule, metricDefinitions, reminders, recipientsWithEmails] = await Promise.all([
+  const [companies, recipientIds, schedule, reminders, recipientsWithEmails] = await Promise.all([
     getCompanyOptions(),
     getFormRecipientIds(form.id),
     getFormSchedule(form.id),
-    listOrgMetricDefinitions(),
     getFormReminders(form.id),
     getFormRecipientsWithEmails(form.id),
   ]);
@@ -58,7 +56,6 @@ export default async function EditFormPage({
       group: f.group,
       options: f.options,
       metricKey: f.metricKey ?? null,
-      metricDefinitionId: f.metricDefinitionId ?? null,
     })),
   };
 
@@ -95,7 +92,6 @@ export default async function EditFormPage({
         initial={initial}
         companies={companies}
         initialRecipientIds={recipientIds}
-        metricDefinitions={metricDefinitions}
       />
       <div className="px-8 max-w-5xl pb-12">
         <ScheduleEditor

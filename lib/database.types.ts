@@ -564,60 +564,6 @@ export type Database = {
           },
         ]
       }
-      custom_metric_values: {
-        Row: {
-          company_id: string
-          created_at: string
-          id: string
-          metric_definition_id: string
-          period_kind: Database["public"]["Enums"]["period_kind"]
-          period_month: number | null
-          period_year: number | null
-          quarter: string
-          updated_at: string
-          value: number | null
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          id?: string
-          metric_definition_id: string
-          period_kind?: Database["public"]["Enums"]["period_kind"]
-          period_month?: number | null
-          period_year?: number | null
-          quarter: string
-          updated_at?: string
-          value?: number | null
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          id?: string
-          metric_definition_id?: string
-          period_kind?: Database["public"]["Enums"]["period_kind"]
-          period_month?: number | null
-          period_year?: number | null
-          quarter?: string
-          updated_at?: string
-          value?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "custom_metric_values_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "custom_metric_values_metric_definition_id_fkey"
-            columns: ["metric_definition_id"]
-            isOneToOne: false
-            referencedRelation: "metric_definitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       feature_flags: {
         Row: {
           created_at: string
@@ -1017,77 +963,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lps_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      metric_definition_companies: {
-        Row: {
-          company_id: string
-          created_at: string
-          id: string
-          metric_definition_id: string
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          id?: string
-          metric_definition_id: string
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          id?: string
-          metric_definition_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "metric_definition_companies_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "metric_definition_companies_metric_definition_id_fkey"
-            columns: ["metric_definition_id"]
-            isOneToOne: false
-            referencedRelation: "metric_definitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      metric_definitions: {
-        Row: {
-          created_at: string
-          id: string
-          label: string
-          organization_id: string
-          type: Database["public"]["Enums"]["custom_metric_type"]
-          unit: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          label: string
-          organization_id: string
-          type?: Database["public"]["Enums"]["custom_metric_type"]
-          unit?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          label?: string
-          organization_id?: string
-          type?: Database["public"]["Enums"]["custom_metric_type"]
-          unit?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "metric_definitions_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1551,7 +1426,7 @@ export type Database = {
           {
             foreignKeyName: "sheets_company_id_fkey"
             columns: ["company_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
@@ -1842,7 +1717,6 @@ export type Database = {
       ai_message_role: "user" | "assistant"
       company_stage: "Pre-seed" | "Seed" | "Series A" | "Series B"
       company_status: "healthy" | "watch" | "critical" | "no_data"
-      custom_metric_type: "currency" | "number" | "percent" | "ratio" | "count"
       form_cadence: "monthly" | "quarterly" | "annual" | "ad_hoc"
       form_field_type:
         | "currency"
@@ -2019,7 +1893,6 @@ export const Constants = {
       ai_message_role: ["user", "assistant"],
       company_stage: ["Pre-seed", "Seed", "Series A", "Series B"],
       company_status: ["healthy", "watch", "critical", "no_data"],
-      custom_metric_type: ["currency", "number", "percent", "ratio", "count"],
       form_cadence: ["monthly", "quarterly", "annual", "ad_hoc"],
       form_field_type: [
         "currency",

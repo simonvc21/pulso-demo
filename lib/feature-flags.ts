@@ -22,7 +22,6 @@ export const FEATURE_DEFAULTS = {
   billing_engine:         { default: false, label: "Billing engine (L.14)",         description: "Stripe-powered plans + usage-based gates." },
   ai_chat_history:        { default: true,  label: "AI chat history (L.13)",        description: "Persistent conversation log in the dock." },
   ai_usage_dashboard:     { default: true,  label: "AI usage dashboard (L.15)",     description: "/settings/usage cost + token analytics." },
-  custom_metrics:         { default: true,  label: "Custom metrics (L.4)",          description: "Per-company metrics on top of the universal 5." },
   csv_import:             { default: true,  label: "CSV/Excel metrics import (B.4)", description: "/data + onboarding bulk metrics import." },
   form_calendar:          { default: true,  label: "Form schedule + calendar (L.10)", description: "GP-controlled cadence + calendar view." },
 } as const satisfies Record<string, { default: boolean; label: string; description: string }>;

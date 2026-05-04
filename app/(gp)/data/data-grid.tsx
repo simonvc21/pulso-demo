@@ -10,7 +10,6 @@ import type { DataColumnsConfig } from "@/lib/data-columns-config";
 import { updateMetricCell } from "./actions";
 import { ColumnConfigPopover } from "./column-config-popover";
 import { CellNotePopover } from "./cell-note-popover";
-import { AddMetricButton } from "./add-metric-button";
 import { AddPeriodButton } from "./add-period-button";
 
 type View = "by_company" | "by_quarter" | "per_company";
@@ -193,7 +192,6 @@ export function DataGrid({ quarters: initialQuarters, companies: initial, initia
             </button>
           </div>
           <ColumnConfigPopover config={columns} onChange={setColumns} />
-          <AddMetricButton companyIds={companies.map((c) => c.id)} />
           <AddPeriodButton
             existingPeriods={quarters}
             onAdd={(p) => setQuarters((prev) => [...prev, p])}

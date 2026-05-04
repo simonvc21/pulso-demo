@@ -5,7 +5,6 @@
 //   - print stylesheet           (browser PDF export)
 
 import { CompanyHistoryChart } from "@/components/company-history-chart";
-import { CustomMetricChart } from "@/components/custom-metric-chart";
 import { PortfolioBarChart } from "@/components/portfolio-bar-chart";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
 import { PieChartCard } from "@/components/pie-chart";
@@ -31,13 +30,6 @@ interface ResolvedCompany {
   metrics: Array<{ quarter: string; arr: number; burn: number; cash: number; headcount: number; revenue: number }>;
 }
 
-interface ResolvedCustomSeries {
-  definitionId: string;
-  label: string;
-  unit: string | null;
-  byCompany: Array<{ companyName: string; latest: number | null }>;
-}
-
 interface FundData {
   // Shape lifted from getDashboardData but only the bits we render.
   companies: Array<{ slug: string; name: string; status: string; metrics: any[] }>;
@@ -50,20 +42,17 @@ interface RenderedData {
   /** L.6e — name-keyed lookup so text blocks whose heading is a company
    *  name (auto-draft pattern) can render the company's logo. */
   companiesByName: Map<string, ResolvedCompany>;
-  customSeries: Map<string, ResolvedCustomSeries>;
   fund: FundData | null;
 }
 
 async function resolve(blocks: Block[]): Promise<RenderedData> {
   const supabase = createClient();
   const companySlugs = new Set<string>();
-  const metricDefIds = new Set<string>();
   let needsFundData = false;
   let needsSectorBreakdown = false;
   for (const b of blocks) {
     if (b.type === "company_highlight" || b.type === "metric_chart") companySlugs.add(b.companySlug);
     if (b.type === "watch_list") for (const c of b.companies) companySlugs.add(c.slug);
-    if (b.type === "custom_metric_leaderboard") metricDefIds.add(b.metricDefinitionId);
     if (b.type === "fund_arr_by_company" || b.type === "fund_arr_trend") needsFundData = true;
     if (b.type === "sector_breakdown") {
       needsFundData = true;
@@ -121,43 +110,6 @@ async function resolve(blocks: Block[]): Promise<RenderedData> {
     if (!companies.has(c.slug)) companies.set(c.slug, resolved);
   }
 
-  const customSeries = new Map<string, ResolvedCustomSeries>();
-  if (metricDefIds.size > 0) {
-    const { data: defs } = await supabase
-      .from("metric_definitions")
-      .select("id, label, unit")
-      .in("id", Array.from(metricDefIds));
-    const { data: vals } = await supabase
-      .from("custom_metric_values")
-      .select("metric_definition_id, value, period_year, period_month, companies(name)")
-      .in("metric_definition_id", Array.from(metricDefIds));
-
-    const valuesByDef = new Map<string, any[]>();
-    for (const v of (vals ?? []) as any[]) {
-      const arr = valuesByDef.get(v.metric_definition_id) ?? [];
-      arr.push(v);
-      valuesByDef.set(v.metric_definition_id, arr);
-    }
-    for (const d of (defs ?? []) as any[]) {
-      const rows = (valuesByDef.get(d.id) ?? []).sort((a, b) =>
-        (b.period_year - a.period_year) || (b.period_month - a.period_month)
-      );
-      const seenByCompany = new Map<string, number>();
-      for (const r of rows) {
-        const name = r.companies?.name ?? "—";
-        if (!seenByCompany.has(name)) seenByCompany.set(name, Number(r.value ?? 0));
-      }
-      customSeries.set(d.id, {
-        definitionId: d.id,
-        label: d.label,
-        unit: d.unit,
-        byCompany: Array.from(seenByCompany.entries())
-          .map(([companyName, latest]) => ({ companyName, latest }))
-          .sort((a, b) => (b.latest ?? 0) - (a.latest ?? 0)),
-      });
-    }
-  }
-
   let fund: FundData | null = null;
   if (needsFundData) {
     const ds = await getDashboardData();
@@ -210,7 +162,7 @@ async function resolve(blocks: Block[]): Promise<RenderedData> {
     };
   }
 
-  return { companies, companiesByName, customSeries, fund };
+  return { companies, companiesByName, fund };
 }
 
 interface RendererProps {
@@ -432,39 +384,6 @@ function BlockRender({ block, data }: { block: Block; data: RenderedData }) {
         </section>
       );
 
-    case "custom_metric_leaderboard": {
-      const series = data.customSeries.get(block.metricDefinitionId);
-      if (!series) return null;
-      const top = series.byCompany.slice(0, 5);
-      const max = Math.max(1, ...top.map((r) => r.latest ?? 0));
-      return (
-        <section>
-          <h2 className="font-serif text-xl font-bold text-ink mb-3">
-            {block.heading ?? `${series.label} — top performers`}
-          </h2>
-          <ul className="rounded-xl border border-line bg-white p-4 space-y-3">
-            {top.map((row, i) => {
-              const pct = max > 0 ? Math.round(((row.latest ?? 0) / max) * 100) : 0;
-              return (
-                <li key={i}>
-                  <div className="flex items-baseline justify-between gap-3 text-sm">
-                    <span className="text-ink font-medium truncate">{row.companyName}</span>
-                    <span className="text-ink tabular-nums">
-                      {row.latest != null ? row.latest.toLocaleString("en-US") : "—"}
-                      {series.unit ? ` ${series.unit}` : ""}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 rounded-full bg-paper2 overflow-hidden">
-                    <div className="h-full bg-teal-600" style={{ width: `${pct}%` }} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      );
-    }
-
     case "fund_arr_by_company": {
       if (!data.fund) return null;
       return (
@@ -561,7 +480,3 @@ function BlockRender({ block, data }: { block: Block; data: RenderedData }) {
       return <hr className="border-line" />;
   }
 }
-
-// CustomMetricChart import retained even if unused above so future block types
-// pulling per-metric history have a chart available without a new import.
-void CustomMetricChart;
