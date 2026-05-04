@@ -389,7 +389,7 @@ function AiPreview({ state }: { state: AiState }) {
                   {m.companyNameOverride && <span className="text-muted font-normal"> · {m.companyNameOverride}</span>}
                 </div>
                 {m.notes && <div className="text-muted text-[10px] mt-0.5">{m.notes}</div>}
-                {Object.keys(m.columns).length > 0 && (
+                {m.columns && typeof m.columns === "object" && Object.keys(m.columns).length > 0 && (
                   <div className="text-muted text-[10px] mt-0.5">
                     {Object.entries(m.columns).map(([k, v]) => v?.source ? `${k}:${v.source}` : null).filter(Boolean).join(" · ")}
                   </div>

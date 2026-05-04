@@ -138,24 +138,28 @@ export function applyMappings(sheets: ParsedSheet[], mappings: SheetMapping[]): 
     }
     const headers = splitCsvLine(lines[0]);
 
+    // L.8k — defensive: AI may return mappings without a columns object.
+    // Treat missing columns as an empty record so the rest of the loop is safe.
+    const cols = m.columns ?? {};
+
     // Resolve column indexes once per sheet.
     const idx = {
-      name: findColumnIdx(headers, m.columns.company_name?.source),
-      period: findColumnIdx(headers, m.columns.period?.source),
-      periodYear: findColumnIdx(headers, m.columns.period_year?.source),
-      periodMonth: findColumnIdx(headers, m.columns.period_month?.source),
-      sector: findColumnIdx(headers, m.columns.sector?.source),
-      country: findColumnIdx(headers, m.columns.country?.source),
-      stage: findColumnIdx(headers, m.columns.stage?.source),
-      invested: findColumnIdx(headers, m.columns.invested?.source),
-      ownership: findColumnIdx(headers, m.columns.ownership_pct?.source),
-      founder: findColumnIdx(headers, m.columns.founder?.source),
-      founderEmail: findColumnIdx(headers, m.columns.founder_email?.source),
-      arr: findColumnIdx(headers, m.columns.arr?.source),
-      burn: findColumnIdx(headers, m.columns.burn?.source),
-      cash: findColumnIdx(headers, m.columns.cash?.source),
-      revenue: findColumnIdx(headers, m.columns.revenue?.source),
-      headcount: findColumnIdx(headers, m.columns.headcount?.source),
+      name: findColumnIdx(headers, cols.company_name?.source),
+      period: findColumnIdx(headers, cols.period?.source),
+      periodYear: findColumnIdx(headers, cols.period_year?.source),
+      periodMonth: findColumnIdx(headers, cols.period_month?.source),
+      sector: findColumnIdx(headers, cols.sector?.source),
+      country: findColumnIdx(headers, cols.country?.source),
+      stage: findColumnIdx(headers, cols.stage?.source),
+      invested: findColumnIdx(headers, cols.invested?.source),
+      ownership: findColumnIdx(headers, cols.ownership_pct?.source),
+      founder: findColumnIdx(headers, cols.founder?.source),
+      founderEmail: findColumnIdx(headers, cols.founder_email?.source),
+      arr: findColumnIdx(headers, cols.arr?.source),
+      burn: findColumnIdx(headers, cols.burn?.source),
+      cash: findColumnIdx(headers, cols.cash?.source),
+      revenue: findColumnIdx(headers, cols.revenue?.source),
+      headcount: findColumnIdx(headers, cols.headcount?.source),
     };
 
     for (let r = 1; r < lines.length; r++) {

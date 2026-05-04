@@ -280,8 +280,16 @@ export async function POST(req: NextRequest) {
   const aiCount = allMappings.filter((m) => !m.notes?.startsWith("Heuristic fallback")).length;
   const heuristicCount = allMappings.length - aiCount;
 
+  // L.8k — defensive: ensure every mapping has a non-null columns object so
+  // the client renderer's Object.keys() / Object.entries() never blows up.
+  const safeMappings = allMappings.map((m) => ({
+    ...m,
+    columns: m.columns ?? {},
+    notes: m.notes ?? "",
+  }));
+
   const merged: AnalyzeResponse = {
-    mappings: allMappings,
+    mappings: safeMappings,
     summary: summaries.length > 0
       ? summaries.join(" ")
       : `Analyzed ${body.sheets.length} sheets in ${chunks.length} batch${chunks.length === 1 ? "" : "es"}.` +
