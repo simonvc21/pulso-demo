@@ -10,6 +10,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { gemini } from "@/lib/gemini";
+import { claude, isClaudeEnabled } from "@/lib/anthropic";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -184,23 +185,45 @@ export async function POST(req: NextRequest) {
     required: ["mappings"],
   };
 
-  try {
-    const parsed = await gemini.generateJSON<AnalyzeResponse>(lines.join("\n"), {
-      systemInstruction: SYSTEM,
-      temperature: 0.1,
-      maxOutputTokens: 8000,
-      responseSchema: responseSchema as any,
-    });
+  // L.8g — Try Claude first (better JSON adherence on multi-sheet workbooks);
+  // fall back to Gemini if ANTHROPIC_API_KEY isn't set or Claude errors.
+  const userPrompt = lines.join("\n");
+  let parsed: AnalyzeResponse | null = null;
+  let lastError: string | null = null;
 
-    if (!parsed.mappings || !Array.isArray(parsed.mappings)) {
-      return NextResponse.json({ error: "AI response missing mappings array" }, { status: 500 });
+  if (isClaudeEnabled()) {
+    try {
+      parsed = await claude.generateJSON<AnalyzeResponse>(userPrompt, {
+        model: "sonnet",
+        systemInstruction: SYSTEM,
+        temperature: 0.1,
+        maxOutputTokens: 8000,
+      });
+    } catch (err: any) {
+      console.error("[import/analyze] claude failed, falling back to gemini", err?.message ?? err);
+      lastError = err?.message ?? "Claude failed";
     }
-
-    return NextResponse.json(parsed);
-  } catch (err: any) {
-    console.error("[import/analyze] gemini failed", err?.message ?? err);
-    return NextResponse.json({
-      error: err?.message ?? "Analysis failed",
-    }, { status: 500 });
   }
+
+  if (!parsed) {
+    try {
+      parsed = await gemini.generateJSON<AnalyzeResponse>(userPrompt, {
+        systemInstruction: SYSTEM,
+        temperature: 0.1,
+        maxOutputTokens: 8000,
+        responseSchema: responseSchema as any,
+      });
+    } catch (err: any) {
+      console.error("[import/analyze] gemini failed", err?.message ?? err);
+      return NextResponse.json({
+        error: err?.message ?? lastError ?? "Analysis failed",
+      }, { status: 500 });
+    }
+  }
+
+  if (!parsed.mappings || !Array.isArray(parsed.mappings)) {
+    return NextResponse.json({ error: "AI response missing mappings array" }, { status: 500 });
+  }
+
+  return NextResponse.json(parsed);
 }
