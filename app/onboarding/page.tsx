@@ -19,11 +19,11 @@ export default async function OnboardingPage() {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  // Already onboarded — send them to the right home.
-  if (profile?.organization_id) {
-    if (profile.role === "lp") redirect("/lp");
-    redirect("/dashboard");
-  }
+  // L.8c — LPs should never see the onboarding wizard. GPs can (it's
+  // multi-step and they save their fund in Step 1, then continue through
+  // LPs/team/companies/metrics — we shouldn't bounce them out the moment
+  // Step 1 commits).
+  if (profile?.organization_id && profile.role === "lp") redirect("/lp");
 
   const dict = getDictionary(getServerLocale()).onboarding ?? {};
 

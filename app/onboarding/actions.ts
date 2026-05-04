@@ -68,7 +68,11 @@ export async function createFund(input: CreateFundInput): Promise<CreateFundResu
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "Could not create fund" };
 
-  revalidatePath("/", "layout");
+  // L.8c — Do NOT revalidate the layout here. The onboarding page itself
+  // server-side redirects to /dashboard once profile.organization_id is set,
+  // which would bounce the user out of Step 1 → Step 2. The wizard advances
+  // client-side; the layout will pick up the new org on the next full nav
+  // (when finishOnboarding() finally runs and redirects intentionally).
   return { ok: true, orgId: data as string };
 }
 
