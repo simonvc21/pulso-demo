@@ -682,3 +682,94 @@ The pilot fund (Patagonia / Imagine) needs:
 - Month 2: GP publishes first newsletter to LPs.
 - Month 3: review what's actually in use; deprecate features no one
   touches; double down on the ones that drive engagement.
+
+---
+
+## Fase L.10 — Sheets-first MVP (2026-05-04)
+
+Pivot to per-company editable Airtable-style sheets as the source of
+truth (replaces the rigid `metrics` table at the application layer).
+What shipped this session:
+
+- **Sheets schema** + RLS + indexes (`migrations/202605_sheets.sql`).
+- **Data migration** of `metrics` rows into a "KPIs trimestrales" sheet
+  per company (192 rows, 8/8 companies).
+- **One-sheet-per-company constraint** on `sheets` (Fase 1.A).
+- **Sheet UI**: KPI strip + 2 auto-charts + editable grid with 9 field
+  types (text, long_text, number, currency, percent, date, single_select,
+  checkbox, attachment_url).
+- **Custom metrics system removed** (Fase 1.B): the parallel
+  `metric_definitions` / `custom_metric_values` registry is gone. A
+  sheet column IS a metric now — no separate concept.
+- **Forms / updates / comments re-homed** below the sheet on the
+  company detail page (Fase 1.C). They were displaced by the page
+  rewrite and are back inline.
+- **Dashboards tab + share links** (Fase 1.D): `/dashboards` lists the
+  fund overview + one read-only dashboard per company; each can be
+  shared via a public token at `/d/[token]` with optional watermark
+  email.
+- **Dashboard ARR convention**: the fund "ARR by company" bar chart
+  now reads `latest row of "KPIs trimestrales", column "ARR"` from
+  sheets, falling back to legacy `metrics` while migration is ongoing.
+
+### Outstanding for L.11+
+
+These came up during the Fase 1 polish review and are deferred so we
+don't hold up shipping:
+
+**L.11a — Excel drag-and-drop in onboarding**
+The onboarding portfolio + metrics steps accept file picks today; add
+a real drag-and-drop drop zone (HTML5 dragenter/dragover/drop with
+visual cue) so the GP can drag the workbook directly from Finder /
+Explorer. Same parser pipeline (B.4) — UX-only change.
+
+**L.11b — LP preview still shows dummy data**
+`/lp` and `/lp/portfolio` render seed strings in places the live data
+should fill (verify each card and the messaging copy). Audit + wire
+to the same loaders as the GP-side LP view.
+
+**L.11c — Form builder broken**
+Smoke-test failed on /forms/new and /forms/[id]/edit after Fase 1.B
+trimmed metric refs. Re-verify save / load / publish round-trip;
+likely a casualty of removing `metricDefinitionId`. Look at
+`form_submissions.data_json` write path too.
+
+**L.11d — Newsletter builder broken**
+Same — verify the editor at `/newsletters/[id]/edit` saves blocks and
+the preview at `/newsletters/[id]` renders. Some block types may
+reference removed APIs.
+
+**L.11e — Onboarding LP duplicates**
+Refreshing the LP step inserts duplicate LP rows. Add `UNIQUE
+(organization_id, lower(email))` and use `upsert` in the action so
+re-submissions are idempotent. Also: reset-step button should delete
+already-inserted rows for that org's onboarding session.
+
+**L.11f — Delete LP**
+`/lps` has add and edit but no delete. Add a delete server action +
+trash icon on each row (confirm dialog). RLS already gates by org.
+
+**L.11g — Charts inside the sheet (Fase 2)**
+Sheet charts today auto-pick X/Y from column types and a config modal
+overrides locally (not persisted). Persist chart config in a new
+`sheet_charts` table so each company can have a custom chart layout
+that survives reload. Plus an "Add chart" button on the sheet view.
+
+**L.11h — Migrate the rest off `metrics` table**
+Step 1.7 only updated the dashboard ARR-by-company chart. The
+following still read from `metrics` and need to be moved to sheets
+before we can `DROP TABLE metrics`:
+`lib/dashboard-data.ts` (cash/burn/headcount trends, KPIs, watch
+list, sector breakdown), `lib/chat-context.ts`, `app/(gp)/data/`,
+`app/api/cron/metric-alerts/`, `app/api/import/analyze/`,
+`app/api/export/`, `app/onboarding/`, `app/share/[token]/`,
+`app/lp/` (LP company + portfolio pages),
+`app/(gp)/companies/[slug]/edit/`, `app/(gp)/companies/page.tsx`,
+`lib/csv-metrics.ts`, `lib/data-metrics.ts`,
+`lib/import-normalize.ts`, plus the CSV importers and the newsletter
+renderer's `metric_chart` block.
+
+**L.11i — Persisted chart config / customizable dashboards**
+Per-company dashboards in the new tab today render a fixed shape
+(KPI strip + 2 auto-charts). Let the GP pick which charts appear and
+in what order, persisted per company.
