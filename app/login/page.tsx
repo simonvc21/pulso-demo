@@ -10,7 +10,9 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "signin";
 
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<"password" | "magic" | null>(null);
@@ -24,6 +26,35 @@ function LoginForm() {
     setError(null);
     setInfo(null);
     setBusy("password");
+
+    if (mode === "signup") {
+      // L.8d — Sign up creates an auth.users row. The handle_new_user trigger
+      // copies it into public.users. With "Confirm email" disabled in Supabase
+      // settings, the user gets a session immediately and we redirect to
+      // /onboarding via /auth/post-login (which checks the user has no org
+      // and routes accordingly).
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/auth/post-login`,
+        },
+      });
+      setBusy(null);
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      // If a session came back, the user is signed in (Confirm email OFF path).
+      if (data.session) {
+        window.location.href = "/auth/post-login";
+        return;
+      }
+      // Otherwise we sent a confirmation email — tell them to check it.
+      setInfo("Account created. Check your inbox for the confirmation link to finish signing in.");
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(null);
     if (error) {
@@ -59,6 +90,12 @@ function LoginForm() {
     setInfo("Check your inbox — we just sent you a magic link.");
   }
 
+  function toggleMode() {
+    setMode((m) => (m === "signin" ? "signup" : "signin"));
+    setError(null);
+    setInfo(null);
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-paper px-4 py-12">
       <div className="w-full max-w-md">
@@ -75,9 +112,31 @@ function LoginForm() {
         </div>
 
         <div className="bg-white rounded-xl border border-line shadow-card p-6 sm:p-8">
-          <h1 className="text-lg font-semibold text-ink">Sign in</h1>
+          {/* L.8d — sign-in / sign-up toggle */}
+          <div className="flex items-center gap-1 p-1 bg-paper2 rounded-lg mb-5">
+            <button
+              type="button"
+              onClick={() => mode !== "signin" && toggleMode()}
+              className={`flex-1 h-9 rounded-md text-sm font-semibold transition-colors ${mode === "signin" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => mode !== "signup" && toggleMode()}
+              className={`flex-1 h-9 rounded-md text-sm font-semibold transition-colors ${mode === "signup" ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+            >
+              Create account
+            </button>
+          </div>
+
+          <h1 className="text-lg font-semibold text-ink">
+            {mode === "signin" ? "Sign in" : "Create your account"}
+          </h1>
           <p className="text-[13px] text-muted mt-1">
-            Use your email and password, or get a magic link.
+            {mode === "signin"
+              ? "Use your email and password, or get a magic link."
+              : "We'll create your fund profile in the next step."}
           </p>
 
           <form onSubmit={handlePasswordLogin} className="mt-6 space-y-4">
@@ -109,10 +168,12 @@ function LoginForm() {
                 <input
                   id="password"
                   type="password"
-                  autoComplete="current-password"
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={mode === "signup" ? "At least 6 characters" : "••••••••"}
+                  required
+                  minLength={6}
                   className="w-full h-10 pl-9 pr-3 rounded-lg border border-line bg-white text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:border-teal"
                 />
               </div>
@@ -138,10 +199,10 @@ function LoginForm() {
             >
               {busy === "password" ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Signing in…
+                  <Loader2 className="h-4 w-4 animate-spin" /> {mode === "signup" ? "Creating account…" : "Signing in…"}
                 </>
               ) : (
-                "Sign in"
+                mode === "signup" ? "Create account" : "Sign in"
               )}
             </Button>
           </form>
