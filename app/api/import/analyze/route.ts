@@ -194,9 +194,9 @@ export async function POST(req: NextRequest) {
     required: ["mappings"],
   };
 
-  // L.8g + L.8h + L.8i — Run each chunk through Claude (preferred) or Gemini.
-  // Treat "succeeded but empty mappings" as a failure so we fall through to
-  // the next provider, and always heuristic-fallback any sheet not classified.
+  // L.8j — Run all chunks in PARALLEL. Vercel Hobby plan caps function
+  // duration at 10s; processing 4 chunks × ~5s each sequentially blows the
+  // budget. Promise.all turns 4 × 5s into max(5s) ≈ 5s.
   const allMappings: AnalyzeResponse["mappings"] = [];
   const summaries: string[] = [];
   const chunkErrors: string[] = [];
@@ -205,10 +205,13 @@ export async function POST(req: NextRequest) {
     return !!r && Array.isArray(r.mappings) && r.mappings.length > 0;
   }
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunkPrompt = buildPromptForChunk(chunks[i]);
-    let chunkResult: AnalyzeResponse | null = null;
+  async function processChunk(chunkIdx: number, chunk: SheetSample[]): Promise<{
+    result: AnalyzeResponse | null;
+    error: string | null;
+  }> {
+    const chunkPrompt = buildPromptForChunk(chunk);
 
+    // Try Claude first when available; fall through to Gemini on empty/error.
     if (isClaudeEnabled()) {
       try {
         const r = await claude.generateJSON<AnalyzeResponse>(chunkPrompt, {
@@ -217,32 +220,39 @@ export async function POST(req: NextRequest) {
           temperature: 0.1,
           maxOutputTokens: 4000,
         });
-        console.log(`[import/analyze] claude chunk ${i + 1}/${chunks.length} → ${r?.mappings?.length ?? 0} mappings`);
-        if (isUseful(r)) chunkResult = r;
+        console.log(`[import/analyze] claude chunk ${chunkIdx + 1}/${chunks.length} → ${r?.mappings?.length ?? 0} mappings`);
+        if (isUseful(r)) return { result: r, error: null };
       } catch (err: any) {
-        console.error(`[import/analyze] claude chunk ${i + 1}/${chunks.length} threw`, err?.message ?? err);
+        console.error(`[import/analyze] claude chunk ${chunkIdx + 1}/${chunks.length} threw`, err?.message ?? err);
       }
     }
 
-    if (!isUseful(chunkResult)) {
-      try {
-        const r = await gemini.generateJSON<AnalyzeResponse>(chunkPrompt, {
-          systemInstruction: SYSTEM,
-          temperature: 0.1,
-          maxOutputTokens: 4000,
-          responseSchema: responseSchema as any,
-        });
-        console.log(`[import/analyze] gemini chunk ${i + 1}/${chunks.length} → ${r?.mappings?.length ?? 0} mappings`);
-        if (isUseful(r)) chunkResult = r;
-      } catch (err: any) {
-        console.error(`[import/analyze] gemini chunk ${i + 1}/${chunks.length} threw`, err?.message ?? err);
-        chunkErrors.push(`Chunk ${i + 1}: ${err?.message ?? "unknown"}`);
-      }
+    try {
+      const r = await gemini.generateJSON<AnalyzeResponse>(chunkPrompt, {
+        systemInstruction: SYSTEM,
+        temperature: 0.1,
+        maxOutputTokens: 4000,
+        responseSchema: responseSchema as any,
+      });
+      console.log(`[import/analyze] gemini chunk ${chunkIdx + 1}/${chunks.length} → ${r?.mappings?.length ?? 0} mappings`);
+      if (isUseful(r)) return { result: r, error: null };
+      return { result: null, error: "empty mappings" };
+    } catch (err: any) {
+      console.error(`[import/analyze] gemini chunk ${chunkIdx + 1}/${chunks.length} threw`, err?.message ?? err);
+      return { result: null, error: err?.message ?? "unknown" };
     }
+  }
+
+  const chunkResults = await Promise.all(
+    chunks.map((chunk, idx) => processChunk(idx, chunk))
+  );
+
+  for (let i = 0; i < chunks.length; i++) {
+    const { result: chunkResult, error } = chunkResults[i];
+    if (error) chunkErrors.push(`Chunk ${i + 1}: ${error}`);
 
     // L.8i — heuristic fallback per missing sheet so we ALWAYS produce a
-    // mapping for every sheet the user uploaded. Better an empty column
-    // map (sheet name → company) than nothing.
+    // mapping for every sheet the user uploaded.
     const classifiedNames = new Set((chunkResult?.mappings ?? []).map((m) => m.sheetName));
     if (chunkResult && Array.isArray(chunkResult.mappings)) {
       allMappings.push(...chunkResult.mappings);

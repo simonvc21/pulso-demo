@@ -132,7 +132,47 @@ function ImportModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheets: samples, intent: "both" }),
       });
-      const data = await res.json();
+
+      // L.8j — Vercel Hobby caps function duration at 10s. If the AI route
+      // exceeds it, Vercel returns a plain-text error page that JSON.parse
+      // would choke on. Read as text first, parse defensively, and fall
+      // back to a heuristic mapping so the user can still proceed.
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        if (res.status === 504 || /timeout/i.test(rawText) || /timed out/i.test(rawText)) {
+          // Fall back: build a heuristic mapping client-side. Every sheet
+          // becomes shape=metrics_only with the sheet name as the company.
+          // Column wiring is empty, but the user gets the company list.
+          const fallbackMappings: SheetMapping[] = sheets.map((s) => ({
+            sheetName: s.name,
+            shape: s.rowCount > 0 ? "metrics_only" : "ignored",
+            companyNameOverride: s.name,
+            columns: {},
+            notes: "Server timed out. Using heuristic mapping (sheet name = company name). Edit columns manually if needed.",
+          }));
+          const normalized = applyMappings(sheets, fallbackMappings);
+          const fallbackMetrics: MetricDraft[] = normalized.metrics.map((m) => ({
+            companySlug: slugify(m.companyName),
+            quarter: m.period,
+            arrUsd: m.arr, burnUsd: m.burn, cashUsd: m.cash,
+            revenueUsd: m.revenue, headcount: m.headcount,
+          }));
+          setAiResult({
+            sheets,
+            mappings: fallbackMappings,
+            summary: "AI analysis timed out. Imported all sheets using sheet name as company name (no metric column wiring).",
+            companies: normalized.companies,
+            metrics: fallbackMetrics,
+          });
+          return;
+        }
+        setFileError(`Server returned non-JSON response: ${rawText.slice(0, 120)}`);
+        return;
+      }
+
       if (!res.ok) {
         setFileError(data?.error ?? "AI analysis failed");
         return;
