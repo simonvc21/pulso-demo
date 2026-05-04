@@ -9,6 +9,7 @@ import { buildDefaultDraft } from "@/lib/newsletter-draft";
 import type { Block, NewsletterCadence, NewsletterStatus } from "@/lib/newsletter";
 import { defaultPeriodLabel } from "@/lib/newsletter";
 import { getFund } from "@/lib/dashboard-data";
+import { sendEmail, wrapHtmlEmail, isEmailEnabled } from "@/lib/email";
 
 async function requireGp() {
   const supabase = createClient();
@@ -159,7 +160,70 @@ export async function publishNewsletter(id: string): Promise<SaveResult> {
   revalidatePath(`/newsletters/${id}`);
   revalidatePath("/lp");
   revalidatePath("/lp/newsletters");
+
+  // L.8 — Notify LPs by email. Best-effort; never blocks the publish.
+  if (isEmailEnabled()) {
+    notifyLpsOfNewsletter({ supabase: ctx.supabase, organizationId: ctx.organizationId, newsletterId: id })
+      .catch((e) => console.error("[email] newsletter notify failed", e));
+  }
+
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// L.8 — Email all LPs a "new newsletter" notification with a link to the
+// reader. Uses the Pulso-internal LP page (not /share/[token]) since LPs
+// are signed in.
+// ---------------------------------------------------------------------------
+
+async function notifyLpsOfNewsletter(opts: {
+  supabase: ReturnType<typeof createClient>;
+  organizationId: string;
+  newsletterId: string;
+}): Promise<void> {
+  const { supabase } = opts;
+
+  const [{ data: nl }, { data: org }, { data: lps }] = await Promise.all([
+    (supabase as any)
+      .from("newsletters")
+      .select("cover_title, cover_subtitle, period_label, hero_metric_summary")
+      .eq("id", opts.newsletterId).maybeSingle(),
+    supabase.from("organizations").select("name").eq("id", opts.organizationId).maybeSingle(),
+    supabase.from("lps").select("name, email").eq("organization_id", opts.organizationId),
+  ]);
+  if (!nl) return;
+
+  const fundName = org?.name ?? "Your fund";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pulso-demo-three.vercel.app";
+  const url = `${baseUrl}/lp/newsletters/${opts.newsletterId}`;
+
+  // One email per LP with a name (so we can personalize). Skip LPs with no email.
+  for (const lp of (lps ?? []) as any[]) {
+    const email = (lp.email ?? "").trim();
+    if (!email) continue;
+
+    const greeting = lp.name ? `Hi ${lp.name.split(" ")[0]},` : "Hi,";
+    const body =
+      `${greeting}\n\n` +
+      `${fundName} just published a new update: ${nl.cover_title}.\n\n` +
+      (nl.hero_metric_summary ? `${nl.hero_metric_summary}\n\n` : "") +
+      `Read it at the link below.\n\n` +
+      `Thanks for being a partner.`;
+
+    const html = wrapHtmlEmail({
+      fundName,
+      body,
+      ctaText: `Read ${nl.period_label} update`,
+      ctaUrl: url,
+    });
+
+    await sendEmail({
+      to: email,
+      subject: `${fundName} — ${nl.period_label} update`,
+      html,
+      tag: "newsletter_publish",
+    });
+  }
 }
 
 export async function unpublishNewsletter(id: string): Promise<SaveResult> {

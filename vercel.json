@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/metric-alerts",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/form-emails",
+      "schedule": "0 13 * * *"
     }
   ]
 }
