@@ -118,9 +118,11 @@ function ImportModal({
       const { csvSample } = await import("@/lib/xlsx-multi-sheet");
       const { applyMappings } = await import("@/lib/import-normalize");
 
+      // L.8l — Send EVERY non-empty sheet, even tiny ones. Earlier 40-cap
+      // was excluding per-company tabs (Avanzo, Beeok, ...) when the workbook
+      // had notes/summary sheets first.
       const samples = sheets
         .filter((s) => s.rowCount > 0)
-        .slice(0, 40) // cap so we don't blow token budget on 100-sheet workbooks
         .map((s) => ({
           name: s.name,
           rowCount: s.rowCount,
@@ -177,7 +179,52 @@ function ImportModal({
         setFileError(data?.error ?? "AI analysis failed");
         return;
       }
-      const mappings: SheetMapping[] = data.mappings;
+
+      // L.8l — Reject suspect AI classifications. The model sometimes thinks
+      // a "Notes" / "Meeting follow-up" / summary sheet is a list of
+      // companies because it has many rows and a column called "Name". Force
+      // those into "ignored" before we render the preview.
+      const SUSPECT_NAME_KEYWORDS = [
+        "seguimi", "notas", "notes", "reunion", "meeting", "follow",
+        "agregad", "resumen", "summary", "indice", "index", "readme",
+        "tabla de metricas generales", "instructions", "instrucciones",
+      ];
+      const looksLikeNotesSheet = (sheetName: string) => {
+        const n = sheetName.toLowerCase();
+        return SUSPECT_NAME_KEYWORDS.some((k) => n.includes(k));
+      };
+
+      const mappings: SheetMapping[] = (data.mappings as SheetMapping[]).map((m) => {
+        if (looksLikeNotesSheet(m.sheetName) && m.shape !== "ignored") {
+          return { ...m, shape: "ignored" as const, notes: `Auto-reclassified as ignored — sheet name suggests notes/summary content.` };
+        }
+        // If a sheet claims to be companies_long/simple but the rows look
+        // like long sentences (>60 chars in name column on average) and there
+        // are 50+ rows, it's almost certainly transcript content.
+        const sheet = sheets.find((s) => s.name === m.sheetName);
+        if (sheet && (m.shape === "companies_long" || m.shape === "companies_simple")) {
+          if (sheet.rowCount > 50 && m.columns?.company_name?.source) {
+            // Peek at the actual rows; long average = transcript.
+            const lines = sheet.csv.split(/\r?\n/).slice(1, 11);
+            const nameColIdx = sheet.headers.findIndex((h) => h.trim() === m.columns!.company_name!.source);
+            if (nameColIdx >= 0) {
+              const samples = lines
+                .map((l) => l.split(",")[nameColIdx]?.trim() ?? "")
+                .filter(Boolean);
+              const avgLen = samples.reduce((a, s) => a + s.length, 0) / Math.max(1, samples.length);
+              if (avgLen > 50) {
+                return {
+                  ...m,
+                  shape: "ignored" as const,
+                  notes: "Auto-reclassified as ignored — name column values look like sentences/transcripts, not company names.",
+                };
+              }
+            }
+          }
+        }
+        return m;
+      });
+
       const normalized = applyMappings(sheets, mappings);
 
       // Convert NormalizedMetric → MetricDraft (companies-by-name lookup happens
