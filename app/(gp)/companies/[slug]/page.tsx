@@ -48,6 +48,52 @@ async function safeCall<T>(label: string, fn: () => Promise<T>, fallback: T): Pr
   }
 }
 
+const DEFAULT_COLUMNS: Array<{ name: string; type: string; config: Record<string, any> }> = [
+  { name: "Period",    type: "text",     config: {} },
+  { name: "MRR",       type: "currency", config: { currency: "USD" } },
+  { name: "Burn",      type: "currency", config: { currency: "USD" } },
+  { name: "Cash",      type: "currency", config: { currency: "USD" } },
+  { name: "Headcount", type: "number",   config: {} },
+];
+
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+async function ensureDefaultColumns(supabase: ReturnType<typeof createClient>, sheetId: string) {
+  // Only seed sheets that have zero columns. If the GP deleted columns on
+  // purpose we don't want to re-add them on every page load.
+  const { count } = await supabase
+    .from("sheet_columns")
+    .select("id", { count: "exact", head: true })
+    .eq("sheet_id", sheetId);
+  if ((count ?? 0) > 0) return;
+
+  const inserts = DEFAULT_COLUMNS.map((c, i) => ({
+    sheet_id: sheetId,
+    name: c.name,
+    type: c.type,
+    config: c.config,
+    position: i,
+  }));
+  const { data: created, error } = await supabase
+    .from("sheet_columns")
+    .insert(inserts as any)
+    .select("id, name");
+  if (error) {
+    console.error("[company-detail] default-columns insert failed:", error);
+    return;
+  }
+
+  // Add a starter row for the current month so the grid isn't empty.
+  const periodCol = (created ?? []).find((c) => c.name.toLowerCase() === "period");
+  if (!periodCol) return;
+  const now = new Date();
+  const periodLabel = `${MONTH_SHORT[now.getUTCMonth()]} ${now.getUTCFullYear()}`;
+  const rowData: Record<string, any> = { [periodCol.id]: periodLabel };
+  await supabase
+    .from("sheet_rows")
+    .insert({ sheet_id: sheetId, data: rowData, position: 0 } as any);
+}
+
 export default async function CompanyPage({ params }: { params: { slug: string } }) {
   const supabase = createClient();
 
@@ -77,6 +123,12 @@ export default async function CompanyPage({ params }: { params: { slug: string }
     sheet = created;
   }
   if (!sheet) return notFound();
+
+  // L.10/Fase 1.K — first-visit seed. If the sheet has no columns yet (newly
+  // created or migrated from an empty state) bootstrap a sensible default:
+  // Period + MRR + Burn + Cash + Headcount, plus an empty row for the
+  // current month so the GP has something to type into right away.
+  await ensureDefaultColumns(supabase, sheet.id);
 
   // Sheet content + sidecar features. Each lane gets its own try/catch so a
   // single failure doesn't take down the entire page.
