@@ -206,6 +206,7 @@ export function OnboardingWizard({ userEmail, userName, dict = {} }: Props) {
         {step === 4 && (
           <Step4Companies
             companies={companies} setCompanies={setCompanies}
+            setMetrics={setMetrics}
             onBack={() => setStep(3)}
             onNext={submitStep4}
             pending={pending}
@@ -506,10 +507,11 @@ function Step3Team({
 // ---------------------------------------------------------------------------
 
 function Step4Companies({
-  companies, setCompanies, onBack, onNext, pending,
+  companies, setCompanies, setMetrics, onBack, onNext, pending,
 }: {
   companies: CompanyDraft[];
   setCompanies: React.Dispatch<React.SetStateAction<CompanyDraft[]>>;
+  setMetrics: React.Dispatch<React.SetStateAction<MetricDraft[]>>;
   onBack: () => void; onNext: () => void; pending: boolean;
 }) {
   const update = (i: number, patch: Partial<CompanyDraft>) =>
@@ -528,15 +530,20 @@ function Step4Companies({
 
       <div className="mt-4 flex items-center gap-2 flex-wrap">
         <CompaniesCsvImport
-          onImport={(imported) => {
+          onImport={(imported, importedMetrics) => {
             // Replace empty rows, append the imported ones.
             setCompanies((prev) => {
               const nonEmpty = prev.filter((c) => c.name.trim().length > 0);
               return [...nonEmpty, ...imported];
             });
+            // L.8e — AI-aware imports may also bring historical metrics. Stash
+            // them so Step 5 picks them up automatically (no manual re-entry).
+            if (importedMetrics && importedMetrics.length > 0) {
+              setMetrics((prev) => [...prev, ...importedMetrics]);
+            }
           }}
         />
-        <span className="text-[11px] text-muted">CSV + Excel (.xlsx) supported.</span>
+        <span className="text-[11px] text-muted">CSV + Excel (.xlsx) — AI auto-detects multi-sheet exports.</span>
       </div>
 
       <div className="mt-5 space-y-3">
