@@ -123,21 +123,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many sheets (max 50)" }, { status: 400 });
   }
 
-  // L.8f — Build the user prompt. Aggressive truncation per-sheet so 20+
-  // sheet workbooks don't blow the model's context window.
-  const lines: string[] = [];
-  lines.push(`User intent: ${body.intent ?? "companies"}.`);
-  lines.push(`Number of sheets: ${body.sheets.length}.`);
-  lines.push("");
-  lines.push(`IMPORTANT: When a workbook has many sheets each named after a company (Avanzo, Beeok, Velocity, ...) and each sheet contains ~12-36 monthly data rows, treat each sheet as shape="metrics_only" and copy the sheet name to companyNameOverride. The cells inside the sheet often repeat the same name in a "Name" or "Nombre Startup" column — IGNORE those for naming.`);
-  lines.push("");
-  for (const s of body.sheets) {
-    lines.push(`=== Sheet "${s.name}" (${s.rowCount} rows) ===`);
-    // Trim each sample to header + 4 sample rows, max 1200 chars.
-    const sampleLines = s.sample.split(/\r?\n/).slice(0, 5);
-    const trimmedSample = sampleLines.join("\n").slice(0, 1200);
-    lines.push(trimmedSample);
+  // L.8h — Chunk the workbook. With 19+ sheets and verbose Spanish headers
+  // a single AI call's JSON output blows past any reasonable token cap.
+  // Process in batches of 5 sheets per call; merge results.
+  const CHUNK_SIZE = 5;
+  const chunks: SheetSample[][] = [];
+  for (let i = 0; i < body.sheets.length; i += CHUNK_SIZE) {
+    chunks.push(body.sheets.slice(i, i + CHUNK_SIZE));
+  }
+
+  function buildPromptForChunk(chunk: SheetSample[]): string {
+    const lines: string[] = [];
+    lines.push(`User intent: ${body.intent ?? "companies"}.`);
+    lines.push(`Workbook total sheets: ${body.sheets.length}. This batch: ${chunk.length}.`);
     lines.push("");
+    lines.push(`IMPORTANT: When a workbook has many sheets each named after a company (Avanzo, Beeok, Velocity, ...) and each sheet contains ~12-36 monthly data rows, treat each sheet as shape="metrics_only" and copy the sheet name to companyNameOverride. The cells inside the sheet often repeat the same name in a "Name" or "Nombre Startup" column — IGNORE those for naming.`);
+    lines.push("");
+    for (const s of chunk) {
+      lines.push(`=== Sheet "${s.name}" (${s.rowCount} rows) ===`);
+      const sampleLines = s.sample.split(/\r?\n/).slice(0, 5);
+      const trimmedSample = sampleLines.join("\n").slice(0, 1200);
+      lines.push(trimmedSample);
+      lines.push("");
+    }
+    return lines.join("\n");
   }
 
   // Schema enforced by Gemini JSON mode. The model must produce exactly this
@@ -185,45 +194,72 @@ export async function POST(req: NextRequest) {
     required: ["mappings"],
   };
 
-  // L.8g — Try Claude first (better JSON adherence on multi-sheet workbooks);
-  // fall back to Gemini if ANTHROPIC_API_KEY isn't set or Claude errors.
-  const userPrompt = lines.join("\n");
-  let parsed: AnalyzeResponse | null = null;
-  let lastError: string | null = null;
+  // L.8g + L.8h — Run each chunk through Claude (preferred) or Gemini.
+  // Merge mappings as we go.
+  const allMappings: AnalyzeResponse["mappings"] = [];
+  const summaries: string[] = [];
+  const chunkErrors: string[] = [];
 
-  if (isClaudeEnabled()) {
-    try {
-      parsed = await claude.generateJSON<AnalyzeResponse>(userPrompt, {
-        model: "sonnet",
-        systemInstruction: SYSTEM,
-        temperature: 0.1,
-        maxOutputTokens: 8000,
-      });
-    } catch (err: any) {
-      console.error("[import/analyze] claude failed, falling back to gemini", err?.message ?? err);
-      lastError = err?.message ?? "Claude failed";
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkPrompt = buildPromptForChunk(chunks[i]);
+    let chunkResult: AnalyzeResponse | null = null;
+
+    if (isClaudeEnabled()) {
+      try {
+        chunkResult = await claude.generateJSON<AnalyzeResponse>(chunkPrompt, {
+          model: "sonnet",
+          systemInstruction: SYSTEM,
+          temperature: 0.1,
+          maxOutputTokens: 4000,
+        });
+      } catch (err: any) {
+        console.error(`[import/analyze] claude chunk ${i + 1}/${chunks.length} failed`, err?.message ?? err);
+        // Fall through to Gemini.
+      }
     }
-  }
 
-  if (!parsed) {
-    try {
-      parsed = await gemini.generateJSON<AnalyzeResponse>(userPrompt, {
-        systemInstruction: SYSTEM,
-        temperature: 0.1,
-        maxOutputTokens: 8000,
-        responseSchema: responseSchema as any,
-      });
-    } catch (err: any) {
-      console.error("[import/analyze] gemini failed", err?.message ?? err);
-      return NextResponse.json({
-        error: err?.message ?? lastError ?? "Analysis failed",
-      }, { status: 500 });
+    if (!chunkResult) {
+      try {
+        chunkResult = await gemini.generateJSON<AnalyzeResponse>(chunkPrompt, {
+          systemInstruction: SYSTEM,
+          temperature: 0.1,
+          maxOutputTokens: 4000,
+          responseSchema: responseSchema as any,
+        });
+      } catch (err: any) {
+        console.error(`[import/analyze] gemini chunk ${i + 1}/${chunks.length} failed`, err?.message ?? err);
+        chunkErrors.push(`Chunk ${i + 1}: ${err?.message ?? "unknown"}`);
+        // For sheets the AI couldn't classify, fall back to a heuristic:
+        // metrics_only with sheet name as company name. Better than nothing.
+        for (const s of chunks[i]) {
+          allMappings.push({
+            sheetName: s.name,
+            shape: "metrics_only",
+            companyNameOverride: s.name,
+            columns: {},
+            notes: "Fallback: AI classification failed for this sheet; defaulting to metrics_only with sheet name as company.",
+          });
+        }
+        continue;
+      }
     }
+
+    if (chunkResult.mappings && Array.isArray(chunkResult.mappings)) {
+      allMappings.push(...chunkResult.mappings);
+    }
+    if (chunkResult.summary) summaries.push(chunkResult.summary);
   }
 
-  if (!parsed.mappings || !Array.isArray(parsed.mappings)) {
-    return NextResponse.json({ error: "AI response missing mappings array" }, { status: 500 });
+  if (allMappings.length === 0) {
+    return NextResponse.json({
+      error: chunkErrors.join("; ") || "AI returned no mappings",
+    }, { status: 500 });
   }
 
-  return NextResponse.json(parsed);
+  const merged: AnalyzeResponse = {
+    mappings: allMappings,
+    summary: summaries.length > 0 ? summaries.join(" ") : `Analyzed ${body.sheets.length} sheets in ${chunks.length} batch${chunks.length === 1 ? "" : "es"}.${chunkErrors.length > 0 ? ` ${chunkErrors.length} batch(es) used heuristic fallback.` : ""}`,
+  };
+
+  return NextResponse.json(merged);
 }
