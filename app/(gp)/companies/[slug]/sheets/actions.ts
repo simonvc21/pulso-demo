@@ -1,12 +1,12 @@
 "use server";
 
-// L.10 / Fase 1.4 — Server actions for the sheets / columns / rows model.
-// Thin wrappers over Postgres. RLS does the org filtering — we don't second-
-// guess it here. Each action revalidates the affected sheet page so the UI
-// reflects the change without a manual refresh.
+// L.10 / Fase 1.A — Server actions for columns and rows on a company's sheet.
+// One sheet per company is enforced by DB constraint, so the sheet is
+// created lazily by the page on first visit. We don't expose create/rename/
+// delete sheet actions because there's only ever one and it can't be
+// removed without removing the company.
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 // ---------------------------------------------------------------------------
@@ -30,117 +30,6 @@ export type ActionResult<T = void> =
 
 function fail(error: string): { ok: false; error: string } {
   return { ok: false, error };
-}
-
-// ---------------------------------------------------------------------------
-// Sheets
-// ---------------------------------------------------------------------------
-
-export async function createSheet(
-  companyId: string,
-  name: string,
-): Promise<ActionResult<{ id: string; companySlug: string }>> {
-  const trimmed = name.trim();
-  if (!trimmed) return fail("Sheet name is required");
-  if (trimmed.length > 80) return fail("Sheet name too long");
-
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return fail("Not authenticated");
-
-  // Resolve the public.users row + verify the company belongs to the caller's org.
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  if (!profile) return fail("User profile not found");
-
-  // Look up company slug for the redirect target. RLS gates org access.
-  const { data: company } = await supabase
-    .from("companies")
-    .select("slug")
-    .eq("id", companyId)
-    .maybeSingle();
-  if (!company) return fail("Company not found");
-
-  // Position = current max + 1.
-  const { data: existing } = await supabase
-    .from("sheets")
-    .select("position")
-    .eq("company_id", companyId)
-    .order("position", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const position = (existing?.position ?? -1) + 1;
-
-  const { data: row, error } = await supabase
-    .from("sheets")
-    .insert({
-      company_id: companyId,
-      name: trimmed,
-      position,
-      created_by: profile.id,
-    })
-    .select("id")
-    .single();
-  if (error || !row) return fail(error?.message ?? "Could not create sheet");
-
-  revalidatePath(`/companies/${company.slug}`);
-  return { ok: true, data: { id: row.id, companySlug: company.slug } };
-}
-
-export async function renameSheet(
-  sheetId: string,
-  name: string,
-): Promise<ActionResult> {
-  const trimmed = name.trim();
-  if (!trimmed) return fail("Sheet name is required");
-  if (trimmed.length > 80) return fail("Sheet name too long");
-
-  const supabase = createClient();
-  const { data: sheet } = await supabase
-    .from("sheets")
-    .select("company_id, companies(slug)")
-    .eq("id", sheetId)
-    .maybeSingle();
-  if (!sheet) return fail("Sheet not found");
-
-  const { error } = await supabase
-    .from("sheets")
-    .update({ name: trimmed, updated_at: new Date().toISOString() })
-    .eq("id", sheetId);
-  if (error) return fail(error.message);
-
-  const slug = (sheet as any).companies?.slug;
-  if (slug) {
-    revalidatePath(`/companies/${slug}`);
-    revalidatePath(`/companies/${slug}/sheets/${sheetId}`);
-  }
-  return { ok: true };
-}
-
-export async function deleteSheet(
-  sheetId: string,
-): Promise<ActionResult<{ companySlug: string | null }>> {
-  const supabase = createClient();
-  const { data: sheet } = await supabase
-    .from("sheets")
-    .select("company_id, companies(slug)")
-    .eq("id", sheetId)
-    .maybeSingle();
-  if (!sheet) return fail("Sheet not found");
-
-  const slug = (sheet as any).companies?.slug ?? null;
-
-  const { error } = await supabase
-    .from("sheets")
-    .delete()
-    .eq("id", sheetId);
-  if (error) return fail(error.message);
-
-  if (slug) revalidatePath(`/companies/${slug}`);
-  return { ok: true, data: { companySlug: slug } };
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +69,7 @@ export async function addColumn(
     .single();
   if (error || !row) return fail(error?.message ?? "Could not add column");
 
-  await revalidateSheet(sheetId);
+  await revalidateForSheet(sheetId);
   return { ok: true, data: { id: row.id } };
 }
 
@@ -224,7 +113,7 @@ export async function updateColumn(
     .eq("id", columnId);
   if (error) return fail(error.message);
 
-  await revalidateSheet(col.sheet_id);
+  await revalidateForSheet(col.sheet_id);
   return { ok: true };
 }
 
@@ -245,10 +134,10 @@ export async function deleteColumn(
     .eq("id", columnId);
   if (error) return fail(error.message);
 
-  // TODO Fase 2: clean up orphan keys in sheet_rows.data referencing the
-  // deleted column. Spec §11 — leaving them for now since they're invisible.
+  // Orphan keys in sheet_rows.data referencing the deleted column stay put;
+  // they're invisible and a Fase 2 cleanup script can reap them.
 
-  await revalidateSheet(col.sheet_id);
+  await revalidateForSheet(col.sheet_id);
   return { ok: true };
 }
 
@@ -277,7 +166,7 @@ export async function addRow(
     .single();
   if (error || !row) return fail(error?.message ?? "Could not add row");
 
-  await revalidateSheet(sheetId);
+  await revalidateForSheet(sheetId);
   return { ok: true, data: { id: row.id } };
 }
 
@@ -302,7 +191,7 @@ export async function updateRow(
     .eq("id", rowId);
   if (error) return fail(error.message);
 
-  await revalidateSheet(existing.sheet_id);
+  await revalidateForSheet(existing.sheet_id);
   return { ok: true };
 }
 
@@ -323,7 +212,7 @@ export async function deleteRow(
     .eq("id", rowId);
   if (error) return fail(error.message);
 
-  await revalidateSheet(existing.sheet_id);
+  await revalidateForSheet(existing.sheet_id);
   return { ok: true };
 }
 
@@ -331,16 +220,13 @@ export async function deleteRow(
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function revalidateSheet(sheetId: string): Promise<void> {
+async function revalidateForSheet(sheetId: string): Promise<void> {
   const supabase = createClient();
   const { data } = await supabase
     .from("sheets")
-    .select("id, companies(slug)")
+    .select("companies(slug)")
     .eq("id", sheetId)
     .maybeSingle();
   const slug = (data as any)?.companies?.slug;
-  if (slug) {
-    revalidatePath(`/companies/${slug}`);
-    revalidatePath(`/companies/${slug}/sheets/${sheetId}`);
-  }
+  if (slug) revalidatePath(`/companies/${slug}`);
 }
