@@ -8,8 +8,18 @@ const statusStyles: Record<Status, { dot: string; bg: string; text: string; labe
   "no-data":{ dot: "bg-muted",  bg: "bg-paper2",         text: "text-muted",    label: "No data" },
 };
 
-export function StatusBadge({ status, className }: { status: Status; className?: string }) {
-  const s = statusStyles[status];
+// Accept either the dashboard-normalized shape ("no-data") or the raw DB
+// enum ("no_data"). Anything unrecognized falls back to "no-data" so a bad
+// value can't take down the page render.
+function normalize(raw: string | null | undefined): Status {
+  if (!raw) return "no-data";
+  const v = String(raw).replace(/_/g, "-");
+  return (v in statusStyles ? v : "no-data") as Status;
+}
+
+export function StatusBadge({ status, className }: { status: Status | string | null | undefined; className?: string }) {
+  const key = normalize(status as any);
+  const s = statusStyles[key];
   return (
     <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium", s.bg, s.text, className)}>
       <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />
