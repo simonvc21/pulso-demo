@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send, Table2, ChevronsLeft, ChevronsRight, ShieldAlert, Newspaper } from "lucide-react";
+import { LayoutDashboard, Building2, FileText, Users, Settings, Zap, Share2, Send, ChevronsLeft, ChevronsRight, ShieldAlert, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleSwitcher } from "./locale-switcher";
@@ -44,7 +44,6 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, isAdmin = false, 
     { href: "/dashboard",   label: labels.overview,    icon: LayoutDashboard },
     { href: "/dashboards",  label: "Dashboards",       icon: Share2 },
     { href: "/companies",   label: labels.companies,   icon: Building2 },
-    { href: "/data",        label: labels.data,        icon: Table2 },
     { href: "/forms",       label: labels.forms,       icon: FileText },
     { href: "/newsletters", label: "Newsletters",      icon: Newspaper },
     { href: "/lps",         label: labels.lps,         icon: Users },

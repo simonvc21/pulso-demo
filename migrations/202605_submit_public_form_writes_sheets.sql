@@ -1,0 +1,11 @@
+-- L.10/Fase 1.F — submit_public_form now writes to the company's sheet.
+-- Old RPC referenced dropped tables (metric_definitions, custom_metric_values,
+-- metrics) — that's the production crash on form submit. New RPC:
+--   1. Inserts the submission row (unchanged)
+--   2. Resolves (or auto-creates) the company's single sheet
+--   3. Ensures a "Period" text column exists
+--   4. For each numeric/currency/percent field with a value, ensures a column
+--      named after the field label exists (auto-creates with matching type)
+--   5. Upserts a sheet_row keyed by period_label
+-- Same submission re-submitted ⇒ same row updated, no duplicates.
+-- The full body lives in the Supabase migration history under the same name.
