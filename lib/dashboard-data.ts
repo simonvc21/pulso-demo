@@ -189,11 +189,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const supabase = createClient();
 
   // RLS scopes everything to the caller's organization.
-  const [
-    { data: orgs },
-    { data: companyRows },
-    { data: sheetRows },
-  ] = await Promise.all([
+  const [orgsRes, companiesRes, sheetsRes] = await Promise.all([
     supabase.from("organizations").select("id, name, size_usd, deployed_usd, vintage, currency").limit(1),
     supabase
       .from("companies")
@@ -206,18 +202,26 @@ export async function getDashboardData(): Promise<DashboardData> {
       .order("position", { foreignTable: "sheet_rows", ascending: true }),
   ]);
 
-  const organization = orgs?.[0] ?? null;
+  if (orgsRes.error)      console.error("[getDashboardData] orgs error:",      orgsRes.error);
+  if (companiesRes.error) console.error("[getDashboardData] companies error:", companiesRes.error);
+  if (sheetsRes.error)    console.error("[getDashboardData] sheets error:",    sheetsRes.error);
+
+  const orgs = orgsRes.data ?? [];
+  const companyRows = companiesRes.data ?? [];
+  const sheetRows = sheetsRes.data ?? [];
+
+  const organization = orgs[0] ?? null;
 
   // Build a map: company_id → DashboardMetric[] derived from its sheet.
   const metricsByCompany = new Map<string, DashboardMetric[]>();
-  for (const s of (sheetRows ?? []) as any[]) {
+  for (const s of sheetRows as any[]) {
     metricsByCompany.set(
       s.company_id,
       sheetRowsToMetrics(s.sheet_columns ?? [], s.sheet_rows ?? []),
     );
   }
 
-  const companies: DashboardCompany[] = (companyRows ?? []).map((c: any) => ({
+  const companies: DashboardCompany[] = companyRows.map((c: any) => ({
     id: c.id,
     slug: c.slug,
     name: c.name,
@@ -322,7 +326,7 @@ export async function getCompanyList(opts?: { archived?: boolean }): Promise<Com
     ? companyQ.not("archived_at", "is", null)
     : companyQ.is("archived_at", null);
 
-  const [{ data: companies }, { data: sheets }] = await Promise.all([
+  const [companiesRes, sheetsRes] = await Promise.all([
     companyQ,
     supabase
       .from("sheets")
@@ -330,15 +334,21 @@ export async function getCompanyList(opts?: { archived?: boolean }): Promise<Com
       .order("position", { foreignTable: "sheet_rows", ascending: true }),
   ]);
 
+  if (companiesRes.error) console.error("[getCompanyList] companies error:", companiesRes.error);
+  if (sheetsRes.error)    console.error("[getCompanyList] sheets error:",    sheetsRes.error);
+
+  const companies = companiesRes.data ?? [];
+  const sheets = sheetsRes.data ?? [];
+
   const metricsByCompany = new Map<string, DashboardMetric[]>();
-  for (const s of (sheets ?? []) as any[]) {
+  for (const s of sheets as any[]) {
     metricsByCompany.set(
       s.company_id,
       sheetRowsToMetrics(s.sheet_columns ?? [], s.sheet_rows ?? []),
     );
   }
 
-  return (companies ?? []).map((c: any) => ({
+  return companies.map((c: any) => ({
     slug: c.slug,
     name: c.name,
     sector: c.sector,
