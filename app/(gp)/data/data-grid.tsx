@@ -10,6 +10,8 @@ import type { DataColumnsConfig } from "@/lib/data-columns-config";
 import { updateMetricCell } from "./actions";
 import { ColumnConfigPopover } from "./column-config-popover";
 import { CellNotePopover } from "./cell-note-popover";
+import { AddMetricButton } from "./add-metric-button";
+import { AddPeriodButton } from "./add-period-button";
 
 type View = "by_company" | "by_quarter" | "per_company";
 type SortKey = "name" | "sector" | "country" | "stage";
@@ -42,9 +44,13 @@ interface NoteEditTarget {
 const noteKey = (companyId: string, quarter: string, key: string) =>
   `${companyId}|${quarter}|${key}`;
 
-export function DataGrid({ quarters, companies: initial, initialNotes, initialColumns, dict = {} }: Props) {
+export function DataGrid({ quarters: initialQuarters, companies: initial, initialNotes, initialColumns, dict = {} }: Props) {
   const td = (k: string, fallback: string) => dict[k] ?? fallback;
   const [companies, setCompanies] = useState(initial);
+  // L.9c — quarters become local state so "Add period" can append columns
+  // without a server round-trip. Cells are persisted via updateMetricCell
+  // when the GP types into them.
+  const [quarters, setQuarters] = useState(initialQuarters);
   const [view, setView] = useState<View>("by_company");
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -187,6 +193,11 @@ export function DataGrid({ quarters, companies: initial, initialNotes, initialCo
             </button>
           </div>
           <ColumnConfigPopover config={columns} onChange={setColumns} />
+          <AddMetricButton companyIds={companies.map((c) => c.id)} />
+          <AddPeriodButton
+            existingPeriods={quarters}
+            onAdd={(p) => setQuarters((prev) => [...prev, p])}
+          />
         </div>
         {error && (
           <div className="text-[12px] text-coral bg-red-50 border border-red-100 rounded-md px-3 py-1.5">

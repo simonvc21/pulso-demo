@@ -616,3 +616,69 @@ Today the cadence + auto-reminders + recipients UX is too rigid:
 - L.17 workflows
 - L.21 Slack/Notion integrations
 - B.4c Gemini Pro PDF imports
+
+---
+
+## Fase L.9 — Manual-first MVP (2026-05-04)
+
+After multiple rounds patching the AI importer (L.8e–L.8l) on a real
+Airtable export with 19 sheets, verdict: **AI imports are best-effort,
+not load-bearing**. For pilot we focus on making the manual entry path
+pleasant + the dashboards rich enough that the data feels valuable
+even with 16 companies × 24 months typed by hand.
+
+### MVP scope
+
+The pilot fund (Patagonia / Imagine) needs:
+1. Onboarding works end-to-end without AI (Phase L.8c shipped this).
+2. Companies importer accepts CSV/xlsx in well-defined shapes
+   (companies-only or AI-assisted multi-sheet — both work today).
+3. **Data tab is the source of truth.** GPs add periods, add custom
+   metrics, edit cells. Bulk CSV is optional.
+4. **Dashboards look polished** — varied chart types, clean layout.
+5. Newsletters render those dashboards as published artifacts.
+
+### Shipping in this session
+
+**L.9a — Pie + donut charts**
+- Two new client components reusing Recharts (already a dep).
+- Wired into the newsletter `sector_breakdown` block as an option.
+- Available for future GP/LP dashboard tiles.
+
+**L.9b — Inline custom metric on /data**
+- "Add metric" button at the top of the per-company grid.
+- Modal asks: label, type (currency/number/percent/ratio/count), unit.
+- Server action creates a `metric_definitions` row + applies it to
+  every visible company (so it shows up as a new row in every grid).
+
+**L.9c — Inline period on /data**
+- "Add period" button next to the period column headers.
+- Pick monthly or quarterly, type "Mar 2026" or "Q2 2026", commit.
+- New empty cells appear; GP fills them in.
+
+### Deferred to L.10+
+
+- **Pre-upload questionnaire** for the AI importer ("how many companies?
+  one tab per company? which sheets are notes?") — feeds answers as
+  prompt context. Goal: make the AI path more reliable for funds
+  who'd rather upload than type.
+- **Long-format CSV template** (columns = metrics, rows = months,
+  one company per file). Most explicit shape; pairs with the
+  questionnaire to make imports bulletproof.
+- **Per-company configurable dashboards** — each company can have a
+  different default chart layout based on what the GP cares about
+  (a fintech dashboard ≠ a SaaS dashboard).
+- **Bulk-import historical metrics from custom CSV** with explicit
+  column mapping (no AI; GP picks which column maps to which metric).
+- **Resend rate-limit increase** when pilot grows past 3K emails/mo.
+- **Stripe billing** when fund #2 onboards.
+- **Audit log retention policy** + downloadable CSV export.
+
+### Pilot cadence (real)
+
+- Today: GP types or imports their fund's data.
+- Week 1: GP runs the dry run with one friendly founder.
+- Week 2-3: GP onboards 3-5 founders to fill forms monthly.
+- Month 2: GP publishes first newsletter to LPs.
+- Month 3: review what's actually in use; deprecate features no one
+  touches; double down on the ones that drive engagement.

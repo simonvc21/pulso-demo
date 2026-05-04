@@ -8,6 +8,7 @@ import { CompanyHistoryChart } from "@/components/company-history-chart";
 import { CustomMetricChart } from "@/components/custom-metric-chart";
 import { PortfolioBarChart } from "@/components/portfolio-bar-chart";
 import { ArrTrendChart } from "@/components/arr-trend-chart";
+import { PieChartCard } from "@/components/pie-chart";
 import { createClient } from "@/lib/supabase/server";
 import type { Block, Newsletter } from "@/lib/newsletter";
 import { fmtUSD } from "@/lib/utils";
@@ -506,11 +507,34 @@ function BlockRender({ block, data }: { block: Block; data: RenderedData }) {
       };
       const valOf = (r: typeof rows[number]) =>
         block.mode === "invested" ? r.invested : block.mode === "count" ? r.count : r.arr;
+
+      const heading = block.heading ?? `Portfolio mix by sector — ${block.mode === "invested" ? "invested capital" : block.mode === "count" ? "number of companies" : "ARR"}`;
+
+      // L.9a — Donut option for newsletter pie/donut visuals.
+      if (block.display === "donut") {
+        const pieData = rows.map((r) => ({ label: r.sector, value: valOf(r) }));
+        return (
+          <section>
+            <h2 className="font-serif text-xl font-bold text-ink mb-3">{heading}</h2>
+            <div className="rounded-xl border border-line bg-white p-4">
+              <PieChartCard
+                data={pieData}
+                inner={60}
+                showLegend
+                formatValue={(v) =>
+                  block.mode === "invested" ? fmtUSD(v, { compact: true })
+                  : block.mode === "count" ? `${v}`
+                  : fmtUSD(v, { compact: true })}
+              />
+            </div>
+          </section>
+        );
+      }
+
+      // Default: horizontal bars (more readable for >6 segments).
       return (
         <section>
-          <h2 className="font-serif text-xl font-bold text-ink mb-3">
-            {block.heading ?? `Portfolio mix by sector — ${block.mode === "invested" ? "invested capital" : block.mode === "count" ? "number of companies" : "ARR"}`}
-          </h2>
+          <h2 className="font-serif text-xl font-bold text-ink mb-3">{heading}</h2>
           <ul className="rounded-xl border border-line bg-white p-4 space-y-3">
             {rows.map((r) => {
               const pct = (valOf(r) / total) * 100;

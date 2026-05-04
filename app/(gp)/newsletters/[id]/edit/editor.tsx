@@ -433,7 +433,7 @@ function BlockCard({
       )}
 
       {block.type === "sector_breakdown" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input
             value={block.heading ?? ""}
             onChange={(e) => onPatch({ heading: e.target.value || null })}
@@ -448,6 +448,14 @@ function BlockCard({
             <option value="arr">By ARR</option>
             <option value="invested">By invested capital</option>
             <option value="count">By number of companies</option>
+          </select>
+          <select
+            value={block.display ?? "bars"}
+            onChange={(e) => onPatch({ display: e.target.value })}
+            className="h-9 px-2.5 rounded-md border border-line text-sm focus:outline-none focus:ring-2 focus:ring-teal/30"
+          >
+            <option value="bars">Horizontal bars</option>
+            <option value="donut">Donut chart</option>
           </select>
         </div>
       )}

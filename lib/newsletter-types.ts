@@ -14,7 +14,7 @@ export type Block =
   // L.6b — fund-level chart blocks (no company picker — they pull aggregates)
   | { id: string; type: "fund_arr_by_company"; heading?: string | null; caption?: string | null }
   | { id: string; type: "fund_arr_trend"; heading?: string | null; caption?: string | null }
-  | { id: string; type: "sector_breakdown"; heading?: string | null; mode: "arr" | "invested" | "count" }
+  | { id: string; type: "sector_breakdown"; heading?: string | null; mode: "arr" | "invested" | "count"; display?: "bars" | "donut" }
   | { id: string; type: "divider" };
 
 export interface KpiItem {
