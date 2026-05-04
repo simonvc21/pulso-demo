@@ -1275,8 +1275,10 @@ export type Database = {
           created_at: string
           expires_at: string | null
           id: string
+          kind: string
           lp_id: string | null
           organization_id: string
+          target_company_id: string | null
           token: string
           view_count: number
           watermark_email: string | null
@@ -1285,8 +1287,10 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          kind?: string
           lp_id?: string | null
           organization_id: string
+          target_company_id?: string | null
           token: string
           view_count?: number
           watermark_email?: string | null
@@ -1295,8 +1299,10 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          kind?: string
           lp_id?: string | null
           organization_id?: string
+          target_company_id?: string | null
           token?: string
           view_count?: number
           watermark_email?: string | null
@@ -1314,6 +1320,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "share_links_target_company_id_fkey"
+            columns: ["target_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]

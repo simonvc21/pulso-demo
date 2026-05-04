@@ -42,6 +42,7 @@ export function Sidebar({ fundName, vintage, sizeUsd, logoUrl, isAdmin = false, 
 
   const nav = [
     { href: "/dashboard",   label: labels.overview,    icon: LayoutDashboard },
+    { href: "/dashboards",  label: "Dashboards",       icon: Share2 },
     { href: "/companies",   label: labels.companies,   icon: Building2 },
     { href: "/data",        label: labels.data,        icon: Table2 },
     { href: "/forms",       label: labels.forms,       icon: FileText },
