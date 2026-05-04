@@ -41,29 +41,7 @@ export async function createFund(input: CreateFundInput): Promise<CreateFundResu
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not authenticated" };
 
-  // If the user is already in an org, we send them to the dashboard.
-  const { data: existing } = await supabase
-    .from("users")
-    .select("organization_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  if (existing?.organization_id) {
-    return { ok: true, orgId: existing.organization_id };
-  }
-
-  // Create the org with a unique slug
   const baseSlug = slugify(input.name) || "fund";
-  let finalSlug = baseSlug;
-  for (let i = 0; i < 5; i++) {
-    const { data: collision } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("slug", finalSlug)
-      .maybeSingle();
-    if (!collision) break;
-    finalSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
-  }
-
   const normUrl = (u: string | null | undefined): string | null => {
     if (!u) return null;
     const t = u.trim();
@@ -71,44 +49,27 @@ export async function createFund(input: CreateFundInput): Promise<CreateFundResu
     return /^https?:\/\//i.test(t) ? t : `https://${t}`;
   };
 
-  const { data: org, error: orgErr } = await supabase
-    .from("organizations")
-    .insert({
-      slug: finalSlug,
-      name: input.name.trim(),
-      vintage: input.vintage,
-      size_usd: input.sizeUsd,
-      currency: input.currency || "USD",
-      thesis: input.thesis?.trim() || null,
-      description: input.description?.trim() || null,
-      website: normUrl(input.website),
-    })
-    .select("id")
-    .single();
+  // L.8b — Use the SECURITY DEFINER RPC. The organizations table has no
+  // INSERT policy by design (RLS keeps tenants isolated), so a direct
+  // insert from a freshly-signed-up user with no org would fail. The RPC
+  // creates the org, attaches the caller as GP, and returns the new org id —
+  // all atomically, all server-side.
+  const { data, error } = await (supabase as any).rpc("create_organization_for_caller", {
+    p_name: input.name.trim(),
+    p_slug: baseSlug,
+    p_vintage: input.vintage,
+    p_size_usd: input.sizeUsd,
+    p_currency: input.currency || "USD",
+    p_thesis: input.thesis?.trim() || null,
+    p_description: input.description?.trim() || null,
+    p_website: normUrl(input.website),
+  });
 
-  if (orgErr || !org) return { ok: false, error: orgErr?.message ?? "Could not create fund" };
-
-  // Attach the user to the org as GP. The handle_new_user trigger
-  // already created public.users when they signed up; we just upgrade.
-  if (existing) {
-    const { error: linkErr } = await supabase
-      .from("users")
-      .update({ organization_id: org.id, role: "gp" })
-      .eq("auth_user_id", user.id);
-    if (linkErr) return { ok: false, error: linkErr.message };
-  } else {
-    const { error: insErr } = await supabase.from("users").insert({
-      auth_user_id: user.id,
-      email: user.email ?? "",
-      name: (user.user_metadata?.name as string | undefined) ?? null,
-      organization_id: org.id,
-      role: "gp",
-    });
-    if (insErr) return { ok: false, error: insErr.message };
-  }
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Could not create fund" };
 
   revalidatePath("/", "layout");
-  return { ok: true, orgId: org.id };
+  return { ok: true, orgId: data as string };
 }
 
 export type CompanyDraft = {
