@@ -1,9 +1,10 @@
 "use client";
 
 // Error boundary for every GP route. Production usually omits the message
-// behind a digest; this surfaces enough to debug without exposing stack
-// traces to users — the digest stays the canonical id, but we also render
-// the error message when present so we can see what blew up.
+// behind a digest; we render whatever React did expose plus the digest, and
+// log to console so Vercel runtime logs capture it. The page-side fix that
+// matters is wrapping the actual server-component fetches in try/catch with
+// inline rendering of the error — this boundary is the LAST resort.
 
 import { useEffect } from "react";
 
@@ -15,23 +16,31 @@ export default function GpError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Server logs pick this up; visible in Vercel runtime logs.
-    console.error("[gp-error]", error.digest, error.message, error.stack);
+    console.error("[gp-error]", error.digest, error.message, error.name, error.stack);
   }, [error]);
 
   return (
     <div className="px-8 py-12">
-      <div className="max-w-xl mx-auto bg-white border border-coral/30 rounded-xl p-6">
-        <div className="text-[11px] uppercase tracking-wide text-coral font-semibold mb-2">
+      <div className="max-w-2xl mx-auto bg-white border border-coral/30 rounded-xl p-6 space-y-3">
+        <div className="text-[11px] uppercase tracking-wide text-coral font-semibold">
           Application error
         </div>
         <div className="text-sm font-mono text-ink whitespace-pre-wrap break-words">
-          {error.message || "Unknown error"}
+          {error.name && <div className="font-semibold">{error.name}</div>}
+          <div>{error.message || "(no message — production digest only)"}</div>
         </div>
         {error.digest && (
-          <div className="mt-2 text-[11px] text-muted">Digest: {error.digest}</div>
+          <div className="text-[11px] text-muted">Digest: {error.digest}</div>
         )}
-        <div className="mt-4 flex gap-2">
+        {error.stack && (
+          <details className="text-[10px] text-muted">
+            <summary className="cursor-pointer">Stack</summary>
+            <pre className="mt-2 whitespace-pre-wrap break-words bg-paper2 p-2 rounded">
+              {error.stack}
+            </pre>
+          </details>
+        )}
+        <div className="flex gap-2 pt-2">
           <button
             onClick={reset}
             className="px-3 py-1.5 text-xs font-medium rounded-md bg-navy text-white hover:bg-navy-700"

@@ -39,34 +39,47 @@ const countryFlag: Record<string, string> = {
   MX: "🇲🇽", BR: "🇧🇷", CO: "🇨🇴", CL: "🇨🇱", AR: "🇦🇷", PE: "🇵🇪",
 };
 
+async function safeCall<T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`[company-detail] ${label} failed:`, err);
+    return fallback;
+  }
+}
+
 export default async function CompanyPage({ params }: { params: { slug: string } }) {
   const supabase = createClient();
 
-  const { data: company } = await supabase
+  const { data: company, error: companyErr } = await supabase
     .from("companies")
     .select("id, slug, name, sector, country, stage, status, description, website, linkedin_url, logo_url")
     .eq("slug", params.slug)
     .maybeSingle();
+  if (companyErr) console.error("[company-detail] companies select error:", companyErr);
   if (!company) return notFound();
 
   // The single sheet for this company. Auto-create on first visit.
-  let { data: sheet } = await supabase
+  let { data: sheet, error: sheetErr } = await supabase
     .from("sheets")
     .select("id, company_id, name, description, position")
     .eq("company_id", company.id)
     .maybeSingle();
+  if (sheetErr) console.error("[company-detail] sheets select error:", sheetErr);
 
   if (!sheet) {
-    const { data: created } = await supabase
+    const { data: created, error: insertErr } = await supabase
       .from("sheets")
       .insert({ company_id: company.id, name: "KPIs", position: 0 })
       .select("id, company_id, name, description, position")
       .single();
+    if (insertErr) console.error("[company-detail] sheet insert error:", insertErr);
     sheet = created;
   }
   if (!sheet) return notFound();
 
-  // Sheet content + sidecar features fetched in parallel.
+  // Sheet content + sidecar features. Each lane gets its own try/catch so a
+  // single failure doesn't take down the entire page.
   const [
     columnsRes,
     rowsRes,
@@ -79,13 +92,17 @@ export default async function CompanyPage({ params }: { params: { slug: string }
   ] = await Promise.all([
     supabase.from("sheet_columns").select("id, sheet_id, name, type, config, position").eq("sheet_id", sheet.id).order("position"),
     supabase.from("sheet_rows").select("id, sheet_id, data, position").eq("sheet_id", sheet.id).order("position"),
-    getActiveFormForCompany(company.id),
-    listCompanyFillTokens(company.id),
-    getCompanyUpdates(company.id, 50),
-    getCompanyComments(company.id),
-    getNewsletterUpdates(20, { companySlug: company.slug }),
+    safeCall("getActiveFormForCompany", () => getActiveFormForCompany(company.id), null),
+    safeCall("listCompanyFillTokens", () => listCompanyFillTokens(company.id), [] as any[]),
+    safeCall("getCompanyUpdates", () => getCompanyUpdates(company.id, 50), [] as any[]),
+    safeCall("getCompanyComments", () => getCompanyComments(company.id), [] as any[]),
+    safeCall("getNewsletterUpdates", () => getNewsletterUpdates(20, { companySlug: company.slug }), [] as any[]),
     supabase.from("forms").select("slug, name").eq("active", true).order("name"),
   ]);
+
+  if (columnsRes.error)     console.error("[company-detail] sheet_columns error:", columnsRes.error);
+  if (rowsRes.error)        console.error("[company-detail] sheet_rows error:",    rowsRes.error);
+  if (formOptionsRes.error) console.error("[company-detail] forms error:",         formOptionsRes.error);
 
   const columns: SheetColumn[] = (columnsRes.data ?? []).map((c) => ({
     id: c.id,
@@ -103,17 +120,21 @@ export default async function CompanyPage({ params }: { params: { slug: string }
   }));
 
   // Resolve current user (for delete-own-comment + canModerate logic).
-  const { data: { user: authUser } } = await supabase.auth.getUser();
   let currentUserId: string | null = null;
   let currentUserRole: string | null = null;
-  if (authUser) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("id, role")
-      .eq("auth_user_id", authUser.id)
-      .maybeSingle();
-    currentUserId = profile?.id ?? null;
-    currentUserRole = profile?.role ?? null;
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("id, role")
+        .eq("auth_user_id", authUser.id)
+        .maybeSingle();
+      currentUserId = profile?.id ?? null;
+      currentUserRole = profile?.role ?? null;
+    }
+  } catch (err) {
+    console.error("[company-detail] auth resolve failed:", err);
   }
   const canModerate = ["gp", "managing_partner", "partner"].includes(currentUserRole ?? "");
 
